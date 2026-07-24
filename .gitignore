@@ -13,3 +13,29 @@ TAGS
 .zed
 /compile_commands.json
 /*/CMakeUserPresets.json
+
+# ---- JA2 Multi-Edition: copyright & build guards ----
+# Never commit real, copyrighted game data:
+*.slf
+*.sti
+*.jsd
+*.edt
+*.dat
+*.wav
+*.ogg
+*.mp3
+*.bik
+*.exe
+*.dll
+
+# Common game data folders (user-owned, do not distribute):
+Data/
+Data-WF/
+maps/
+tilesets/
+speech/
+
+# Local detector build artifacts:
+src/externalized/editiondetector/detector_test
+*.o
+*.out
