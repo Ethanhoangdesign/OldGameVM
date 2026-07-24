@@ -68,33 +68,33 @@ std::string detectionConfidenceToString(DetectionConfidence confidence)
 
 std::vector<EditionSignature> defaultEditionSignatures()
 {
-	// NOTE: Placeholder signatures using common JA2 folder names.
-	// Refine against real, legally-owned installations.
-	// No commercial asset content is stored here, only relative file names.
+	// Signatures verified against legally-owned Steam installs.
+	// Only relative file NAMES are stored here; no commercial asset
+	// content is embedded. The detector never opens or copies these files.
 	return {
+		EditionSignature{
+			EditionId::Wildfire6,
+			"JA2 Wildfire 6",
+			{ "WF6.exe", "WF6.ini", "Data/Data.slf" },
+			{ "WF6.set", "Data/BinaryData.slf", "Data/NPCData.slf" }
+		},
+		EditionSignature{
+			EditionId::Wildfire5,
+			"JA2 Wildfire 5",
+			{ "WF5.exe", "Data/Data.slf" },
+			{ "WF5.ini", "Data/BinaryData.slf" }
+		},
 		EditionSignature{
 			EditionId::Gold,
 			"JA2 Gold",
-			{ "Data/Ja2set.dat.xml", "Data" },
-			{ "JA2.exe" }
+			{ "JA2.exe", "Data/Data.slf" },
+			{ "Data/BinaryData.slf", "Data/NPCData.slf" }
 		},
 		EditionSignature{
 			EditionId::Vanilla,
 			"JA2 Vanilla",
-			{ "Data" },
+			{ "Data/Data.slf" },
 			{ "JA2.exe" }
-		},
-		EditionSignature{
-			EditionId::Wildfire5,
-			"Wildfire 5",
-			{ "Data-WF" },
-			{ "WF6.exe" }
-		},
-		EditionSignature{
-			EditionId::Wildfire6,
-			"Wildfire 6",
-			{ "Data-WF" },
-			{ "WF6.exe" }
 		},
 	};
 }
@@ -142,9 +142,9 @@ DetectionResult detectEdition(const std::string& gameDir,
 		}
 
 		const bool allRequired = missing.empty() && !sig.requiredFiles.empty();
-		const size_t score = found.size();
+		const size_t score = sig.requiredFiles.size() * 10 + optionalFound;
 
-		if (allRequired && score >= bestScore)
+		if (allRequired && score > bestScore)
 		{
 			bestScore = score;
 			best.edition = sig.edition;
