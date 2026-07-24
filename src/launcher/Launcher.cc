@@ -7,6 +7,7 @@
 #include "Video.h"
 
 #include "Launcher.h"
+#include "EditionDetector.h"
 
 #include "FL/Fl_Native_File_Chooser.H"
 #include <FL/Fl_PNG_Image.H>
@@ -127,6 +128,7 @@ void Launcher::show() {
 	browseSaveGameDirectoryButton->callback((Fl_Callback *) openSaveGameDirectorySelector, (void *) (this));
 	gameVersionInput->callback( (Fl_Callback*)selectGameVersion, (void*)(this) );
 	guessVersionButton->callback( (Fl_Callback*)guessVersion, (void*)(this) );
+    detectEditionButton->callback( (Fl_Callback*)detectEditionCb, (void*)(this) );
 	scalingModeChoice->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
 	resolutionXInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
 	resolutionYInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
@@ -593,6 +595,39 @@ void Launcher::guessVersion(Fl_Widget* btn, void* userdata) {
 		fl_message_title(window->guessVersionButton->label());
 		fl_alert("Failure!");
 	}
+}
+
+void Launcher::detectEditionCb(Fl_Widget* btn, void* userdata) {
+    Launcher* window = static_cast<Launcher*>(userdata);
+    const char* raw = window->gameDirectoryInput->value();
+    std::string gamedir = raw ? raw : "";
+
+    fl_message_title(window->detectEditionButton->label());
+
+    if (gamedir.empty()) {
+        fl_alert("Please choose the JA2 game directory first.");
+        return;
+    }
+
+    DetectionResult result = detectEdition(gamedir);
+
+    std::string message;
+    if (result.edition == EditionId::Unknown) {
+        message = "Could not detect a known JA2 edition.\n\n";
+        for (const std::string& reason : result.reasons) {
+            message += reason;
+            message += "\n";
+        }
+    } else {
+        message = "Detected edition: " + editionIdToString(result.edition) + "\n";
+        message += "Confidence: " + detectionConfidenceToString(result.confidence) + "\n\n";
+        message += "Matched files:\n";
+        for (const std::string& f : result.foundFiles) {
+            message += "  + " + f + "\n";
+        }
+    }
+
+    fl_message("%s", message.c_str());
 }
 
 void Launcher::setPredefinedResolution(Fl_Widget* btn, void* userdata) {

@@ -50,6 +50,7 @@ private:
 	static void startGame(Fl_Widget* btn, void* userdata);
 	static void startEditor(Fl_Widget* btn, void* userdata);
 	static void guessVersion(Fl_Widget* btn, void* userdata);
+    static void detectEditionCb(Fl_Widget* btn, void* userdata);
 	static void setPredefinedResolution(Fl_Widget* btn, void* userdata);
 	static void widgetChanged(Fl_Widget* widget, void* userdata);
 	static void reloadJa2Json(Fl_Widget* widget, void* userdata);

@@ -40,7 +40,10 @@ StracciatellaLauncher::StracciatellaLauncher() {
           } // Fl_Button* guessVersionButton
           o->end();
         } // Fl_Group* o
-        { Fl_Group* o = new Fl_Group(10, 265, 500, 25, "resizable");
+        { detectEditionButton = new Fl_Button(20, 230, 160, 30, "Detect Edition");
+      detectEditionButton->tooltip("Detect which JA2 edition (Vanilla / Gold / Wildfire) is installed in the game directory.");
+    } // Fl_Button* detectEditionButton
+    { Fl_Group* o = new Fl_Group(10, 265, 500, 25, "resizable");
           o->labeltype(FL_NO_LABEL);
           o->align(Fl_Align(FL_ALIGN_TOP|FL_ALIGN_INSIDE));
           o->end();
