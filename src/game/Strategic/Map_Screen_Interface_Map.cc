@@ -14,6 +14,7 @@
 #include "HImage.h"
 #include "Interface.h"
 #include "Line.h"
+#include "Logger.h"
 #include "Map_Information.h"
 #include "Map_Screen_Helicopter.h"
 #include "Map_Screen_Interface.h"
@@ -2677,7 +2678,29 @@ static void DropAPersonInASector(UINT8 const type, UINT8 const sector)
 
 void LoadMapScreenInterfaceMapGraphics()
 {
-	guiBIGMAP                      = AddVideoSurfaceFromFile(INTERFACEDIR "/b_map.pcx");
+	// Multi-edition fallback: the vanilla strategic map background
+	// 'interface/b_map.pcx' is not present in every JA2 edition (e.g. JA2: Wildfire
+	// ships a different, up-sized interface). Rather than crashing at boot, we
+	// fall back to a blank placeholder of the expected size so the game can run.
+	if (GCM->doesGameResExists(INTERFACEDIR "/b_map.pcx"))
+	{
+		guiBIGMAP = AddVideoSurfaceFromFile(INTERFACEDIR "/b_map.pcx");
+	}
+	else
+	{
+		SLOGW("Missing interface/b_map.pcx (not present in this game edition); "
+			"using a blank placeholder for the strategic map background.");
+		guiBIGMAP = AddVideoSurface(2 * MAP_VIEW_WIDTH, 2 * MAP_VIEW_HEIGHT, 8);
+		SGPPaletteEntry placeholderPalette[256];
+		for (UINT32 i = 0; i < 256; ++i)
+		{
+			placeholderPalette[i].r = 0;
+			placeholderPalette[i].g = 0;
+			placeholderPalette[i].b = 0;
+			placeholderPalette[i].a = 255;
+		}
+		guiBIGMAP->SetPalette(placeholderPalette);
+	}
 
 	for (auto s : GCM->getMapSecrets())
 	{

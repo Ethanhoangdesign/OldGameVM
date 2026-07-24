@@ -2113,7 +2113,7 @@ void GetBestPossibleSectorXYZValues(SGPSector& sSector)
 		return;
 	}
 
-	if (iCurrentTacticalSquad != NO_CURRENT_SQUAD)
+	if (iCurrentTacticalSquad != NO_CURRENT_SQUAD && !Squad[iCurrentTacticalSquad].empty()) // empty-squad guard (boot/multi-edition)
 	{
 		const SOLDIERTYPE* const s = Squad[iCurrentTacticalSquad][0];
 		if (s != NULL && s->bAssignment != IN_TRANSIT)

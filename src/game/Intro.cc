@@ -14,6 +14,9 @@
 #include "Video.h"
 #include "VSurface.h"
 #include "UILayout.h"
+#include "ContentManager.h"
+#include "GameInstance.h"
+#include "Logger.h"
 
 
 static BOOLEAN gfIntroScreenEntry = TRUE;
@@ -364,7 +367,14 @@ void SetIntroType( INT8 bIntroType )
 static void DisplaySirtechSplashScreen(void)
 {
 	FRAME_BUFFER->Fill(0);
-	BltVideoObjectOnce(FRAME_BUFFER, INTERFACEDIR "/sirtechsplash.sti", 0, STD_SCREEN_X, STD_SCREEN_Y);
+	if (GCM->doesGameResExists(INTERFACEDIR "/sirtechsplash.sti"))
+	{
+		BltVideoObjectOnce(FRAME_BUFFER, INTERFACEDIR "/sirtechsplash.sti", 0, STD_SCREEN_X, STD_SCREEN_Y);
+	}
+	else
+	{
+		SLOGW("Missing interface/sirtechsplash.sti (not present in this game edition); skipping Sirtech splash logo.");
+	}
 	InvalidateScreen();
 	RefreshScreen();
 }
