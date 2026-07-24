@@ -121,7 +121,7 @@ void InitializeVideoManager(const VideoScaleQuality quality,
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
 	ScaleQuality = quality;
-	g_window_flags |= SDL_WINDOW_RESIZABLE;
+	g_window_flags |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI; // HiDPI/Retina: dung kich thuoc pixel that de canh giua & scale dung
 
 	g_game_window = SDL_CreateWindow(APPLICATION_NAME,
 					SDL_WINDOWPOS_UNDEFINED,
