@@ -4931,16 +4931,19 @@ void RenderMapRegionBackground( void )
 		return;
 	}
 
+	// BORDER-ORDER: ve khung vien TRUOC, roi ve ban do de len.
+	// Khung vien cua mot so ban (vd Wildfire) co long hep hon vi tri
+	// engine dat ban do, nen neu ve sau se xen mat o bien.
+	// blit in border
+	RenderMapBorder( );
+
+
 	// don't bother if showing sector inventory instead of the map!!!
 	if( !fShowMapInventoryPool )
 	{
 		// draw map
 		DrawMap( );
 	}
-
-
-	// blit in border
-	RenderMapBorder( );
 
 	if (ghAttributeBox != NO_POPUP_BOX) ForceUpDateOfBox(ghAttributeBox);
 	if (ghTownMineBox  != NO_POPUP_BOX) ForceUpDateOfBox(ghTownMineBox);

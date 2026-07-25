@@ -1772,6 +1772,58 @@ void Blt8BPPDataTo16BPPBufferHalf(UINT16* const dst_buf, UINT32 const uiDestPitc
 }
 
 
+/* Same as Blt8BPPDataTo16BPPBufferHalf(), but for a 16-bit source surface.
+ * Some game editions (e.g. Jagged Alliance 2: Wildfire) ship interface art as
+ * uncompressed 16-bit STI images, which carry no 8-bit palette to index. */
+void Blt16BPPDataTo16BPPBufferHalf(UINT16* const dst_buf, UINT32 const uiDestPitchBYTES, SGPVSurface* const src_surface, UINT8 const* const src_buf, UINT32 const src_pitch, INT32 const x, INT32 const y, SGPBox const* const rect)
+{
+	Assert(src_surface);
+	Assert(src_buf);
+	Assert(dst_buf);
+
+	CHECKV(x >= 0);
+	CHECKV(y >= 0);
+
+	UINT32 const  src_pitch_px = src_pitch / 2;
+	UINT16 const* src          = reinterpret_cast<UINT16 const*>(src_buf);
+	UINT32        width;
+	UINT32        height;
+	if (rect)
+	{
+		width  = rect->w;
+		height = rect->h;
+		CHECKV(0 < width  && width  <= src_surface->Width());
+		CHECKV(0 < height && height <= src_surface->Height());
+
+		src += src_pitch_px * rect->y + rect->x;
+	}
+	else
+	{
+		width  = src_surface->Width();
+		height = src_surface->Height();
+	}
+
+	UINT16*      dst      = dst_buf + uiDestPitchBYTES / 2 * y + x;
+	UINT32 const src_skip = (src_pitch_px - width / 2) * 2;
+	UINT32 const dst_skip = uiDestPitchBYTES / 2 - width / 2;
+
+	height /= 2;
+	do
+	{
+		UINT32 w = width / 2;
+		do
+		{
+			*dst++ = *src;
+			src += 2;
+		}
+		while (--w > 0);
+		src += src_skip;
+		dst += dst_skip;
+	}
+	while (--height > 0);
+}
+
+
 SGPRect SetClippingRect(SGPRect const clip)
 {
 	Assert(clip.iLeft < clip.iRight && clip.iTop < clip.iBottom);

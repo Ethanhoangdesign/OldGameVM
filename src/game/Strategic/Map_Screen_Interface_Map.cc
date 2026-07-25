@@ -2686,6 +2686,13 @@ void LoadMapScreenInterfaceMapGraphics()
 	{
 		guiBIGMAP = AddVideoSurfaceFromFile(INTERFACEDIR "/b_map.pcx");
 	}
+	else if (GCM->doesGameResExists(INTERFACEDIR "/b_map.sti"))
+	{
+		// JA2: Wildfire ships the strategic map background as an STI
+		// (b_map.sti) instead of the vanilla PCX; AddVideoSurfaceFromFile
+		// auto-detects the format, so load it the same way.
+		guiBIGMAP = AddVideoSurfaceFromFile(INTERFACEDIR "/b_map.sti");
+	}
 	else
 	{
 		SLOGW("Missing interface/b_map.pcx (not present in this game edition); "
@@ -2711,7 +2718,13 @@ void LoadMapScreenInterfaceMapGraphics()
 		}
 	}
 
-	InitializePalettesForMap(guiBIGMAP->GetPalette());
+	// Map sector colour-shading needs an 8-bit palette. Editions whose
+	// strategic-map background is a 16-bit STI (e.g. Wildfire) have none,
+	// so only initialise the shade palettes when a palette is present.
+	if (guiBIGMAP->GetPalette() != NULL)
+	{
+		InitializePalettesForMap(guiBIGMAP->GetPalette());
+	}
 }
 
 

@@ -168,7 +168,16 @@ void BltVideoSurfaceHalf(SGPVSurface* const dst, SGPVSurface* const src, INT32 c
 	UINT32  const SrcPitchBYTES  = lsrc.Pitch();
 	UINT16* const DestBuf        = ldst.Buffer<UINT16>();
 	UINT32  const DestPitchBYTES = ldst.Pitch();
-	Blt8BPPDataTo16BPPBufferHalf(DestBuf, DestPitchBYTES, src, SrcBuf, SrcPitchBYTES, DestX, DestY, src_rect);
+	// 16-bit source surfaces (e.g. uncompressed STI art in some game editions)
+	// have no 8-bit palette, so they need a direct 16->16 half blit.
+	if (src->BPP() == 16)
+	{
+		Blt16BPPDataTo16BPPBufferHalf(DestBuf, DestPitchBYTES, src, SrcBuf, SrcPitchBYTES, DestX, DestY, src_rect);
+	}
+	else
+	{
+		Blt8BPPDataTo16BPPBufferHalf(DestBuf, DestPitchBYTES, src, SrcBuf, SrcPitchBYTES, DestX, DestY, src_rect);
+	}
 }
 
 
