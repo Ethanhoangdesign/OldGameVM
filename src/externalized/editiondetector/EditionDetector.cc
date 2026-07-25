@@ -75,8 +75,8 @@ std::vector<EditionSignature> defaultEditionSignatures()
 		EditionSignature{
 			EditionId::Wildfire6,
 			"JA2 Wildfire 6",
-			{ "WF6.exe", "WF6.ini", "Data/Data.slf" },
-			{ "WF6.set", "Data/BinaryData.slf", "Data/NPCData.slf" }
+			{ "WF6.exe", "Data/Data.slf" },
+			{ "WF6.ini", "WF6.set", "Data/BinaryData.slf", "Data/NPCData.slf" }
 		},
 		EditionSignature{
 			EditionId::Wildfire5,
