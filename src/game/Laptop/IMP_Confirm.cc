@@ -66,6 +66,23 @@ static const FacePosInfo g_face_info[] =
 };
 
 
+/* JA2: Wildfire replaces the art of I.M.P. portraits 200, 205, 210 and 211
+ * with its own faces, whose eye and mouth positions differ from the vanilla
+ * table above (all four use the same layout, measured directly from the
+ * Wildfire face STIs). Wildfire game data is recognisable by its 16-bit
+ * strategic map interface/b_map.sti, which replaces vanilla's b_map.pcx. */
+static const FacePosInfo* GetImpFacePosInfo(UINT8 const portrait_idx)
+{
+	static const FacePosInfo wildfire_face = { 7, 7, 10, 23 };
+
+	bool const isWildfireArt = (portrait_idx == 0 || portrait_idx == 5 ||
+				portrait_idx == 10 || portrait_idx == 11) &&
+				GCM->doesGameResExists(INTERFACEDIR "/b_map.sti") &&
+				!GCM->doesGameResExists(INTERFACEDIR "/b_map.pcx");
+	return isWildfireArt ? &wildfire_face : &g_face_info[portrait_idx];
+}
+
+
 static void BtnIMPConfirmNo(GUI_BUTTON *btn, UINT32 reason);
 static void BtnIMPConfirmYes(GUI_BUTTON *btn, UINT32 reason);
 
@@ -176,7 +193,7 @@ static BOOLEAN AddCharacterToPlayersTeam(void)
 	HireMercStruct.ubInsertionCode	= INSERTION_CODE_ARRIVING_GAME;
 	HireMercStruct.uiTimeTillMercArrives = GetMercArrivalTimeOfDay( );
 
-	const FacePosInfo* const fi = &g_face_info[iPortraitNumber];
+	const FacePosInfo* const fi = GetImpFacePosInfo(iPortraitNumber);
 	SetProfileFaceData(HireMercStruct.ubProfileID, 200 + iPortraitNumber, fi->eye_x, fi->eye_y, fi->mouth_x, fi->mouth_y);
 
 	//if we succesfully hired the merc
@@ -302,7 +319,7 @@ void ResetIMPCharactersEyesAndMouthOffsets(const UINT8 ubMercProfileID)
 	MERCPROFILESTRUCT& p = GetProfile(ubMercProfileID);
 	if (p.ubFaceIndex < 200 || p.ubFaceIndex >= 200 + lengthof(g_face_info) || ubMercProfileID >= PROF_HUMMER) return;
 
-	const FacePosInfo* const fi = &g_face_info[p.ubFaceIndex - 200];
+	const FacePosInfo* const fi = GetImpFacePosInfo(p.ubFaceIndex - 200);
 	p.usEyesX  = fi->eye_x;
 	p.usEyesY  = fi->eye_y;
 	p.usMouthX = fi->mouth_x;
