@@ -21,15 +21,20 @@
 struct BUTTON_PICS;
 
 #define MAP_BORDER_FILE INTERFACEDIR "/mbs.sti"
-#define BTN_TOWN_X      (STD_SCREEN_X + 299)
-#define BTN_MINE_X      (STD_SCREEN_X + 342)
-#define BTN_TEAMS_X     (STD_SCREEN_X + 385)
-#define BTN_MILITIA_X   (STD_SCREEN_X + 428)
-#define BTN_AIR_X       (STD_SCREEN_X + 471)
-#define BTN_ITEM_X      (STD_SCREEN_X + 514)
 
-#define MAP_LEVEL_MARKER_X    (STD_SCREEN_X + 565)
-#define MAP_LEVEL_MARKER_Y     (STD_SCREEN_Y + 323)
+/* In the full-size Wildfire map layout there is no strip between the map and
+ * the bottom panel, so the toggle button row moves to the free space at the
+ * bottom of the 261px left column. */
+#define BTN_ROW_Y       (g_ui.isMapFullSize() ? 670 : STD_SCREEN_Y + 323)
+#define BTN_TOWN_X      (g_ui.isMapFullSize() ? 270 : STD_SCREEN_X + 299)
+#define BTN_MINE_X      (g_ui.isMapFullSize() ? 313 : STD_SCREEN_X + 342)
+#define BTN_TEAMS_X     (g_ui.isMapFullSize() ? 356 : STD_SCREEN_X + 385)
+#define BTN_MILITIA_X   (g_ui.isMapFullSize() ? 399 : STD_SCREEN_X + 428)
+#define BTN_AIR_X       (g_ui.isMapFullSize() ? 442 : STD_SCREEN_X + 471)
+#define BTN_ITEM_X      (g_ui.isMapFullSize() ? 485 : STD_SCREEN_X + 514)
+
+#define MAP_LEVEL_MARKER_X    (g_ui.isMapFullSize() ? 545 : STD_SCREEN_X + 565)
+#define MAP_LEVEL_MARKER_Y    (g_ui.isMapFullSize() ? 655 : STD_SCREEN_Y + 323)
 #define MAP_LEVEL_MARKER_DELTA   8
 #define MAP_LEVEL_MARKER_WIDTH  55
 
@@ -119,7 +124,7 @@ static void MakeButton(UINT idx, UINT gfx, INT16 x, GUI_CALLBACK click, const ST
 {
 	BUTTON_PICS* const img = LoadButtonImage(INTERFACEDIR "/map_border_buttons.sti", gfx, gfx + 9);
 	giMapBorderButtonsImage[idx] = img;
-	GUIButtonRef const btn = QuickCreateButtonNoMove(img, x, (STD_SCREEN_Y + 323), MSYS_PRIORITY_HIGH, click);
+	GUIButtonRef const btn = QuickCreateButtonNoMove(img, x, BTN_ROW_Y, MSYS_PRIORITY_HIGH, click);
 	giMapBorderButtons[idx] = btn;
 	btn->SetFastHelpText(help);
 	btn->SetCursor(MSYS_NO_CURSOR);

@@ -42,7 +42,7 @@ struct ScrollStringSt
 #define Y_START (SCREEN_HEIGHT - 150)
 #define MAX_AGE 10000
 #define LINE_WIDTH 320
-#define MAP_LINE_WIDTH 300
+#define MAP_LINE_WIDTH (g_ui.isMapFullSize() ? 222 : 300)
 #define WIDTH_BETWEEN_NEW_STRINGS 5
 
 #define DEBUG_COLOR FONT_RED
@@ -421,7 +421,13 @@ static void AddStringToMapScreenMessageList(const ST::string& pString, UINT16 us
 
 void DisplayStringsInMapScreenMessageList(void)
 {
-	SetFontDestBuffer(FRAME_BUFFER, STD_SCREEN_X + 17, STD_SCREEN_Y + 360 + 6, STD_SCREEN_X + 407, STD_SCREEN_Y + 360 + 101);
+	/* Vanilla: log box inside the bottom panel. Full-size Wildfire layout:
+	 * tall log panel at the bottom of the 261px left column. */
+	INT16 const lx = g_ui.isMapFullSize() ?   6 : g_ui.get_MAP_BOTTOM_BASE_X() + 17;
+	INT16 const ly = g_ui.isMapFullSize() ? (INT16)(MapScreenLogTop() + 6) : g_ui.get_MAP_BOTTOM_BASE_Y() + 366;
+	INT16 const lw = g_ui.isMapFullSize() ? 230 : 390;
+	INT16 const lh = g_ui.isMapFullSize() ? (INT16)(SCREEN_HEIGHT - MapScreenLogTop() - 14) :  95;
+	SetFontDestBuffer(FRAME_BUFFER, lx, ly, lx + lw, ly + lh);
 
 	SetFont(MAP_SCREEN_MESSAGE_FONT);
 	SetFontBackground(FONT_BLACK);
@@ -429,7 +435,7 @@ void DisplayStringsInMapScreenMessageList(void)
 
 	UINT8 ubCurrentStringIndex = gubCurrentMapMessageString;
 
-	INT16 sY = STD_SCREEN_Y + 377;
+	INT16 sY = ly + 11;
 	UINT16 usSpacing = GetFontHeight(MAP_SCREEN_MESSAGE_FONT);
 
 	for (UINT8 ubLinesPrinted = 0; ubLinesPrinted < MAX_MESSAGES_ON_MAP_BOTTOM; ubLinesPrinted++)
@@ -444,7 +450,7 @@ void DisplayStringsInMapScreenMessageList(void)
 		if (s == NULL) break;
 
 		SetFontForeground(s->usColor);
-		MPrint(STD_SCREEN_X + 20, sY, s->pString);
+		MPrint(lx + 3, sY, s->pString);
 
 		sY += usSpacing;
 

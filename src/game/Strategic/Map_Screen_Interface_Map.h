@@ -117,16 +117,20 @@ enum {
 };
 
 
-// size of squares on the map
-#define MAP_GRID_X		21
-#define MAP_GRID_Y		18
+/* Size of squares on the map and the map view region. These are runtime
+ * values on g_ui: vanilla renders the strategic map at half scale (21x18
+ * cells), while editions with full-resolution map art (JA2: Wildfire) can
+ * render it at full size (42x36 cells) on big enough screens. See
+ * docs/KE-HOACH-mapscreen-fullsize.md. */
+#define MAP_GRID_X		(g_ui.get_MAP_GRID_X())
+#define MAP_GRID_Y		(g_ui.get_MAP_GRID_Y())
 
 
 // map view region
-#define MAP_VIEW_START_X	(STD_SCREEN_X + 270)
-#define MAP_VIEW_START_Y	(STD_SCREEN_Y + 10)
-#define MAP_VIEW_WIDTH		336
-#define MAP_VIEW_HEIGHT		298
+#define MAP_VIEW_START_X	(g_ui.get_MAP_VIEW_START_X())
+#define MAP_VIEW_START_Y	(g_ui.get_MAP_VIEW_START_Y())
+#define MAP_VIEW_WIDTH		(g_ui.get_MAP_VIEW_WIDTH())
+#define MAP_VIEW_HEIGHT		(g_ui.get_MAP_VIEW_HEIGHT())
 
 
 // number of units wide

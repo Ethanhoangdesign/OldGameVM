@@ -68,7 +68,7 @@
 // number of LINKED LISTS for sets of leave items (each slot holds an unlimited # of items)
 #define NUM_LEAVE_LIST_SLOTS 20
 
-#define SELECTED_CHAR_ARROW_X (STD_SCREEN_X + 8)
+#define SELECTED_CHAR_ARROW_X (g_ui.get_MAP_LEFT_COL_X() + 8)
 
 #define SIZE_OF_UPDATE_BOX 20
 
@@ -2270,11 +2270,11 @@ static void CreatePopUpBoxForMovementBox(void)
 	SGPBox const& area = GetBoxArea(box);
 	if (area.x + area.w >= MAP_VIEW_START_X + MAP_VIEW_WIDTH)
 	{
-		SetBoxX(box, std::max(MAP_VIEW_START_X, MAP_VIEW_START_X + MAP_VIEW_WIDTH - area.w));
+		SetBoxX(box, std::max<INT32>(MAP_VIEW_START_X, MAP_VIEW_START_X + MAP_VIEW_WIDTH - area.w));
 	}
 	if (area.y + area.h >= MAP_VIEW_START_Y + MAP_VIEW_HEIGHT)
 	{
-		SetBoxY(box, std::max(MAP_VIEW_START_Y, MAP_VIEW_START_Y + MAP_VIEW_HEIGHT - area.h));
+		SetBoxY(box, std::max<INT32>(MAP_VIEW_START_Y, MAP_VIEW_START_Y + MAP_VIEW_HEIGHT - area.h));
 	}
 }
 

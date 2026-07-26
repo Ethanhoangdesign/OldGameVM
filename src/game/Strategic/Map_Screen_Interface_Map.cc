@@ -106,22 +106,24 @@
 #define MAX_VIEW_SECTORS      16
 
 
-//Map Location index regions
+/* Map Location index regions. Anchored to the map view so they follow the
+ * grid in both half-scale (vanilla: 292 = 270+21+1, 273 = 270+3, 31 = 10+18+3)
+ * and full-size map mode. */
 
 // x start of hort index
-#define MAP_HORT_INDEX_X (STD_SCREEN_X + 292)
+#define MAP_HORT_INDEX_X (MAP_VIEW_START_X + MAP_GRID_X + 1)
 
 // y position of hort index
-#define MAP_HORT_INDEX_Y  (STD_SCREEN_Y + 10)
+#define MAP_HORT_INDEX_Y  (MAP_VIEW_START_Y)
 
 // height of hort index
 #define MAP_HORT_HEIGHT  GetFontHeight(MAP_FONT)
 
 // vert index start x
-#define MAP_VERT_INDEX_X (STD_SCREEN_X + 273)
+#define MAP_VERT_INDEX_X (MAP_VIEW_START_X + 3)
 
 // vert index start y
-#define MAP_VERT_INDEX_Y  (STD_SCREEN_Y + 31)
+#define MAP_VERT_INDEX_Y  (MAP_VIEW_START_Y + MAP_GRID_Y + 3)
 
 // vert width
 #define MAP_VERT_WIDTH   GetFontHeight(MAP_FONT)
@@ -497,7 +499,17 @@ void DrawMap(void)
 {
 	if (!iCurrentMapSectorZ)
 	{
-		BltVideoSurfaceHalf(guiSAVEBUFFER, guiBIGMAP, MAP_VIEW_START_X + 1, MAP_VIEW_START_Y, NULL);
+		if (g_ui.isMapFullSize())
+		{
+			/* Full-size map art (e.g. Wildfire's 714x612 b_map.sti): the
+			 * terrain starts at (41,35) in the art and cell (1,1) must land
+			 * at MAP_VIEW_START + one 42x36 grid step, hence the +1/+1. */
+			BltVideoSurface(guiSAVEBUFFER, guiBIGMAP, MAP_VIEW_START_X + 1, MAP_VIEW_START_Y + 1, NULL);
+		}
+		else
+		{
+			BltVideoSurfaceHalf(guiSAVEBUFFER, guiBIGMAP, MAP_VIEW_START_X + 1, MAP_VIEW_START_Y, NULL);
+		}
 
 		// shade map sectors (must be done after Tixa/Orta/Mine icons have been blitted, but before icons!)
 		SGPSector sSector(1, 1, iCurrentMapSectorZ);
@@ -795,8 +807,8 @@ static void ShadeMapElem(const SGPSector& sMap, const INT32 iColor)
 	{
 		(UINT16)(2 * (sScreenX - (MAP_VIEW_START_X + 1))),
 		(UINT16)(2 * (sScreenY - MAP_VIEW_START_Y)),
-		2 * MAP_GRID_X,
-		2 * MAP_GRID_Y
+		(UINT16)(2 * MAP_GRID_X),
+		(UINT16)(2 * MAP_GRID_Y)
 	};
 
 	// non-airspace
@@ -817,6 +829,10 @@ static void ShadeMapElem(const SGPSector& sMap, const INT32 iColor)
 
 	default: return;
 	}
+
+	/* No tint palettes exist for 16-bit map art (e.g. Wildfire), and the
+	 * half-scale tint blit below has no meaning in full-size map mode. */
+	if (pal == NULL || g_ui.isMapFullSize()) return;
 
 	// get original video surface palette
 	SGPVSurface* const map = guiBIGMAP;

@@ -1,6 +1,9 @@
 #include "Directories.h"
 #include "Font.h"
 #include "Interface.h"
+#include "HImage.h"
+#include "Interface_Panels.h"
+#include "Line.h"
 #include "Map_Screen_Interface_Bottom.h"
 #include "MessageBoxScreen.h"
 #include "Object_Cache.h"
@@ -49,19 +52,27 @@
 #include <string_theory/string>
 
 
-#define MAP_BOTTOM_X (STD_SCREEN_X + 0)
-#define MAP_BOTTOM_Y (STD_SCREEN_Y + 359)
+/* Base offset of the bottom panel: vanilla anchors to STD_SCREEN, the
+ * full-size Wildfire layout anchors to (261, 647-359=288). */
+#define MAP_BOTTOM_BASE_X (g_ui.get_MAP_BOTTOM_BASE_X())
+#define MAP_BOTTOM_BASE_Y (g_ui.get_MAP_BOTTOM_BASE_Y())
 
-#define MESSAGE_BOX_X (STD_SCREEN_X +  17)
-#define MESSAGE_BOX_Y (STD_SCREEN_Y + 377)
-#define MESSAGE_BOX_W 301
-#define MESSAGE_BOX_H  86
+#define MAP_BOTTOM_X (MAP_BOTTOM_BASE_X + 0)
+#define MAP_BOTTOM_Y (MAP_BOTTOM_BASE_Y + 359)
 
-#define MESSAGE_SCROLL_AREA_START_X (STD_SCREEN_X + 330)
+/* In the full-size Wildfire layout the history log moves to the bottom of the
+ * 261px left column. Its top edge follows the roster (or the taller
+ * inventory panel when that is open) - see MapScreenLogTop(). */
+#define MESSAGE_BOX_X (g_ui.isMapFullSize() ?   6 : MAP_BOTTOM_BASE_X +  17)
+#define MESSAGE_BOX_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 11) : MAP_BOTTOM_BASE_Y + 377)
+#define MESSAGE_BOX_W (g_ui.isMapFullSize() ? 226 : 301)
+#define MESSAGE_BOX_H (g_ui.isMapFullSize() ? (SCREEN_HEIGHT - MapScreenLogTop() - 24) :  86)
+
+#define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? 238 : MAP_BOTTOM_BASE_X + 330)
 #define MESSAGE_SCROLL_AREA_WIDTH    15
 
-#define MESSAGE_SCROLL_AREA_START_Y (STD_SCREEN_Y + 390)
-#define MESSAGE_SCROLL_AREA_HEIGHT   59
+#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 30) : MAP_BOTTOM_BASE_Y + 390)
+#define MESSAGE_SCROLL_AREA_HEIGHT  (g_ui.isMapFullSize() ? (SCREEN_HEIGHT - MapScreenLogTop() - 60) :  59)
 
 #define SLIDER_HEIGHT		11
 #define SLIDER_WIDTH		11
@@ -88,6 +99,13 @@ enum{
 	MAP_TIME_COMPRESS_LESS,
 };
 
+
+/* Top edge of the full-size history-log panel in the left column: right
+ * below the roster / inventory panel (both end at y=359). */
+INT16 MapScreenLogTop()
+{
+	return 362;
+}
 
 BOOLEAN fMapScreenBottomDirty = TRUE;
 
@@ -197,6 +215,21 @@ void RenderMapScreenInterfaceBottom( void )
 	if (fMapScreenBottomDirty)
 	{
 		BltVideoObject(guiSAVEBUFFER, guiMAPBOTTOMPANEL, 0, MAP_BOTTOM_X, MAP_BOTTOM_Y);
+		if (g_ui.isMapFullSize())
+		{
+			/* History-log panel at the bottom of the left column, and filler
+			 * over the art's old log frame (the toggle button row sits there). */
+			UINT16 const logTop = MapScreenLogTop();
+			SGPBox const logPanel = {0, (UINT16)(logTop - 8), 261, (UINT16)(SCREEN_HEIGHT - logTop + 8)};
+			DrawFillerOnSurface(guiSAVEBUFFER, logPanel);
+			SGPBox const oldLogArea = {(UINT16)MAP_BOTTOM_X, (UINT16)MAP_BOTTOM_Y, 390, 121};
+			DrawFillerOnSurface(guiSAVEBUFFER, oldLogArea);
+			{
+				SGPVSurface::Lock l(guiSAVEBUFFER);
+				UINT16 const line = Get16BPPColor(FROMRGB(70, 78, 60));
+				RectangleDraw(TRUE, 4, logTop, 256, SCREEN_HEIGHT - 6, line, l.Buffer<UINT16>());
+			}
+		}
 		auto const& sMap{ sSelMap };
 
 		if (GetSectorFlagStatus(sMap, SF_ALREADY_VISITED))
@@ -216,8 +249,10 @@ void RenderMapScreenInterfaceBottom( void )
 		// dirty buttons
 		MarkButtonsDirty( );
 
-		// invalidate region
-		RestoreExternBackgroundRect(MAP_BOTTOM_X, MAP_BOTTOM_Y, SCREEN_WIDTH - MAP_BOTTOM_X, SCREEN_HEIGHT - MAP_BOTTOM_Y);
+		// invalidate region (in full-size mode include the log column on the left)
+		INT16 const restoreX = g_ui.isMapFullSize() ? 0 : MAP_BOTTOM_X;
+		INT16 const restoreY = g_ui.isMapFullSize() ? (MapScreenLogTop() - 8) : MAP_BOTTOM_Y;
+		RestoreExternBackgroundRect(restoreX, restoreY, SCREEN_WIDTH - restoreX, SCREEN_HEIGHT - restoreY);
 
 		// re render radar map
 		RenderRadarScreen( );
@@ -269,17 +304,20 @@ static GUIButtonRef MakeArrowButton(INT32 grayed, INT32 off, INT32 on, INT16 x, 
 
 static void CreateButtonsForMapScreenInterfaceBottom(void)
 {
-	guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]   = MakeExitButton( 6, 15, STD_SCREEN_X + 456, STD_SCREEN_Y + 410, BtnLaptopCallback,               pMapScreenBottomFastHelp[0]);
-	guiMapBottomExitButtons[MAP_EXIT_TO_TACTICAL] = MakeExitButton( 7, 16, STD_SCREEN_X + 496, STD_SCREEN_Y + 410, BtnTacticalCallback,             pMapScreenBottomFastHelp[1]);
-	guiMapBottomExitButtons[MAP_EXIT_TO_OPTIONS]  = MakeExitButton(18, 19, STD_SCREEN_X + 458, STD_SCREEN_Y + 372, BtnOptionsFromMapScreenCallback, pMapScreenBottomFastHelp[2]);
+	guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]   = MakeExitButton( 6, 15, MAP_BOTTOM_BASE_X + 456, MAP_BOTTOM_BASE_Y + 410, BtnLaptopCallback,               pMapScreenBottomFastHelp[0]);
+	guiMapBottomExitButtons[MAP_EXIT_TO_TACTICAL] = MakeExitButton( 7, 16, MAP_BOTTOM_BASE_X + 496, MAP_BOTTOM_BASE_Y + 410, BtnTacticalCallback,             pMapScreenBottomFastHelp[1]);
+	guiMapBottomExitButtons[MAP_EXIT_TO_OPTIONS]  = MakeExitButton(18, 19, MAP_BOTTOM_BASE_X + 458, MAP_BOTTOM_BASE_Y + 372, BtnOptionsFromMapScreenCallback, pMapScreenBottomFastHelp[2]);
 
 	// time compression buttons
-	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_MORE] = MakeArrowButton(10, 1, 3, STD_SCREEN_X + 528, STD_SCREEN_Y + 456, BtnTimeCompressMoreMapScreenCallback, pMapScreenBottomFastHelp[3]);
-	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, STD_SCREEN_X + 466, STD_SCREEN_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
+	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_MORE] = MakeArrowButton(10, 1, 3, MAP_BOTTOM_BASE_X + 528, MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressMoreMapScreenCallback, pMapScreenBottomFastHelp[3]);
+	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, MAP_BOTTOM_BASE_X + 466, MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
 
 	// scroll buttons
-	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_UP]   = MakeArrowButton(11, 4, 6, STD_SCREEN_X + 331, STD_SCREEN_Y + 371, BtnMessageUpMapScreenCallback,   pMapScreenBottomFastHelp[5]);
-	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_DOWN] = MakeArrowButton(12, 5, 7, STD_SCREEN_X + 331, STD_SCREEN_Y + 452, BtnMessageDownMapScreenCallback, pMapScreenBottomFastHelp[6]);
+	INT16 const msgUpX   = g_ui.isMapFullSize() ? 239 : MAP_BOTTOM_BASE_X + 331;
+	INT16 const msgUpY   = g_ui.isMapFullSize() ? 476 : MAP_BOTTOM_BASE_Y + 371;
+	INT16 const msgDownY = g_ui.isMapFullSize() ? 746 : MAP_BOTTOM_BASE_Y + 452;
+	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_UP]   = MakeArrowButton(11, 4, 6, msgUpX, msgUpY,   BtnMessageUpMapScreenCallback,   pMapScreenBottomFastHelp[5]);
+	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_DOWN] = MakeArrowButton(12, 5, 7, msgUpX, msgDownY, BtnMessageDownMapScreenCallback, pMapScreenBottomFastHelp[6]);
 }
 
 
@@ -328,7 +366,7 @@ static void DrawNameOfLoadedSector()
 	ST::string buf = GetSectorIDString(sSelMap, TRUE);
 	buf = ReduceStringLength(buf, 80, font);
 
-	MPrint(STD_SCREEN_X + 548, STD_SCREEN_Y + 426, buf, HCenterVCenterAlign(80, 16));
+	MPrint(MAP_BOTTOM_BASE_X + 548, MAP_BOTTOM_BASE_Y + 426, buf, HCenterVCenterAlign(80, 16));
 }
 
 
@@ -508,7 +546,7 @@ static void DisplayCompressMode(void)
 		Time = sTimeStrings[IsTimeBeingCompressed() ? giTimeCompressMode : 0];
 	}
 
-	RestoreExternBackgroundRect( STD_SCREEN_X + 489, STD_SCREEN_Y + 457, 522 - 489, 467 - 454 );
+	RestoreExternBackgroundRect( MAP_BOTTOM_BASE_X + 489, MAP_BOTTOM_BASE_Y + 457, 522 - 489, 467 - 454 );
 	SetFontDestBuffer(FRAME_BUFFER);
 
 	if( GetJA2Clock() - guiCompressionStringBaseTime >= PAUSE_GAME_TIMER )
@@ -531,14 +569,14 @@ static void DisplayCompressMode(void)
 	}
 
 	SetFontAttributes(COMPFONT, usColor);
-	MPrint(STD_SCREEN_X + 489, STD_SCREEN_Y + 457, Time,
+	MPrint(MAP_BOTTOM_BASE_X + 489, MAP_BOTTOM_BASE_Y + 457, Time,
 		HCenterVCenterAlign(522 - 489, 467 - 454));
 }
 
 
 static void CreateCompressModePause(void)
 {
-	MSYS_DefineRegion( &gMapPauseRegion, STD_SCREEN_X + 487, STD_SCREEN_Y + 456, STD_SCREEN_X + 522, STD_SCREEN_Y + 467, MSYS_PRIORITY_HIGH,
+	MSYS_DefineRegion( &gMapPauseRegion, MAP_BOTTOM_BASE_X + 487, MAP_BOTTOM_BASE_Y + 456, MAP_BOTTOM_BASE_X + 522, MAP_BOTTOM_BASE_Y + 467, MSYS_PRIORITY_HIGH,
 							MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressModeClickCallback );
 	gMapPauseRegion.SetFastHelpText(pMapScreenBottomFastHelp[7]);
 }
@@ -842,8 +880,8 @@ static void DisplayCurrentBalanceTitleForMapBottom(void)
 	SetFontAttributes(COMPFONT, MAP_BOTTOM_FONT_COLOR);
 	HCenterVCenterAlign const alignment{ 437 - 359, 10 };
 
-	MPrint(STD_SCREEN_X + 359, STD_SCREEN_Y + 387 - 14, pMapScreenBottomText, alignment);
-	MPrint(STD_SCREEN_X + 359, STD_SCREEN_Y + 433 - 14, zMarksMapScreenText[2], alignment);
+	MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 387 - 14, pMapScreenBottomText, alignment);
+	MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 433 - 14, zMarksMapScreenText[2], alignment);
 
 	SetFontDestBuffer(FRAME_BUFFER);
 }
@@ -854,7 +892,7 @@ static void DisplayCurrentBalanceForMapBottom(void)
 	// show the current balance for the player on the map panel bottom
 	SetFontDestBuffer(FRAME_BUFFER);
 	SetFontAttributes(COMPFONT, 183);
-	MPrint(STD_SCREEN_X + 359, STD_SCREEN_Y + 387 + 2,
+	MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 387 + 2,
 		SPrintMoney(LaptopSaveInfo.iCurrentBalance),
 		HCenterVCenterAlign(437 - 359, 10));
 }
@@ -872,9 +910,9 @@ void CreateDestroyMouseRegionMasksForTimeCompressionButtons()
 	if (disabled && !created)
 	{
 		// Mask over compress more, compress less and paus game buttons.
-		MSYS_DefineRegion(&gTimeCompressionMask[0], STD_SCREEN_X + 528, STD_SCREEN_Y + 457, 528 + 13, 457 + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
-		MSYS_DefineRegion(&gTimeCompressionMask[1], STD_SCREEN_X + 466, STD_SCREEN_Y + 457, 466 + 13, 457 + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
-		MSYS_DefineRegion(&gTimeCompressionMask[2], STD_SCREEN_X + 487, STD_SCREEN_Y + 457, 487 + 35, 457 + 11, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
+		MSYS_DefineRegion(&gTimeCompressionMask[0], MAP_BOTTOM_BASE_X + 528, MAP_BOTTOM_BASE_Y + 457, 528 + 13, 457 + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
+		MSYS_DefineRegion(&gTimeCompressionMask[1], MAP_BOTTOM_BASE_X + 466, MAP_BOTTOM_BASE_Y + 457, 466 + 13, 457 + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
+		MSYS_DefineRegion(&gTimeCompressionMask[2], MAP_BOTTOM_BASE_X + 487, MAP_BOTTOM_BASE_Y + 457, 487 + 35, 457 + 11, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
 		created = true;
 	}
 	else if (!disabled && created)
@@ -913,7 +951,7 @@ static void DisplayProjectedDailyMineIncome(void)
 
 	SetFontDestBuffer(FRAME_BUFFER);
 	SetFontAttributes(COMPFONT, 183);
-	MPrint(STD_SCREEN_X + 359, STD_SCREEN_Y + 433 + 2,
+	MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 433 + 2,
 		SPrintMoney(iRate), HCenterVCenterAlign(437 - 359, 10));
 }
 

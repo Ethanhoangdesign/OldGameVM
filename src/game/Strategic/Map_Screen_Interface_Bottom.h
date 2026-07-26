@@ -5,7 +5,11 @@
 #include "Types.h"
 
 
-#define MAX_MESSAGES_ON_MAP_BOTTOM  9
+INT16 MapScreenLogTop();
+
+/* Number of visible history-log lines: the full-size Wildfire layout uses a
+ * tall log panel in the left column whose top follows the roster/inventory. */
+#define MAX_MESSAGES_ON_MAP_BOTTOM  (g_ui.isMapFullSize() ? ((SCREEN_HEIGHT - MapScreenLogTop() - 34) / 11) : 9)
 
 
 enum ExitToWhere
