@@ -57,6 +57,7 @@
 #include "TownModel.h"
 #include "Video.h"
 #include "VObject.h"
+#include "VObject_Blitters.h"
 #include "VSurface.h"
 #include "WordWrap.h"
 #include <algorithm>
@@ -4247,7 +4248,19 @@ void HandleBlitOfSectorLocatorIcon(const SGPSector& sSector, UINT8 ubLocatorID)
 	RestoreExternBackgroundRect(  (INT16)(sScreenX + 1), (INT16)(sScreenY - 1),  MAP_GRID_X , MAP_GRID_Y );
 
 	// blit object to frame buffer
-	BltVideoObject(FRAME_BUFFER, guiSectorLocatorGraphicID, ubFrame, sScreenX, sScreenY);
+	SGPVObject const* const locator = GetVObject(guiSectorLocatorGraphicID);
+	if (locator->SubregionProperties(ubFrame).usWidth > MAP_GRID_X + 2)
+	{
+		/* Oversized locator art (e.g. JA2: Wildfire ships 44x38 frames sized
+		 * for the full-resolution strategic map): draw at half scale so the
+		 * ring covers a single 21x18 sector cell like the vanilla art does. */
+		SGPVSurface::Lock l(FRAME_BUFFER);
+		Blt8BPPDataTo16BPPBufferTransparentHalf(l.Buffer<UINT16>(), l.Pitch(), locator, sScreenX, sScreenY, ubFrame);
+	}
+	else
+	{
+		BltVideoObject(FRAME_BUFFER, guiSectorLocatorGraphicID, ubFrame, sScreenX, sScreenY);
+	}
 
 	// invalidate region on frame buffer
 	InvalidateRegion(sScreenX, sScreenY, sScreenX + MAP_GRID_X + 1, sScreenY + MAP_GRID_Y + 1);

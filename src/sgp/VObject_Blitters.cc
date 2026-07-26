@@ -1824,6 +1824,66 @@ void Blt16BPPDataTo16BPPBufferHalf(UINT16* const dst_buf, UINT32 const uiDestPit
 }
 
 
+/* Same as Blt8BPPDataTo16BPPBufferTransparent(), but draws the ETRLE subimage
+ * at half scale (every second pixel of every second row). Some game editions
+ * (e.g. JA2: Wildfire) ship strategic-map interface art sized for the
+ * full-resolution map, while the engine renders the strategic map at half
+ * scale. */
+void Blt8BPPDataTo16BPPBufferTransparentHalf(UINT16* const buf, UINT32 const uiDestPitchBYTES, SGPVObject const* const hSrcVObject, INT32 const iX, INT32 const iY, UINT16 const usIndex)
+{
+	Assert(hSrcVObject);
+	Assert(buf);
+
+	// Get offsets from index into structure
+	ETRLEObject const& e      = hSrcVObject->SubregionProperties(usIndex);
+	UINT32      const  height = e.usHeight;
+
+	// Add to start position of dest buffer, halving the subimage offsets too
+	INT32 const x = iX + e.sOffsetX / 2;
+	INT32 const y = iY + e.sOffsetY / 2;
+
+	CHECKV(x >= 0);
+	CHECKV(y >= 0);
+
+	UINT32        const pitch = uiDestPitchBYTES / 2;
+	UINT8  const*       src   = hSrcVObject->PixData(e);
+	UINT16 const* const pal   = hSrcVObject->CurrentShade();
+
+	UINT32 out_row = 0;
+	for (UINT32 row = 0; row < height; ++row)
+	{
+		bool    const keep    = (row & 1) == 0;
+		UINT16* const dst_row = buf + pitch * (y + out_row) + x;
+		UINT32        sx      = 0;
+		for (;;)
+		{
+			UINT8 const data = *src++;
+			if (data == 0)
+			{ // End of line
+				break;
+			}
+			else if (data & 0x80)
+			{ // Transparent run
+				sx += data & 0x7F;
+			}
+			else
+			{ // Pixel run
+				if (keep)
+				{
+					for (UINT8 i = 0; i < data; ++i)
+					{
+						if (((sx + i) & 1) == 0) dst_row[(sx + i) / 2] = pal[src[i]];
+					}
+				}
+				src += data;
+				sx  += data;
+			}
+		}
+		if (keep) ++out_row;
+	}
+}
+
+
 SGPRect SetClippingRect(SGPRect const clip)
 {
 	Assert(clip.iLeft < clip.iRight && clip.iTop < clip.iBottom);
