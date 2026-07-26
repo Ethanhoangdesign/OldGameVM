@@ -70,6 +70,14 @@ class StracciatellaLauncher {open
               tooltip {Choose JA2 game directory.} xywh {470 185 30 30}
             }
           }
+          Fl_Group {} {
+            xywh {10 225 500 40}
+          } {
+            Fl_Button detectEditionButton {
+              label {Detect Edition}
+              tooltip {Detect which JA2 edition (Vanilla / Gold / Wildfire) is installed in the game directory.} xywh {20 230 160 30}
+            }
+          }
         }
         Fl_Group {} {
           label {@-> Mods } open
