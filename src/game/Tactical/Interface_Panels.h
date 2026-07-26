@@ -61,6 +61,9 @@ void InitializeTEAMPanel();
 void ShutdownTEAMPanel();
 void RenderTEAMPanel(DirtyLevel);
 
+/** Fill up some space with a textured space filler. */
+void DrawFillerOnSurface(SGPVSurface* vsSurface, SGPBox const &dest);
+
 
 void SetSMPanelCurrentMerc(SOLDIERTYPE* s);
 void SetTEAMPanelCurrentMerc(void);

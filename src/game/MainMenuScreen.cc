@@ -8,6 +8,7 @@
 #include "GameRes.h"
 #include "GameSettings.h"
 #include "GameLoop.h"
+#include "HImage.h"
 #include "GameVersion.h"
 #include "Input.h"
 #include "JA2_Splash.h"
@@ -367,7 +368,18 @@ static void CreateDestroyMainMenuButtons(BOOLEAN fCreate)
 
 static void RenderMainMenu(void)
 {
-	BltVideoObject(FRAME_BUFFER, guiMainMenuBackGroundImage, 0, STD_SCREEN_X,       STD_SCREEN_Y     );
+	/* Editions with a larger-than-640x480 fullscreen background (e.g. the
+	 * 1024x768 JA2: Wildfire art) are centered on the screen so they cover it
+	 * without black borders; smaller vanilla art keeps its standard position. */
+	ETRLEObject const& bgProps = GetVObject(guiMainMenuBackGroundImage)->SubregionProperties(0);
+	INT32 bg_x = STD_SCREEN_X;
+	INT32 bg_y = STD_SCREEN_Y;
+	if (bgProps.usWidth > 640 || bgProps.usHeight > 480)
+	{
+		bg_x = ((INT32)SCREEN_WIDTH  - bgProps.usWidth)  / 2;
+		bg_y = ((INT32)SCREEN_HEIGHT - bgProps.usHeight) / 2;
+	}
+	BltVideoObject(FRAME_BUFFER, guiMainMenuBackGroundImage, 0, bg_x, bg_y);
 	BltVideoObject(FRAME_BUFFER, guiJa2LogoImage,            0, STD_SCREEN_X + 188, STD_SCREEN_Y + 15);
 }
 

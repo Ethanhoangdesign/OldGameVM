@@ -854,15 +854,26 @@ static void FillEmptySpaceAtBottom()
 {
 	if(g_ui.isBigScreen())
 	{
-		ColorFillVideoSurfaceArea(guiSAVEBUFFER, 0, g_ui.get_INV_INTERFACE_START_Y(),
-						INTERFACE_START_X, g_ui.m_screenHeight, 0);
-		ColorFillVideoSurfaceArea(guiSAVEBUFFER, INTERFACE_START_X + g_ui.m_teamPanelWidth, g_ui.get_INV_INTERFACE_START_Y(),
-						g_ui.m_screenWidth, g_ui.m_screenHeight, 0);
+		/* Fill the gaps on both sides of the bottom panel with the textured
+		 * space filler instead of plain black. */
+		UINT16 const y = g_ui.get_INV_INTERFACE_START_Y();
+		UINT16 const h = g_ui.m_screenHeight - y;
+		if (INTERFACE_START_X > 0)
+		{
+			SGPBox const left = {0, y, (UINT16)INTERFACE_START_X, h};
+			DrawFillerOnSurface(guiSAVEBUFFER, left);
+		}
+		UINT16 const panelEnd = INTERFACE_START_X + g_ui.m_teamPanelWidth;
+		if (panelEnd < g_ui.m_screenWidth)
+		{
+			SGPBox const right = {panelEnd, y, (UINT16)(g_ui.m_screenWidth - panelEnd), h};
+			DrawFillerOnSurface(guiSAVEBUFFER, right);
+		}
 	}
 }
 
 /** Fill up some space with a textured space filler */
-static void DrawFillerOnSurface(SGPVSurface* vsSurface, SGPBox const &dest)
+void DrawFillerOnSurface(SGPVSurface* vsSurface, SGPBox const &dest)
 {
 	auto vsFiller = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/overheadinterface.sti", 0);
 
@@ -2286,12 +2297,31 @@ void InitializeTEAMPanel()
 	guiTEAMPanel = new SGPVSurface(g_ui.m_teamPanelWidth, TEAMPANEL_HEIGHT, PIXEL_DEPTH);
 
 	auto vsTEAMPanel = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/bottom_bar.sti", 0);
-	BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), 0, 0, NULL);
-	for (int i = 6; i < NUM_TEAM_SLOTS; i++)
-	{	// extend the panel if needed
-		SGPBox const rect = {5 * TEAMPANEL_SLOT_WIDTH, 0,
-					TEAMPANEL_SLOT_WIDTH + TEAMPANEL_BUTTONSBOX_WIDTH, TEAMPANEL_HEIGHT};
-		BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), i * TEAMPANEL_SLOT_WIDTH, 0, &rect);
+	if (g_ui.getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF)
+	{
+		/* JA2: Wildfire ships a 1024px 10-slot bottom bar with its 194px
+		 * buttons box at x=830. Compose the panel from the slot area on the
+		 * left and the buttons box from the right end of the art, instead of
+		 * assuming the vanilla 640px 6-slot layout. */
+		BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), 0, 0, NULL);
+		for (int i = 10; i < NUM_TEAM_SLOTS; i++)
+		{	// extend the panel if needed
+			SGPBox const rect = {9 * TEAMPANEL_SLOT_WIDTH, 0, TEAMPANEL_SLOT_WIDTH, TEAMPANEL_HEIGHT};
+			BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), i * TEAMPANEL_SLOT_WIDTH, 0, &rect);
+		}
+		SGPBox const buttonsBox = {10 * TEAMPANEL_SLOT_WIDTH, 0,
+					TEAMPANEL_BUTTONSBOX_WIDTH_WF, TEAMPANEL_HEIGHT};
+		BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), g_ui.m_teamPanelSlotsTotalWidth, 0, &buttonsBox);
+	}
+	else
+	{
+		BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), 0, 0, NULL);
+		for (int i = 6; i < NUM_TEAM_SLOTS; i++)
+		{	// extend the panel if needed
+			SGPBox const rect = {5 * TEAMPANEL_SLOT_WIDTH, 0,
+						TEAMPANEL_SLOT_WIDTH + TEAMPANEL_BUTTONSBOX_WIDTH, TEAMPANEL_HEIGHT};
+			BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), i * TEAMPANEL_SLOT_WIDTH, 0, &rect);
+		}
 	}
 
 	guiTEAMObjects = AddVideoObjectFromFile(INTERFACEDIR "/gold_front.sti");
@@ -3222,7 +3252,10 @@ void RenderTownIDString(void)
 	SetFontAttributes(COMPFONT, 183);
 	ST::string zTownIDString = GetSectorIDString(gWorldSector, TRUE);
 	zTownIDString = ReduceStringLength(zTownIDString, 80, COMPFONT);
-	MPrint(INTERFACE_START_X + g_ui.m_teamPanelSlotsTotalWidth + 50,
+	/* Center the string under the radar window, whose position depends on the
+	 * loaded interface art edition (vanilla: radar at +45, Wildfire: +98). */
+	INT16 const offset = g_ui.getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 103 : 50;
+	MPrint(INTERFACE_START_X + g_ui.m_teamPanelSlotsTotalWidth + offset,
 		SCREEN_HEIGHT - 55, zTownIDString, HCenterVCenterAlign(80, 16));
 }
 

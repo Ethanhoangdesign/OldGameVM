@@ -41,6 +41,7 @@
 
 #define TEAMPANEL_SLOT_WIDTH            (83)     // width of one slot in the bottom team panel
 #define TEAMPANEL_BUTTONSBOX_WIDTH      (142)    // width of the container of the buttons on the right of team panel
+#define TEAMPANEL_BUTTONSBOX_WIDTH_WF   (194)    // width of the same container in the JA2: Wildfire bottom bar art
 #define TEAMPANEL_HEIGHT                (120)    // height of the bottom bar team panel
 
 
@@ -153,6 +154,32 @@ public:
 
 	/** Number of displayable slots in the team panel, based on the game policy and screen width. */
 	UINT16 getTeamPanelNumSlots() const;
+
+	/** Width of the buttons box on the right of the team panel, depending on the loaded interface art edition. */
+	UINT16 getTeamPanelButtonsBoxWidth() const;
+
+	/** True when the strategic map is drawn at full size (Wildfire 714x612 map
+	 *  art on a big enough screen) instead of the vanilla half scale.
+	 *  See docs/KE-HOACH-mapscreen-fullsize.md. */
+	bool isMapFullSize() const;
+
+	/** Strategic-map screen grid metrics (see Map_Screen_Interface_Map.h). */
+	UINT16 get_MAP_GRID_X() const;
+	UINT16 get_MAP_GRID_Y() const;
+	UINT16 get_MAP_VIEW_START_X() const;
+	UINT16 get_MAP_VIEW_START_Y() const;
+	UINT16 get_MAP_VIEW_WIDTH() const;
+	UINT16 get_MAP_VIEW_HEIGHT() const;
+
+	/** Base offset of the map screen bottom panel (vanilla: STD_SCREEN with
+	 *  the panel at +0,+359; full-size Wildfire layout: at 261,647). */
+	UINT16 get_MAP_BOTTOM_BASE_X() const;
+	UINT16 get_MAP_BOTTOM_BASE_Y() const;
+
+	/** Origin of the map screen left column (character info + roster).
+	 *  Vanilla: STD_SCREEN; full-size Wildfire layout: the top-left corner. */
+	UINT16 get_MAP_LEFT_COL_X() const;
+	UINT16 get_MAP_LEFT_COL_Y() const;
 
 	/** Recalculate UI elements' positions after changing screen size.
 	 *  This method requires the game data to be loaded, but it should be called before most other the application initialization is done.

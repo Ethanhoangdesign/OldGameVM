@@ -1761,7 +1761,11 @@ static void CreateTopMessage(void)
 	{
 		AutoSGPVObject bar_vo(AddVideoObjectFromFile(bar_file));
 
-		BltVideoObject(dst, bar_vo.get(), bar_gfx, STD_SCREEN_X, 0);
+		/* Editions whose bar art is at least as wide as the screen (e.g. the
+		 * 1024px JA2: Wildfire art) cover the full width from x=0; narrower
+		 * vanilla art keeps its centered position. */
+		INT32 const bar_art_x = bar_vo->SubregionProperties(0).usWidth >= SCREEN_WIDTH ? 0 : STD_SCREEN_X;
+		BltVideoObject(dst, bar_vo.get(), bar_gfx, bar_art_x, 0);
 
 		if (fDoLimitBar)
 		{
