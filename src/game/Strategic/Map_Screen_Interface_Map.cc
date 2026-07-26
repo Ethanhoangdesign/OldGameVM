@@ -31,6 +31,7 @@
 #include "PreBattle_Interface.h"
 #include "Queen_Command.h"
 #include "Render_Dirty.h"
+#include "ResourceVariants.h"
 #include "SamSiteModel.h"
 #include "SGPStrings.h"
 #include "Soldier_Control.h"
@@ -2678,20 +2679,19 @@ static void DropAPersonInASector(UINT8 const type, UINT8 const sector)
 
 void LoadMapScreenInterfaceMapGraphics()
 {
-	// Multi-edition fallback: the vanilla strategic map background
-	// 'interface/b_map.pcx' is not present in every JA2 edition (e.g. JA2: Wildfire
-	// ships a different, up-sized interface). Rather than crashing at boot, we
-	// fall back to a blank placeholder of the expected size so the game can run.
-	if (GCM->doesGameResExists(INTERFACEDIR "/b_map.pcx"))
+	// Multi-edition resource resolution: the strategic map background is
+	// shipped under different filenames depending on the edition. Vanilla
+	// uses interface/b_map.pcx, while JA2: Wildfire ships an up-sized
+	// 16-bit interface/b_map.sti. Ask the resolver for the first candidate
+	// that is actually present in the loaded game data.
+	const ST::string bigMapFile = ResolveResourceVariant(GCM, {
+		INTERFACEDIR "/b_map.pcx",
+		INTERFACEDIR "/b_map.sti",
+	});
+	
+	if (!bigMapFile.empty())
 	{
-		guiBIGMAP = AddVideoSurfaceFromFile(INTERFACEDIR "/b_map.pcx");
-	}
-	else if (GCM->doesGameResExists(INTERFACEDIR "/b_map.sti"))
-	{
-		// JA2: Wildfire ships the strategic map background as an STI
-		// (b_map.sti) instead of the vanilla PCX; AddVideoSurfaceFromFile
-		// auto-detects the format, so load it the same way.
-		guiBIGMAP = AddVideoSurfaceFromFile(INTERFACEDIR "/b_map.sti");
+		guiBIGMAP = AddVideoSurfaceFromFile(bigMapFile.c_str());
 	}
 	else
 	{
