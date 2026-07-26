@@ -43,6 +43,9 @@ StracciatellaLauncher::StracciatellaLauncher() {
         { detectEditionButton = new Fl_Button(20, 230, 160, 30, "Detect Edition");
       detectEditionButton->tooltip("Detect which JA2 edition (Vanilla / Gold / Wildfire) is installed in the game directory.");
     } // Fl_Button* detectEditionButton
+    { importGameDataButton = new Fl_Button(190, 230, 180, 30, "Import Game Data...");
+      importGameDataButton->tooltip("Extract game data straight from a GOG or retail installer, without having to install the original game first.");
+    } // Fl_Button* importGameDataButton
     { Fl_Group* o = new Fl_Group(10, 265, 500, 25, "resizable");
           o->labeltype(FL_NO_LABEL);
           o->align(Fl_Align(FL_ALIGN_TOP|FL_ALIGN_INSIDE));

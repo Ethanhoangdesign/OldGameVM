@@ -29,6 +29,7 @@ public:
   Fl_Choice *gameVersionInput;
   Fl_Button *guessVersionButton;
   Fl_Button *detectEditionButton;
+  Fl_Button *importGameDataButton;
   Fl_Input *saveGameDirectoryInput;
   Fl_Button *browseSaveGameDirectoryButton;
   Fl_Browser *enabledModsBrowser;

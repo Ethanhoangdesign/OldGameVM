@@ -14,6 +14,7 @@
 #include <FL/fl_ask.H>
 #include <string_theory/string>
 
+#include <filesystem>
 #include <algorithm>
 #include <vector>
 #include <limits>
@@ -129,6 +130,7 @@ void Launcher::show() {
 	gameVersionInput->callback( (Fl_Callback*)selectGameVersion, (void*)(this) );
 	guessVersionButton->callback( (Fl_Callback*)guessVersion, (void*)(this) );
     detectEditionButton->callback( (Fl_Callback*)detectEditionCb, (void*)(this) );
+    importGameDataButton->callback( (Fl_Callback*)importGameDataCb, (void*)(this) );
 	scalingModeChoice->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
 	resolutionXInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
 	resolutionYInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
@@ -627,6 +629,167 @@ void Launcher::detectEditionCb(Fl_Widget* btn, void* userdata) {
         }
     }
 
+    fl_message("%s", message.c_str());
+}
+
+void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
+    Launcher* window = static_cast< Launcher* >( userdata );
+    fl_message_title(window->importGameDataButton->label());
+
+    if (window->importProcess) {
+        fl_alert("An import is already running. Please wait until it has finished.");
+        return;
+    }
+
+    // innoextract performs the actual unpacking. It is an external tool, so
+    // locate it first and tell the user how to install it when it is missing.
+    const char* toolCandidates[] = {
+        "/opt/homebrew/bin/innoextract",
+        "/usr/local/bin/innoextract",
+        "/usr/bin/innoextract",
+    };
+    ST::string tool;
+    for (const char* candidate : toolCandidates) {
+        if (FileMan::exists(candidate)) {
+            tool = candidate;
+            break;
+        }
+    }
+    if (tool.empty()) {
+        fl_alert("Could not find innoextract, which is required to unpack an installer.\n\nOn macOS install it with:\n    brew install innoextract");
+        return;
+    }
+
+    Fl_Native_File_Chooser installerChooser;
+    installerChooser.title("Select the Jagged Alliance 2 installer (setup_*.exe)");
+    installerChooser.type(Fl_Native_File_Chooser::BROWSE_FILE);
+    installerChooser.filter("Windows installer\t*.exe");
+    if (installerChooser.show() != 0) return;
+
+    std::error_code ec;
+    const std::filesystem::path installer(installerChooser.filename());
+    if (!std::filesystem::is_regular_file(installer, ec)) {
+        fl_alert("That is not a file.\n\nPlease choose the installer executable itself, for example setup_jagged_alliance_2.exe.");
+        return;
+    }
+
+    Fl_Native_File_Chooser parentChooser;
+    parentChooser.title("Select the folder that should hold the imported game data");
+    parentChooser.type(Fl_Native_File_Chooser::BROWSE_DIRECTORY);
+    if (parentChooser.show() != 0) return;
+
+    // On macOS a directory chooser can hand back a selected file, so fall back
+    // to its parent directory rather than writing into a file path.
+    std::filesystem::path parent(parentChooser.filename());
+    if (!std::filesystem::is_directory(parent, ec)) {
+        parent = parent.parent_path();
+    }
+    if (!std::filesystem::is_directory(parent, ec)) {
+        fl_alert("Could not use the chosen location.\n\nPlease pick an existing folder.");
+        return;
+    }
+
+    // Always import into a dedicated sub-folder, so that an existing directory
+    // is never polluted and the destination is unambiguous.
+    const std::filesystem::path destination = parent / installer.stem();
+    std::filesystem::create_directories(destination, ec);
+    if (!std::filesystem::is_directory(destination, ec)) {
+        fl_alert("Could not create the destination folder:\n%s", destination.string().c_str());
+        return;
+    }
+
+    const std::string installerPath = installer.string();
+    const std::string destinationPath = destination.string();
+
+    // SLICE-CHECK: GOG installers keep most of the payload in companion
+    // slice files named "<installer>-1.bin". A renamed or missing slice
+    // makes the unpacking produce an empty Data folder.
+    {
+    	const std::filesystem::path installerFile(installerPath.c_str());
+    	const std::filesystem::path sliceDir = installerFile.parent_path();
+    	const std::string stem = installerFile.stem().string();
+    	std::error_code sliceEc;
+    	const bool numbered = std::filesystem::is_regular_file(sliceDir / (stem + "-1.bin"), sliceEc);
+    	const bool plain = std::filesystem::is_regular_file(sliceDir / (stem + ".bin"), sliceEc);
+    	if (!numbered && plain) {
+    		fl_message_title("Import Game Data");
+    		fl_alert("This installer needs its companion data file to be named\n\n%s-1.bin\n\nbut the folder only contains\n\n%s.bin\n\nRename that file so it ends with \"-1.bin\", then try again.", stem.c_str(), stem.c_str());
+    		return;
+    	}
+    }
+
+    if (fl_choice("Import game data from:\n%s\n\ninto:\n%s\n\nThis takes a few minutes and needs roughly 1 GB of free space.",
+            "Cancel", "Import", nullptr, installerPath.c_str(), destinationPath.c_str()) != 1) {
+        return;
+    }
+
+    RustPointer<VecCString> args(VecCString_create());
+    VecCString_push(args.get(), "--extract");
+    VecCString_push(args.get(), "--output-dir");
+    VecCString_push(args.get(), destinationPath.c_str());
+    VecCString_push(args.get(), installerPath.c_str());
+
+    window->importDestination = encodePath(destinationPath.c_str());
+    window->importProcess = std::make_optional(RustPointer<SubProcess>(Subprocess_new(tool.c_str(), args.get())));
+    Launcher::maintainImportState(window);
+}
+
+void Launcher::maintainImportState(void* userdata) {
+    Launcher* window = static_cast< Launcher* >( userdata );
+    if (!window->importProcess) {
+        return;
+    }
+
+    Subprocess_process(window->importProcess.value().get());
+    if (!Subprocess_isDone(window->importProcess.value().get())) {
+        Fl::add_timeout(checkGameRunningIntervalSeconds, Launcher::maintainImportState, window);
+        return;
+    }
+
+    auto exitCode = Subprocess_getExitCode(window->importProcess.value().get());
+    window->importProcess = std::nullopt;
+
+    // Installers frequently contain redistributable payloads that cannot be
+    // unpacked, which makes innoextract report a non-zero exit code even
+    // though all game data was written. Judge success by the data itself.
+    ST::char_buffer decoded = decodePath(window->importDestination.c_str());
+    const std::filesystem::path destination(decoded.c_str());
+    std::error_code ec;
+    int slfCount = 0;
+    const std::filesystem::path dataDir = destination / "Data";
+    if (std::filesystem::is_directory(dataDir, ec)) {
+    	std::error_code walkEc;
+    	for (const auto& entry : std::filesystem::directory_iterator(dataDir, walkEc)) {
+    		std::string ext = entry.path().extension().string();
+    		std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+    		if (ext == ".slf") slfCount++;
+    	}
+    }
+    const bool hasData = slfCount > 0;
+
+    fl_message_title("Import Game Data");
+    if (!hasData) {
+        fl_alert("Unpacking finished with exit code %d, but no Data folder was found in:\n%s\n\nMake sure the chosen file is a Jagged Alliance 2 installer, and that any companion .bin file sits next to it under its original name.",
+                (int) exitCode, destination.string().c_str());
+        return;
+    }
+
+    window->gameDirectoryInput->value(window->importDestination.c_str());
+    window->update(true);
+
+    DetectionResult result = detectEdition(destination.string());
+    std::string message = "The game data was imported successfully.\n\n";
+    if (result.edition == EditionId::Unknown) {
+        message += "The edition could not be identified, so you may need to pick the game version by hand.";
+    } else {
+        message += "Detected edition: " + editionIdToString(result.edition) + "\n";
+        message += "The game directory has been filled in for you.";
+    }
+    if (exitCode != 0) {
+        message += "\n\n(innoextract reported warnings, exit code ";
+        message += std::to_string((int) exitCode);
+        message += ". Game data looks complete.)";
+    }
     fl_message("%s", message.c_str());
 }
 

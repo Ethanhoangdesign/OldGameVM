@@ -34,6 +34,8 @@ private:
 	RustPointer<EngineOptions> engineOptions;
 	RustPointer<ModManager> modManager;
 	std::optional<RustPointer<SubProcess>> subProcess;
+	std::optional<RustPointer<SubProcess>> importProcess;
+	ST::string importDestination;
 	Fl_Text_Buffer logsBuffer;
 
 	void populateChoices();
@@ -51,6 +53,8 @@ private:
 	static void startEditor(Fl_Widget* btn, void* userdata);
 	static void guessVersion(Fl_Widget* btn, void* userdata);
     static void detectEditionCb(Fl_Widget* btn, void* userdata);
+    static void importGameDataCb(Fl_Widget* btn, void* userdata);
+    static void maintainImportState(void*);
 	static void setPredefinedResolution(Fl_Widget* btn, void* userdata);
 	static void widgetChanged(Fl_Widget* widget, void* userdata);
 	static void reloadJa2Json(Fl_Widget* widget, void* userdata);

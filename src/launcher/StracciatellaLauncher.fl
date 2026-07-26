@@ -77,6 +77,10 @@ class StracciatellaLauncher {open
               label {Detect Edition}
               tooltip {Detect which JA2 edition (Vanilla / Gold / Wildfire) is installed in the game directory.} xywh {20 230 160 30}
             }
+            Fl_Button importGameDataButton {
+              label {Import Game Data...}
+              tooltip {Extract game data straight from a GOG or retail installer, without having to install the original game first.} xywh {190 230 180 30}
+            }
           }
         }
         Fl_Group {} {
