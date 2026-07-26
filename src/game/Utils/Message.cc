@@ -42,7 +42,7 @@ struct ScrollStringSt
 #define Y_START (SCREEN_HEIGHT - 150)
 #define MAX_AGE 10000
 #define LINE_WIDTH 320
-#define MAP_LINE_WIDTH (g_ui.isMapFullSize() ? 222 : 300)
+#define MAP_LINE_WIDTH (g_ui.isMapFullSize() ? 545 : 300)
 #define WIDTH_BETWEEN_NEW_STRINGS 5
 
 #define DEBUG_COLOR FONT_RED
@@ -423,10 +423,10 @@ void DisplayStringsInMapScreenMessageList(void)
 {
 	/* Vanilla: log box inside the bottom panel. Full-size Wildfire layout:
 	 * tall log panel at the bottom of the 261px left column. */
-	INT16 const lx = g_ui.isMapFullSize() ?   6 : g_ui.get_MAP_BOTTOM_BASE_X() + 17;
-	INT16 const ly = g_ui.isMapFullSize() ? (INT16)(MapScreenLogTop() + 6) : g_ui.get_MAP_BOTTOM_BASE_Y() + 366;
-	INT16 const lw = g_ui.isMapFullSize() ? 230 : 390;
-	INT16 const lh = g_ui.isMapFullSize() ? (INT16)(SCREEN_HEIGHT - MapScreenLogTop() - 14) :  95;
+	INT16 const lx = g_ui.isMapFullSize() ?   8 : g_ui.get_MAP_BOTTOM_BASE_X() + 17;
+	INT16 const ly = g_ui.isMapFullSize() ? (INT16)(MapScreenLogTop() + 4) : g_ui.get_MAP_BOTTOM_BASE_Y() + 366;
+	INT16 const lw = g_ui.isMapFullSize() ? 566 : 390;
+	INT16 const lh = g_ui.isMapFullSize() ? 110 :  95;
 	SetFontDestBuffer(FRAME_BUFFER, lx, ly, lx + lw, ly + lh);
 
 	SetFont(MAP_SCREEN_MESSAGE_FONT);

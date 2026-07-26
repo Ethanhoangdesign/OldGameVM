@@ -323,7 +323,7 @@ static MOUSE_REGION gSM_SELMERCEnemyIndicatorRegion;
 static MOUSE_REGION gSM_SELMERCStatsRegion[NUM_ATTRIBUTES];
 static MOUSE_REGION gTEAM_PanelRegion;
 
-static std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex);
+std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex);
 
 // Globals - for one - the current merc here
 SOLDIERTYPE *gpSMCurrentMerc = NULL;
@@ -894,14 +894,26 @@ void InitializeSMPanel()
 	// minimap are in the bottom-right corner.
 	SGPVObject* voSMPanel = AddVideoObjectFromFile(INTERFACEDIR "/inventory_bottom_panel.sti");
 	guiSMPanel = new SGPVSurface(g_ui.m_teamPanelWidth, INV_INTERFACE_HEIGHT, PIXEL_DEPTH);
-	if (g_ui.m_teamPanelWidth > 640)
 	{
-		// The team panel is longer than default
-		// need a second blit, and we will start from the right
-		BltVideoObject(guiSMPanel, voSMPanel, 0, g_ui.m_teamPanelWidth - 640, 0);
+		/* Clip to the panel surface: some editions (JA2: Wildfire) ship this
+		 * art 1024px wide, and the unclipped vanilla double-blit below would
+		 * write past the surface (bus error). */
+		SGPRect panelClip;
+		panelClip.set(0, 0, g_ui.m_teamPanelWidth, INV_INTERFACE_HEIGHT);
+		SGPRect const oldClip = SetClippingRect(panelClip);
+
+		UINT16 const artWidth = voSMPanel->SubregionProperties(0).usWidth;
+		if (artWidth < g_ui.m_teamPanelWidth)
+		{
+			// The team panel is longer than the art:
+			// need a second blit, and we will start from the right
+			BltVideoObject(guiSMPanel, voSMPanel, 0, g_ui.m_teamPanelWidth - artWidth, 0);
+		}
+		// draw the basic Single-Merc panel
+		BltVideoObject(guiSMPanel, voSMPanel, 0, 0, 0);
+
+		SetClippingRect(oldClip);
 	}
-	// draw the basic Single-Merc panel
-	BltVideoObject(guiSMPanel, voSMPanel, 0, 0, 0);
 	DeleteVideoObject(voSMPanel);
 
 	INT16 sFillerWidth = g_ui.m_teamPanelWidth - 640;
@@ -3835,7 +3847,7 @@ void HandleTacticalEffectsOfEquipmentChange(SOLDIERTYPE* pSoldier, UINT32 uiInvP
 }
 
 
-static std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex)
+std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex)
 {
 	AutoSGPVObject vo(AddVideoObjectFromFile(filename));
 	auto r = vo->SubregionProperties(usRegionIndex);

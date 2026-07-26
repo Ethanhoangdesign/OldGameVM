@@ -2,6 +2,8 @@
 #define __INTERFACE_PANELS
 
 #include "Button_System.h"
+#include <memory>
+#include <string_theory/string>
 #include "Interface.h"
 #include "JA2Types.h"
 #include "MouseSystem.h"
@@ -63,6 +65,9 @@ void RenderTEAMPanel(DirtyLevel);
 
 /** Fill up some space with a textured space filler. */
 void DrawFillerOnSurface(SGPVSurface* vsSurface, SGPBox const &dest);
+
+/** Create a video surface holding one subimage of an object file. */
+std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex);
 
 
 void SetSMPanelCurrentMerc(SOLDIERTYPE* s);

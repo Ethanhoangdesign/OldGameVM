@@ -22,19 +22,18 @@ struct BUTTON_PICS;
 
 #define MAP_BORDER_FILE INTERFACEDIR "/mbs.sti"
 
-/* In the full-size Wildfire map layout there is no strip between the map and
- * the bottom panel, so the toggle button row moves to the free space at the
- * bottom of the 261px left column. */
-#define BTN_ROW_Y       (g_ui.isMapFullSize() ? 670 : STD_SCREEN_Y + 323)
-#define BTN_TOWN_X      (g_ui.isMapFullSize() ? 270 : STD_SCREEN_X + 299)
-#define BTN_MINE_X      (g_ui.isMapFullSize() ? 313 : STD_SCREEN_X + 342)
-#define BTN_TEAMS_X     (g_ui.isMapFullSize() ? 356 : STD_SCREEN_X + 385)
-#define BTN_MILITIA_X   (g_ui.isMapFullSize() ? 399 : STD_SCREEN_X + 428)
-#define BTN_AIR_X       (g_ui.isMapFullSize() ? 442 : STD_SCREEN_X + 471)
-#define BTN_ITEM_X      (g_ui.isMapFullSize() ? 485 : STD_SCREEN_X + 514)
+/* Full-size layout: the toggle row floats right above the bottom band on
+ * the right, like the reference layout. */
+#define BTN_ROW_Y       (g_ui.isMapFullSize() ? 602 : STD_SCREEN_Y + 323)
+#define BTN_TOWN_X      (g_ui.isMapFullSize() ? 700 : STD_SCREEN_X + 299)
+#define BTN_MINE_X      (g_ui.isMapFullSize() ? 743 : STD_SCREEN_X + 342)
+#define BTN_TEAMS_X     (g_ui.isMapFullSize() ? 786 : STD_SCREEN_X + 385)
+#define BTN_MILITIA_X   (g_ui.isMapFullSize() ? 829 : STD_SCREEN_X + 428)
+#define BTN_AIR_X       (g_ui.isMapFullSize() ? 872 : STD_SCREEN_X + 471)
+#define BTN_ITEM_X      (g_ui.isMapFullSize() ? 915 : STD_SCREEN_X + 514)
 
-#define MAP_LEVEL_MARKER_X    (g_ui.isMapFullSize() ? 545 : STD_SCREEN_X + 565)
-#define MAP_LEVEL_MARKER_Y    (g_ui.isMapFullSize() ? 655 : STD_SCREEN_Y + 323)
+#define MAP_LEVEL_MARKER_X    (g_ui.isMapFullSize() ? 958 : STD_SCREEN_X + 565)
+#define MAP_LEVEL_MARKER_Y    (g_ui.isMapFullSize() ? 602 : STD_SCREEN_Y + 323)
 #define MAP_LEVEL_MARKER_DELTA   8
 #define MAP_LEVEL_MARKER_WIDTH  55
 

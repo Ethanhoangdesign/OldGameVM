@@ -44,6 +44,7 @@
 #include "Soldier_Macros.h"
 #include "GameSettings.h"
 #include "SaveLoadScreen.h"
+#include "Soldier_Profile.h"
 #include "Debug.h"
 #include "JAScreens.h"
 #include "ScreenIDs.h"
@@ -60,19 +61,18 @@
 #define MAP_BOTTOM_X (MAP_BOTTOM_BASE_X + 0)
 #define MAP_BOTTOM_Y (MAP_BOTTOM_BASE_Y + 359)
 
-/* In the full-size Wildfire layout the history log moves to the bottom of the
- * 261px left column. Its top edge follows the roster (or the taller
- * inventory panel when that is open) - see MapScreenLogTop(). */
-#define MESSAGE_BOX_X (g_ui.isMapFullSize() ?   6 : MAP_BOTTOM_BASE_X +  17)
-#define MESSAGE_BOX_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 11) : MAP_BOTTOM_BASE_Y + 377)
-#define MESSAGE_BOX_W (g_ui.isMapFullSize() ? 226 : 301)
-#define MESSAGE_BOX_H (g_ui.isMapFullSize() ? (SCREEN_HEIGHT - MapScreenLogTop() - 24) :  86)
+/* Full-size layout: wide 9-line history log inside the bottom band (top edge
+ * from MapScreenLogTop()). */
+#define MESSAGE_BOX_X (g_ui.isMapFullSize() ?   8 : MAP_BOTTOM_BASE_X +  17)
+#define MESSAGE_BOX_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 13) : MAP_BOTTOM_BASE_Y + 377)
+#define MESSAGE_BOX_W (g_ui.isMapFullSize() ? 552 : 301)
+#define MESSAGE_BOX_H (g_ui.isMapFullSize() ? 100 :  86)
 
-#define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? 238 : MAP_BOTTOM_BASE_X + 330)
+#define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? 580 : MAP_BOTTOM_BASE_X + 330)
 #define MESSAGE_SCROLL_AREA_WIDTH    15
 
-#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 30) : MAP_BOTTOM_BASE_Y + 390)
-#define MESSAGE_SCROLL_AREA_HEIGHT  (g_ui.isMapFullSize() ? (SCREEN_HEIGHT - MapScreenLogTop() - 60) :  59)
+#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? 672 : MAP_BOTTOM_BASE_Y + 390)
+#define MESSAGE_SCROLL_AREA_HEIGHT  (g_ui.isMapFullSize() ?  66 :  59)
 
 #define SLIDER_HEIGHT		11
 #define SLIDER_WIDTH		11
@@ -100,11 +100,12 @@ enum{
 };
 
 
-/* Top edge of the full-size history-log panel in the left column: right
- * below the roster / inventory panel (both end at y=359). */
+/* Top edge of the full-size history-log box, now inside the bottom band
+ * (wide, 9 lines) per the reference layout; the left column below the
+ * roster stays free for a future taller roster. */
 INT16 MapScreenLogTop()
 {
-	return 362;
+	return 650;
 }
 
 BOOLEAN fMapScreenBottomDirty = TRUE;
@@ -203,6 +204,7 @@ static void DisplayCompressMode(void);
 static void DisplayCurrentBalanceForMapBottom(void);
 static void DisplayCurrentBalanceTitleForMapBottom(void);
 static void DisplayProjectedDailyMineIncome(void);
+static void DisplayProjectedDailyExpenses(void);
 static void DisplayScrollBarSlider(void);
 static void DrawNameOfLoadedSector();
 static void EnableDisableBottomButtonsAndRegions(void);
@@ -214,20 +216,60 @@ void RenderMapScreenInterfaceBottom( void )
 	// render whole panel
 	if (fMapScreenBottomDirty)
 	{
-		BltVideoObject(guiSAVEBUFFER, guiMAPBOTTOMPANEL, 0, MAP_BOTTOM_X, MAP_BOTTOM_Y);
+		if (!g_ui.isMapFullSize())
+		{
+			BltVideoObject(guiSAVEBUFFER, guiMAPBOTTOMPANEL, 0, MAP_BOTTOM_X, MAP_BOTTOM_Y);
+		}
 		if (g_ui.isMapFullSize())
 		{
-			/* History-log panel at the bottom of the left column, and filler
-			 * over the art's old log frame (the toggle button row sits there). */
-			UINT16 const logTop = MapScreenLogTop();
-			SGPBox const logPanel = {0, (UINT16)(logTop - 8), 261, (UINT16)(SCREEN_HEIGHT - logTop + 8)};
-			DrawFillerOnSurface(guiSAVEBUFFER, logPanel);
-			SGPBox const oldLogArea = {(UINT16)MAP_BOTTOM_X, (UINT16)MAP_BOTTOM_Y, 390, 121};
-			DrawFillerOnSurface(guiSAVEBUFFER, oldLogArea);
+			/* Left column below the roster: plain filler (kept free for a
+			 * future taller roster). Bottom band: filler over the corner and
+			 * the art's old log frame, then the wide log box on top. */
+			SGPBox const leftColumn = {0, 643, 261, (UINT16)(SCREEN_HEIGHT - 643)};
+			DrawFillerOnSurface(guiSAVEBUFFER, leftColumn);
+			SGPBox const band = {(UINT16)MAP_BOTTOM_X, (UINT16)MAP_BOTTOM_Y, (UINT16)(SCREEN_WIDTH - MAP_BOTTOM_X), 121};
+			DrawFillerOnSurface(guiSAVEBUFFER, band);
+			/* Sunken dark compartments with bevel frames, like the reference
+			 * layout: log box, three finance boxes, sector picture and clock. */
+			UINT16 const boxFill = Get16BPPColor(FROMRGB(10, 12, 9));
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 10, MapScreenLogTop() + 6, 593, SCREEN_HEIGHT - 10, boxFill);
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 665, 712, 681, boxFill);   // Current Balance
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 701, 712, 717, boxFill);   // Daily Income
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 737, 712, 753, boxFill);   // Daily Expenses
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 802, 659, 894, 707, boxFill);   // sector picture backdrop
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 800, 741, 896, 763, boxFill);   // date / time
 			{
 				SGPVSurface::Lock l(guiSAVEBUFFER);
-				UINT16 const line = Get16BPPColor(FROMRGB(70, 78, 60));
-				RectangleDraw(TRUE, 4, logTop, 256, SCREEN_HEIGHT - 6, line, l.Buffer<UINT16>());
+				UINT16* const buf  = l.Buffer<UINT16>();
+				UINT16 const dark  = Get16BPPColor(FROMRGB(20, 24, 18));
+				UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
+				/* Raised section frames dividing the band into compartments
+				 * (log | finances | buttons | sector), like the reference. */
+				INT32 const sections[][4] = {
+					{1, 649, 601, SCREEN_HEIGHT - 2},
+					{601, 649, 719, SCREEN_HEIGHT - 2},
+					{719, 649, 797, SCREEN_HEIGHT - 2},
+					{797, 649, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2},
+				};
+				for (auto const& s : sections)
+				{
+					RectangleDraw(TRUE, s[0],     s[1],     s[2],     s[3],     light, buf);
+					RectangleDraw(TRUE, s[0] + 1, s[1] + 1, s[2] - 1, s[3] - 1, dark,  buf);
+				}
+
+				INT32 const boxes[][4] = {
+					{8, MapScreenLogTop() + 4, 595, SCREEN_HEIGHT - 8},
+					{606, 663, 714, 683},
+					{606, 699, 714, 719},
+					{606, 735, 714, 755},
+					{800, 657, 896, 709},
+					{798, 739, 898, 765},
+				};
+				for (auto const& b : boxes)
+				{
+					RectangleDraw(TRUE, b[0],     b[1],     b[2],     b[3],     dark,  buf);
+					RectangleDraw(TRUE, b[0] + 1, b[1] + 1, b[2] + 1, b[3] + 1, light, buf);
+				}
 			}
 		}
 		auto const& sMap{ sSelMap };
@@ -251,7 +293,7 @@ void RenderMapScreenInterfaceBottom( void )
 
 		// invalidate region (in full-size mode include the log column on the left)
 		INT16 const restoreX = g_ui.isMapFullSize() ? 0 : MAP_BOTTOM_X;
-		INT16 const restoreY = g_ui.isMapFullSize() ? (MapScreenLogTop() - 8) : MAP_BOTTOM_Y;
+		INT16 const restoreY = g_ui.isMapFullSize() ? 354 : MAP_BOTTOM_Y;
 		RestoreExternBackgroundRect(restoreX, restoreY, SCREEN_WIDTH - restoreX, SCREEN_HEIGHT - restoreY);
 
 		// re render radar map
@@ -266,6 +308,7 @@ void RenderMapScreenInterfaceBottom( void )
 
 	DisplayCurrentBalanceForMapBottom( );
 	DisplayProjectedDailyMineIncome( );
+	if (g_ui.isMapFullSize()) DisplayProjectedDailyExpenses();
 
 	// draw the name of the loaded sector
 	DrawNameOfLoadedSector( );
@@ -313,9 +356,9 @@ static void CreateButtonsForMapScreenInterfaceBottom(void)
 	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, MAP_BOTTOM_BASE_X + 466, MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
 
 	// scroll buttons
-	INT16 const msgUpX   = g_ui.isMapFullSize() ? 239 : MAP_BOTTOM_BASE_X + 331;
-	INT16 const msgUpY   = g_ui.isMapFullSize() ? 476 : MAP_BOTTOM_BASE_Y + 371;
-	INT16 const msgDownY = g_ui.isMapFullSize() ? 746 : MAP_BOTTOM_BASE_Y + 452;
+	INT16 const msgUpX   = g_ui.isMapFullSize() ? 580 : MAP_BOTTOM_BASE_X + 331;
+	INT16 const msgUpY   = g_ui.isMapFullSize() ? 654 : MAP_BOTTOM_BASE_Y + 371;
+	INT16 const msgDownY = g_ui.isMapFullSize() ? 744 : MAP_BOTTOM_BASE_Y + 452;
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_UP]   = MakeArrowButton(11, 4, 6, msgUpX, msgUpY,   BtnMessageUpMapScreenCallback,   pMapScreenBottomFastHelp[5]);
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_DOWN] = MakeArrowButton(12, 5, 7, msgUpX, msgDownY, BtnMessageDownMapScreenCallback, pMapScreenBottomFastHelp[6]);
 }
@@ -880,8 +923,18 @@ static void DisplayCurrentBalanceTitleForMapBottom(void)
 	SetFontAttributes(COMPFONT, MAP_BOTTOM_FONT_COLOR);
 	HCenterVCenterAlign const alignment{ 437 - 359, 10 };
 
-	MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 387 - 14, pMapScreenBottomText, alignment);
-	MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 433 - 14, zMarksMapScreenText[2], alignment);
+	if (g_ui.isMapFullSize())
+	{
+		HCenterVCenterAlign const a{ 110, 10 };
+		MPrint(604, 652, pMapScreenBottomText,   a);
+		MPrint(604, 688, zMarksMapScreenText[2], a);
+		MPrint(604, 724, "Daily Expenses",       a);
+	}
+	else
+	{
+		MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 387 - 14, pMapScreenBottomText, alignment);
+		MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 433 - 14, zMarksMapScreenText[2], alignment);
+	}
 
 	SetFontDestBuffer(FRAME_BUFFER);
 }
@@ -892,9 +945,16 @@ static void DisplayCurrentBalanceForMapBottom(void)
 	// show the current balance for the player on the map panel bottom
 	SetFontDestBuffer(FRAME_BUFFER);
 	SetFontAttributes(COMPFONT, 183);
-	MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 387 + 2,
-		SPrintMoney(LaptopSaveInfo.iCurrentBalance),
-		HCenterVCenterAlign(437 - 359, 10));
+	if (g_ui.isMapFullSize())
+	{
+		MPrint(606, 667, SPrintMoney(LaptopSaveInfo.iCurrentBalance), HCenterVCenterAlign(106, 10));
+	}
+	else
+	{
+		MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 387 + 2,
+			SPrintMoney(LaptopSaveInfo.iCurrentBalance),
+			HCenterVCenterAlign(437 - 359, 10));
+	}
 }
 
 
@@ -951,8 +1011,47 @@ static void DisplayProjectedDailyMineIncome(void)
 
 	SetFontDestBuffer(FRAME_BUFFER);
 	SetFontAttributes(COMPFONT, 183);
-	MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 433 + 2,
-		SPrintMoney(iRate), HCenterVCenterAlign(437 - 359, 10));
+	if (g_ui.isMapFullSize())
+	{
+		MPrint(606, 703, SPrintMoney(iRate), HCenterVCenterAlign(106, 10));
+	}
+	else
+	{
+		MPrint(MAP_BOTTOM_BASE_X + 359, MAP_BOTTOM_BASE_Y + 433 + 2,
+			SPrintMoney(iRate), HCenterVCenterAlign(437 - 359, 10));
+	}
+}
+
+
+/* Projected daily expenses: the summed daily salary of every hired merc.
+ * Shown only in the full-size layout (third finance box). */
+static INT32 GetProjectedTotalDailyExpenses(void)
+{
+	INT32 iTotal = 0;
+	CFOR_EACH_IN_TEAM(s, OUR_TEAM)
+	{
+		if (s->bLife <= 0) continue;
+		iTotal += GetProfile(s->ubProfile).sSalary;
+	}
+	return iTotal;
+}
+
+
+static void DisplayProjectedDailyExpenses(void)
+{
+	static INT32 iOldExpenses = -1;
+	INT32 const iExpenses = GetProjectedTotalDailyExpenses();
+
+	if (iExpenses != iOldExpenses)
+	{
+		iOldExpenses = iExpenses;
+		fMapScreenBottomDirty = TRUE;
+		if (!fMapBottomDirtied) return;
+	}
+
+	SetFontDestBuffer(FRAME_BUFFER);
+	SetFontAttributes(COMPFONT, FONT_RED);
+	MPrint(606, 739, SPrintMoney(iExpenses), HCenterVCenterAlign(106, 10));
 }
 
 

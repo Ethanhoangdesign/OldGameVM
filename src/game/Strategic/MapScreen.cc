@@ -4989,6 +4989,19 @@ void RenderMapRegionBackground( void )
 
 	if (g_ui.isMapFullSize())
 	{
+		if (!fShowMapInventoryPool)
+		{
+			/* Backdrop panel under the toggle-button row, like the reference
+			 * layout (drawn together with the map so a map redraw cannot
+			 * wipe it). */
+			SGPBox const strip = {692, 592, (UINT16)(SCREEN_WIDTH - 692), 56};
+			DrawFillerOnSurface(guiSAVEBUFFER, strip);
+			SGPVSurface::Lock l(guiSAVEBUFFER);
+			UINT16 const dark  = Get16BPPColor(FROMRGB(20, 24, 18));
+			UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
+			RectangleDraw(TRUE, 694, 594, SCREEN_WIDTH - 3, 646, dark,  l.Buffer<UINT16>());
+			RectangleDraw(TRUE, 695, 595, SCREEN_WIDTH - 2, 647, light, l.Buffer<UINT16>());
+		}
 		/* Copy the whole full-size map region (the Wildfire right column). */
 		RestoreExternBackgroundRect(261, 0, SCREEN_WIDTH - 261, 647);
 	}
@@ -5026,7 +5039,26 @@ static void RenderTeamRegionBackground()
 	// Show inventory or the team list?
 	if (!fShowInventoryFlag)
 	{
-		BltVideoObject(guiSAVEBUFFER, guiCHARLIST, 0, PLAYER_INFO_X, PLAYER_INFO_Y);
+		if (g_ui.isMapFullSize())
+		{
+			/* Stretch the roster frame down to the bottom band so the list
+			 * area has room for many soldiers: the header row and bottom
+			 * rail keep their height, only the grid body is stretched. */
+			auto vsCharList = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/newgoldpiece3.sti", 0);
+			SGPBox const srcHead = {0,   0, 262,  40};
+			SGPBox const dstHead = {(UINT16)PLAYER_INFO_X, (UINT16)PLAYER_INFO_Y, 262, 40};
+			SGPBox const srcBody = {0,  40, 262, 190};
+			SGPBox const dstBody = {(UINT16)PLAYER_INFO_X, (UINT16)(PLAYER_INFO_Y + 40), 262, 474};
+			SGPBox const srcFoot = {0, 230, 262,  24};
+			SGPBox const dstFoot = {(UINT16)PLAYER_INFO_X, (UINT16)(PLAYER_INFO_Y + 514), 262, 24};
+			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcHead, &dstHead);
+			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcBody, &dstBody);
+			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcFoot, &dstFoot);
+		}
+		else
+		{
+			BltVideoObject(guiSAVEBUFFER, guiCHARLIST, 0, PLAYER_INFO_X, PLAYER_INFO_Y);
+		}
 		HandleHighLightingOfLinesInTeamPanel();
 		DisplayCharacterList();
 		DisplayIconsForMercsAsleep();
