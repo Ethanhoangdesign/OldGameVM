@@ -2401,6 +2401,7 @@
     {
         "itemIndex": 55,
         "internalName": "ROCKET_RIFLE",
+        "standardReplacement": "M24",
         "internalType": "SN_RIFLE",
         "inventoryGraphics": {
             "small": {
@@ -2794,6 +2795,7 @@
     {
         "itemIndex": 65,
         "internalName": "AUTO_ROCKET_RIFLE",
+        "standardReplacement": "G41",
         "internalType": "ASRIFLE",
         "inventoryGraphics": {
             "small": {
@@ -2841,6 +2843,7 @@
     {
         "itemIndex": 66,
         "internalName": "VSS_VINTOREZ",
+        "standardReplacement": "M24",
         "internalType": "SN_RIFLE",
         "inventoryGraphics": {
             "small": {
@@ -2937,6 +2940,7 @@
     {
         "itemIndex": 68,
         "internalName": "F2000",
+        "standardReplacement": "C7",
         "internalType": "ASRIFLE",
         "inventoryGraphics": {
             "small": {
