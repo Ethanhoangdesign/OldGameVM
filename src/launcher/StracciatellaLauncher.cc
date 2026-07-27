@@ -120,9 +120,7 @@ on their features.");
           o->end();
         } // Fl_Group* o
         { Fl_Group* o = new Fl_Group(10, 115, 500, 52);
-          o->tooltip("Specify the resolution for tactical screen rendering. Texts and sprites becom\
-e very small at higher internal resolutions. Note that menus and the strategic\
- map screen are always rendered at 640x480.");
+          o->tooltip("Specify the internal rendering resolution. Text and sprites become very small at high resolutions. The strategic map screen needs at least 768 pixels of height to show the full map, so 1366x768 or larger is recommended.");
           { resolutionXInput = new Fl_Value_Input(20, 130, 75, 30, "Internal Resolution:");
             resolutionXInput->minimum(640);
             resolutionXInput->maximum(0);
@@ -147,7 +145,7 @@ e very small at higher internal resolutions. Note that menus and the strategic\
             Fl_Group::current()->resizable(o);
           } // Fl_Group* o
           { invalidResolutionLabel = new Fl_Box(340, 130, 160, 30, "invalid!");
-            invalidResolutionLabel->tooltip("the resolution must be at least 640x480, the original game resolution");
+            invalidResolutionLabel->tooltip("the resolution must be at least 640x480, the original game resolution; 1366x768 or larger is recommended so the strategic map fits");
             invalidResolutionLabel->labelfont(1);
             invalidResolutionLabel->labelcolor((Fl_Color)1);
             invalidResolutionLabel->align(Fl_Align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE));

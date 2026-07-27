@@ -136,7 +136,7 @@ class StracciatellaLauncher {open
             }
           }
           Fl_Group {} {open
-            tooltip {Specify the resolution for tactical screen rendering. Texts and sprites become very small at higher internal resolutions. Note that menus and the strategic map screen are always rendered at 640x480.} xywh {10 115 500 52}
+            tooltip {Specify the internal rendering resolution. Text and sprites become very small at high resolutions. The strategic map screen needs at least 768 pixels of height to show the full map, so 1366x768 or larger is recommended.} xywh {10 115 500 52}
           } {
             Fl_Value_Input resolutionXInput {
               label {Internal Resolution:}
@@ -159,7 +159,7 @@ class StracciatellaLauncher {open
             } {}
             Fl_Box invalidResolutionLabel {
               label {invalid!}
-              tooltip {the resolution must be at least 640x480, the original game resolution} xywh {340 130 160 30} labelfont 1 labelcolor 1 align 20
+              tooltip {the resolution must be at least 640x480, the original game resolution; 1366x768 or larger is recommended so the strategic map fits} xywh {340 130 160 30} labelfont 1 labelcolor 1 align 20
             }
           }
           Fl_Group {} {open
