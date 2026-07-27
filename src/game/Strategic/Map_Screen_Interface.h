@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #ifndef MAP_SCREEN_INTERFACE_H
 #define MAP_SCREEN_INTERFACE_H
 

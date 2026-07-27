@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "Map_Screen_Interface.h"
 #include "ContentManager.h"
 #include "Dialogue_Control.h"

@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "Directories.h"
 #include "Map_Screen_Interface_Border.h"
 #include "Font.h"

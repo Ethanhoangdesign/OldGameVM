@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 // Standalone manual test for the Multi-Edition Detector.
 // Not part of the engine build. Compile directly with clang++ (C++17).
 // Uses dummy fixtures created at runtime under a temp folder.
