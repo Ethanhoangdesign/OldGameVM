@@ -213,15 +213,96 @@ static void DrawCurrentLevelMarker(void)
  * art and marker) is skipped, so draw a small self-made level selector at the
  * end of the toggle strip: four sunken rows plus the white marker. The mouse
  * regions already sit at MAP_LEVEL_MARKER_X/Y. */
+/* LEVELSTRATA: cheap hash used as noise, so the rock has grain. */
+static UINT32 StrataNoise(INT32 const x, INT32 const y, INT32 const salt)
+{
+	UINT32 h = (UINT32)(x * 374761393) + (UINT32)(y * 668265263) + (UINT32)(salt * 1442695041);
+	h = (h ^ (h >> 13)) * 1274126177u;
+	return h ^ (h >> 16);
+}
+
+
+/* LEVELSTRATA: one slot of the level strip, drawn as a slice of ground.
+ * Slot 0 is the surface (sky over grass); slots 1..3 go progressively darker
+ * and rockier, with the odd fleck of ore. No artwork required. */
+static void DrawLevelSlotStrata(INT32 const level)
+{
+	INT32 const x0 = MAP_LEVEL_SLOT_X(level) + 1;
+	INT32 const y0 = MAP_LEVEL_SLOT_Y(level) + 1;
+	INT32 const w  = MAP_LEVEL_SLOT_W - 2;
+	INT32 const h  = MAP_LEVEL_SLOT_H - 2;
+	if (w <= 0 || h <= 0) return;
+
+	SGPVSurface::Lock l(guiSAVEBUFFER);
+	UINT16* const buf    = l.Buffer<UINT16>();
+	UINT32  const stride = l.Pitch() / 2;
+
+	for (INT32 py = 0; py < h; ++py)
+	{
+		for (INT32 px = 0; px < w; ++px)
+		{
+			UINT32 const n     = StrataNoise(px, py, level);
+			INT32  const grain = (INT32)(n % 25) - 12;
+			INT32 r, g, b;
+
+			if (level == 0)
+			{
+				INT32 const horizon = (h * 2) / 5;
+				if (py < horizon)
+				{
+					/* sky, brightening towards the horizon */
+					INT32 const t = (py * 70) / (horizon > 0 ? horizon : 1);
+					r = 84 + t;
+					g = 116 + t;
+					b = 158 + t / 3;
+				}
+				else
+				{
+					/* grass, darkening with depth */
+					INT32 const d = py - horizon;
+					r = 58 - d + grain;
+					g = 104 - d * 2 + grain;
+					b = 42 - d + grain;
+				}
+			}
+			else
+			{
+				/* rock: each level down loses brightness */
+				INT32 const base = 78 - (level - 1) * 24;
+				INT32 const seam = ((py + (INT32)(StrataNoise(px / 9, level, 7) % 4)) % 6 == 0) ? 12 : 0;
+				r = base + 16 + grain + seam;
+				g = base + 7  + grain + seam;
+				b = base - 9  + grain + seam;
+				if (n % 233 == 0)
+				{
+					/* fleck of ore */
+					r += 70;
+					g += 52;
+					b += 12;
+				}
+			}
+
+			if (r < 0)   r = 0;
+			if (g < 0)   g = 0;
+			if (b < 0)   b = 0;
+			if (r > 255) r = 255;
+			if (g > 255) g = 255;
+			if (b > 255) b = 255;
+
+			buf[(UINT32)(y0 + py) * stride + (UINT32)(x0 + px)] =
+				Get16BPPColor(FROMRGB(r, g, b));
+		}
+	}
+}
+
+
 void RenderMapLevelSelectorFullSize(void)
 {
-	UINT16 const boxFill = Get16BPPColor(FROMRGB(10, 12, 9));
+	/* LEVELSTRATA: paint the four slots as a cross section of the ground,
+	 * from sky and grass down to deep rock, so the strip reads as depth. */
 	for (INT32 i = 0; i < 4; ++i)
 	{
-		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
-			MAP_LEVEL_SLOT_X(i) + 1, MAP_LEVEL_SLOT_Y(i) + 1,
-			MAP_LEVEL_SLOT_X(i) + MAP_LEVEL_SLOT_W - 1, MAP_LEVEL_SLOT_Y(i) + MAP_LEVEL_SLOT_H - 1,
-			boxFill);
+		DrawLevelSlotStrata(i);
 	}
 	{
 		SGPVSurface::Lock l(guiSAVEBUFFER);

@@ -246,6 +246,13 @@ enum{
 // the big map .pcx
 static SGPVSurface* guiBIGMAP;
 
+/* LEVELART: the strategic map surface is private to this file, but the
+ * full-size level selector wants to reuse it as scenery for its four slots. */
+SGPVSurface* GetStrategicMapSurface(void)
+{
+	return guiBIGMAP;
+}
+
 
 // the max allowable towns militia in a sector
 #define MAP_MILITIA_MAP_X 4

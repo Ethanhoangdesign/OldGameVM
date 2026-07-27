@@ -182,6 +182,10 @@ extern INT16 sSelectedMilitiaTown;
 // the selected sectors
 extern SGPSector sSelMap;
 
+/* LEVELART */
+class SGPVSurface;
+SGPVSurface* GetStrategicMapSurface(void);
+
 
 void    CreateDestroyMilitiaSectorButtons(void);
 BOOLEAN CanRedistributeMilitiaInSector(INT8 bClickedTownId);
