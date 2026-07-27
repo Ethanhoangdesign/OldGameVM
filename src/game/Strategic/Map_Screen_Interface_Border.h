@@ -56,6 +56,9 @@ extern INT32 giScrollButtonState;
 void DeleteMapBorderGraphics( void );
 void RenderMapBorder( void );
 
+// full-size layout: level selector drawn on the toggle strip
+void RenderMapLevelSelectorFullSize(void);
+
 void ToggleShowTownsMode( void );
 void ToggleShowMinesMode( void );
 void ToggleShowMilitiaMode( void );

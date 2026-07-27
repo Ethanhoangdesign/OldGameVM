@@ -4994,13 +4994,21 @@ void RenderMapRegionBackground( void )
 			/* Backdrop panel under the toggle-button row, like the reference
 			 * layout (drawn together with the map so a map redraw cannot
 			 * wipe it). */
-			SGPBox const strip = {692, 592, (UINT16)(SCREEN_WIDTH - 692), 56};
+			/* The wood band sits below the map (grid bottom = 612), like
+			 * Wildfire's Map_Bord.sti (bar at 609..648); the buttons and
+			 * the level selector poke a few px above it by design. */
+			SGPBox const strip = {262, 613, (UINT16)(SCREEN_WIDTH - 262), 35};
 			DrawFillerOnSurface(guiSAVEBUFFER, strip);
 			SGPVSurface::Lock l(guiSAVEBUFFER);
 			UINT16 const dark  = Get16BPPColor(FROMRGB(20, 24, 18));
 			UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
-			RectangleDraw(TRUE, 694, 594, SCREEN_WIDTH - 3, 646, dark,  l.Buffer<UINT16>());
-			RectangleDraw(TRUE, 695, 595, SCREEN_WIDTH - 2, 647, light, l.Buffer<UINT16>());
+			RectangleDraw(TRUE, 264, 615, SCREEN_WIDTH - 3, 645, dark,  l.Buffer<UINT16>());
+			RectangleDraw(TRUE, 265, 616, SCREEN_WIDTH - 2, 646, light, l.Buffer<UINT16>());
+		}
+		if (!fShowMapInventoryPool)
+		{
+			// level selector at the end of the toggle strip
+			RenderMapLevelSelectorFullSize();
 		}
 		/* Copy the whole full-size map region (the Wildfire right column). */
 		RestoreExternBackgroundRect(261, 0, SCREEN_WIDTH - 261, 647);

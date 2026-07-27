@@ -93,8 +93,10 @@
 #define MAP_HELICOPTER_ETA_POPUP_WIDTH 120
 #define MAP_HELICOPTER_ETA_POPUP_HEIGHT 68
 
-#define MAP_LEVEL_STRING_X (STD_SCREEN_X + 432)
-#define MAP_LEVEL_STRING_Y (STD_SCREEN_Y + 305)
+/* Full-size map: rebase the "Sublevel" label into the enlarged view (2x the
+ * vanilla offset from the map view origin). */
+#define MAP_LEVEL_STRING_X (g_ui.isMapFullSize() ? (MAP_VIEW_START_X + 324) : (STD_SCREEN_X + 432))
+#define MAP_LEVEL_STRING_Y (g_ui.isMapFullSize() ? (MAP_VIEW_START_Y + 590) : (STD_SCREEN_Y + 305))
 
 // font
 #define MAP_FONT BLOCKFONT2
@@ -3525,7 +3527,25 @@ static void HandleLowerLevelMapBlit(void)
 	}
 
 	// handle the blt of the sublevel
-	BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 21, MAP_VIEW_START_Y + 17);
+	if (g_ui.isMapFullSize())
+	{
+		/* Full-size sublevel art (e.g. Wildfire's Mine_N.sti subimage is
+		 * 676x580 = exactly 2x the vanilla 338x290), so the vanilla anchor
+		 * (+21,+17) doubles too.  The sublevel art is smaller than the
+		 * surface map art, so first wipe the whole surface-map area to the
+		 * mine art's background colour -- otherwise strips of the surface
+		 * map would stay visible along the edges when switching levels. */
+		UINT16 const fill = Get16BPPColor(FROMRGB(2, 2, 0));
+		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
+			MAP_VIEW_START_X + 1, MAP_VIEW_START_Y + 1,
+			MAP_VIEW_START_X + 1 + guiBIGMAP->Width(),
+			MAP_VIEW_START_Y + 1 + guiBIGMAP->Height(), fill);
+		BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 42, MAP_VIEW_START_Y + 34);
+	}
+	else
+	{
+		BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 21, MAP_VIEW_START_Y + 17);
+	}
 
 	// handle shading of sublevels
 	ShadeSubLevelsNotVisited( );

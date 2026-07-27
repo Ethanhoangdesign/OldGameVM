@@ -236,8 +236,9 @@ void RenderMapScreenInterfaceBottom( void )
 			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 665, 712, 681, boxFill);   // Current Balance
 			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 701, 712, 717, boxFill);   // Daily Income
 			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 737, 712, 753, boxFill);   // Daily Expenses
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 802, 659, 894, 707, boxFill);   // sector picture backdrop
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 800, 741, 896, 763, boxFill);   // date / time
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 833, 657, 925, 709, boxFill);   // sector picture backdrop
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 833, 717, 925, 731, boxFill);   // sector name label
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 833, 741, 929, 761, boxFill);   // date / time
 			{
 				SGPVSurface::Lock l(guiSAVEBUFFER);
 				UINT16* const buf  = l.Buffer<UINT16>();
@@ -247,9 +248,9 @@ void RenderMapScreenInterfaceBottom( void )
 				 * (log | finances | buttons | sector), like the reference. */
 				INT32 const sections[][4] = {
 					{1, 649, 601, SCREEN_HEIGHT - 2},
-					{601, 649, 719, SCREEN_HEIGHT - 2},
-					{719, 649, 797, SCREEN_HEIGHT - 2},
-					{797, 649, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2},
+					{601, 649, 715, SCREEN_HEIGHT - 2},
+					{715, 649, 827, SCREEN_HEIGHT - 2},
+					{827, 649, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2},
 				};
 				for (auto const& s : sections)
 				{
@@ -257,13 +258,27 @@ void RenderMapScreenInterfaceBottom( void )
 					RectangleDraw(TRUE, s[0] + 1, s[1] + 1, s[2] - 1, s[3] - 1, dark,  buf);
 				}
 
+				/* Raised sockets under each button, like the reference. */
+				INT32 const sockets[][4] = {
+					{720, 657, 822, 694},   // options disc (94x27 plate)
+					{721, 698, 776, 742},   // laptop (43x32)
+					{768, 698, 823, 742},   // to tactical (43x32)
+					{719, 748, 825, 765},   // time compression row
+				};
+				for (auto const& s : sockets)
+				{
+					RectangleDraw(TRUE, s[0],     s[1],     s[2],     s[3],     light, buf);
+					RectangleDraw(TRUE, s[0] + 1, s[1] + 1, s[2] - 1, s[3] - 1, dark,  buf);
+				}
+
 				INT32 const boxes[][4] = {
 					{8, MapScreenLogTop() + 4, 595, SCREEN_HEIGHT - 8},
-					{606, 663, 714, 683},
-					{606, 699, 714, 719},
-					{606, 735, 714, 755},
-					{800, 657, 896, 709},
-					{798, 739, 898, 765},
+					{606, 663, 712, 683},
+					{606, 699, 712, 719},
+					{606, 735, 712, 755},
+					{831, 655, 927, 711},
+					{831, 715, 927, 733},
+					{831, 739, 931, 763},
 				};
 				for (auto const& b : boxes)
 				{
@@ -347,13 +362,16 @@ static GUIButtonRef MakeArrowButton(INT32 grayed, INT32 off, INT32 on, INT16 x, 
 
 static void CreateButtonsForMapScreenInterfaceBottom(void)
 {
-	guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]   = MakeExitButton( 6, 15, MAP_BOTTOM_BASE_X + 456, MAP_BOTTOM_BASE_Y + 410, BtnLaptopCallback,               pMapScreenBottomFastHelp[0]);
-	guiMapBottomExitButtons[MAP_EXIT_TO_TACTICAL] = MakeExitButton( 7, 16, MAP_BOTTOM_BASE_X + 496, MAP_BOTTOM_BASE_Y + 410, BtnTacticalCallback,             pMapScreenBottomFastHelp[1]);
-	guiMapBottomExitButtons[MAP_EXIT_TO_OPTIONS]  = MakeExitButton(18, 19, MAP_BOTTOM_BASE_X + 458, MAP_BOTTOM_BASE_Y + 372, BtnOptionsFromMapScreenCallback, pMapScreenBottomFastHelp[2]);
+	bool const fs = g_ui.isMapFullSize();
+	/* Real frame sizes (measured from map_border_buttons.sti): options disc
+	 * 94x27, laptop/tactical 43x32. */
+	guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]   = MakeExitButton( 6, 15, fs ? 727 : MAP_BOTTOM_BASE_X + 456, fs ? 704 : MAP_BOTTOM_BASE_Y + 410, BtnLaptopCallback,               pMapScreenBottomFastHelp[0]);
+	guiMapBottomExitButtons[MAP_EXIT_TO_TACTICAL] = MakeExitButton( 7, 16, fs ? 774 : MAP_BOTTOM_BASE_X + 496, fs ? 704 : MAP_BOTTOM_BASE_Y + 410, BtnTacticalCallback,             pMapScreenBottomFastHelp[1]);
+	guiMapBottomExitButtons[MAP_EXIT_TO_OPTIONS]  = MakeExitButton(18, 19, fs ? 724 : MAP_BOTTOM_BASE_X + 458, fs ? 663 : MAP_BOTTOM_BASE_Y + 372, BtnOptionsFromMapScreenCallback, pMapScreenBottomFastHelp[2]);
 
 	// time compression buttons
-	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_MORE] = MakeArrowButton(10, 1, 3, MAP_BOTTOM_BASE_X + 528, MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressMoreMapScreenCallback, pMapScreenBottomFastHelp[3]);
-	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, MAP_BOTTOM_BASE_X + 466, MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
+	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_MORE] = MakeArrowButton(10, 1, 3, fs ? 809 : MAP_BOTTOM_BASE_X + 528, fs ? 751 : MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressMoreMapScreenCallback, pMapScreenBottomFastHelp[3]);
+	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, fs ? 723 : MAP_BOTTOM_BASE_X + 466, fs ? 751 : MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
 
 	// scroll buttons
 	INT16 const msgUpX   = g_ui.isMapFullSize() ? 580 : MAP_BOTTOM_BASE_X + 331;
@@ -409,7 +427,14 @@ static void DrawNameOfLoadedSector()
 	ST::string buf = GetSectorIDString(sSelMap, TRUE);
 	buf = ReduceStringLength(buf, 80, font);
 
-	MPrint(MAP_BOTTOM_BASE_X + 548, MAP_BOTTOM_BASE_Y + 426, buf, HCenterVCenterAlign(80, 16));
+	if (g_ui.isMapFullSize())
+	{
+		MPrint(839, 716, buf, HCenterVCenterAlign(80, 16));
+	}
+	else
+	{
+		MPrint(MAP_BOTTOM_BASE_X + 548, MAP_BOTTOM_BASE_Y + 426, buf, HCenterVCenterAlign(80, 16));
+	}
 }
 
 
@@ -589,7 +614,9 @@ static void DisplayCompressMode(void)
 		Time = sTimeStrings[IsTimeBeingCompressed() ? giTimeCompressMode : 0];
 	}
 
-	RestoreExternBackgroundRect( MAP_BOTTOM_BASE_X + 489, MAP_BOTTOM_BASE_Y + 457, 522 - 489, 467 - 454 );
+	INT16 const cmX = g_ui.isMapFullSize() ? 757 : MAP_BOTTOM_BASE_X + 489;
+	INT16 const cmY = g_ui.isMapFullSize() ? 752 : MAP_BOTTOM_BASE_Y + 457;
+	RestoreExternBackgroundRect( cmX, cmY, 522 - 489, 467 - 454 );
 	SetFontDestBuffer(FRAME_BUFFER);
 
 	if( GetJA2Clock() - guiCompressionStringBaseTime >= PAUSE_GAME_TIMER )
@@ -612,14 +639,15 @@ static void DisplayCompressMode(void)
 	}
 
 	SetFontAttributes(COMPFONT, usColor);
-	MPrint(MAP_BOTTOM_BASE_X + 489, MAP_BOTTOM_BASE_Y + 457, Time,
-		HCenterVCenterAlign(522 - 489, 467 - 454));
+	MPrint(cmX, cmY, Time, HCenterVCenterAlign(522 - 489, 467 - 454));
 }
 
 
 static void CreateCompressModePause(void)
 {
-	MSYS_DefineRegion( &gMapPauseRegion, MAP_BOTTOM_BASE_X + 487, MAP_BOTTOM_BASE_Y + 456, MAP_BOTTOM_BASE_X + 522, MAP_BOTTOM_BASE_Y + 467, MSYS_PRIORITY_HIGH,
+	INT16 const pzX = g_ui.isMapFullSize() ? 755 : MAP_BOTTOM_BASE_X + 487;
+	INT16 const pzY = g_ui.isMapFullSize() ? 751 : MAP_BOTTOM_BASE_Y + 456;
+	MSYS_DefineRegion( &gMapPauseRegion, pzX, pzY, pzX + 35, pzY + 11, MSYS_PRIORITY_HIGH,
 							MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressModeClickCallback );
 	gMapPauseRegion.SetFastHelpText(pMapScreenBottomFastHelp[7]);
 }
@@ -970,9 +998,12 @@ void CreateDestroyMouseRegionMasksForTimeCompressionButtons()
 	if (disabled && !created)
 	{
 		// Mask over compress more, compress less and paus game buttons.
-		MSYS_DefineRegion(&gTimeCompressionMask[0], MAP_BOTTOM_BASE_X + 528, MAP_BOTTOM_BASE_Y + 457, 528 + 13, 457 + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
-		MSYS_DefineRegion(&gTimeCompressionMask[1], MAP_BOTTOM_BASE_X + 466, MAP_BOTTOM_BASE_Y + 457, 466 + 13, 457 + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
-		MSYS_DefineRegion(&gTimeCompressionMask[2], MAP_BOTTOM_BASE_X + 487, MAP_BOTTOM_BASE_Y + 457, 487 + 35, 457 + 11, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
+		bool const fsm = g_ui.isMapFullSize();
+		INT16 const mMoreX = fsm ? 809 : MAP_BOTTOM_BASE_X + 528, mLessX = fsm ? 723 : MAP_BOTTOM_BASE_X + 466;
+		INT16 const mPzX   = fsm ? 755 : MAP_BOTTOM_BASE_X + 487, mY    = fsm ? 752 : MAP_BOTTOM_BASE_Y + 457;
+		MSYS_DefineRegion(&gTimeCompressionMask[0], mMoreX, mY, mMoreX + 13, mY + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
+		MSYS_DefineRegion(&gTimeCompressionMask[1], mLessX, mY, mLessX + 13, mY + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
+		MSYS_DefineRegion(&gTimeCompressionMask[2], mPzX,   mY, mPzX + 35,  mY + 11, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
 		created = true;
 	}
 	else if (!disabled && created)

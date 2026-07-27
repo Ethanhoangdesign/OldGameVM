@@ -64,9 +64,9 @@ bool UILayout::isBigScreen() const
 
 
 UINT16 UILayout::currentHeight() const             { return fInMapMode ? (get_MAP_BOTTOM_BASE_Y() + m_mapScreenHeight) : m_screenHeight; }
-UINT16 UILayout::get_CLOCK_X() const               { return fInMapMode ? (get_MAP_BOTTOM_BASE_X() + 554) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 109 : 56); }
+UINT16 UILayout::get_CLOCK_X() const               { return fInMapMode ? (isMapFullSize() ? 843 : get_MAP_BOTTOM_BASE_X() + 554) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 109 : 56); }
 UINT16 UILayout::get_CLOCK_Y() const               { return currentHeight() - 23;                                  }
-UINT16 UILayout::get_RADAR_WINDOW_X() const        { return fInMapMode ? (get_MAP_BOTTOM_BASE_X() + 543) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 98 : 45); }
+UINT16 UILayout::get_RADAR_WINDOW_X() const        { return fInMapMode ? (isMapFullSize() ? 835 : get_MAP_BOTTOM_BASE_X() + 543) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 98 : 45); }
 UINT16 UILayout::get_RADAR_WINDOW_TM_Y() const     { return currentHeight() - 107;                                 }
 UINT16 UILayout::get_INV_INTERFACE_START_Y() const { return m_screenHeight - INV_INTERFACE_HEIGHT;                                  }
 
@@ -218,7 +218,10 @@ bool UILayout::isMapFullSize() const
 UINT16 UILayout::get_MAP_GRID_X() const       { return isMapFullSize() ? 42 : 21; }
 UINT16 UILayout::get_MAP_GRID_Y() const       { return isMapFullSize() ? 36 : 18; }
 UINT16 UILayout::get_MAP_VIEW_START_X() const { return isMapFullSize() ? 285 : m_stdScreenOffsetX + 270; }
-UINT16 UILayout::get_MAP_VIEW_START_Y() const { return isMapFullSize() ? 17  : m_stdScreenOffsetY + 10; }
+/* Full-size: the map hugs the top of the screen (grid bottom lands at y 612),
+ * leaving the 613..648 band free for the toggle strip, matching Wildfire's own
+ * Map_Bord.sti border art (wood bar at 609..648). */
+UINT16 UILayout::get_MAP_VIEW_START_Y() const { return isMapFullSize() ? 0   : m_stdScreenOffsetY + 10; }
 UINT16 UILayout::get_MAP_VIEW_WIDTH() const   { return isMapFullSize() ? 672 : 336; }
 UINT16 UILayout::get_MAP_VIEW_HEIGHT() const  { return isMapFullSize() ? 596 : 298; }
 

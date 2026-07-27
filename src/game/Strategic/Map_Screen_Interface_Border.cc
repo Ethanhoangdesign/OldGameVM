@@ -15,6 +15,9 @@
 #include "Text.h"
 #include "UILayout.h"
 #include "Video.h"
+#include "HImage.h"
+#include "Line.h"
+#include "VObject.h"
 #include "VSurface.h"
 #include <string_theory/string>
 
@@ -24,18 +27,24 @@ struct BUTTON_PICS;
 
 /* Full-size layout: the toggle row floats right above the bottom band on
  * the right, like the reference layout. */
-#define BTN_ROW_Y       (g_ui.isMapFullSize() ? 602 : STD_SCREEN_Y + 323)
-#define BTN_TOWN_X      (g_ui.isMapFullSize() ? 700 : STD_SCREEN_X + 299)
-#define BTN_MINE_X      (g_ui.isMapFullSize() ? 743 : STD_SCREEN_X + 342)
-#define BTN_TEAMS_X     (g_ui.isMapFullSize() ? 786 : STD_SCREEN_X + 385)
-#define BTN_MILITIA_X   (g_ui.isMapFullSize() ? 829 : STD_SCREEN_X + 428)
-#define BTN_AIR_X       (g_ui.isMapFullSize() ? 872 : STD_SCREEN_X + 471)
-#define BTN_ITEM_X      (g_ui.isMapFullSize() ? 915 : STD_SCREEN_X + 514)
+/* Full-size layout: the Wildfire toggle-button art is 50x44 (frames 1-5, 8 of
+ * map_border_buttons.sti), so space the buttons on a 64px pitch (50 + 14 gap)
+ * and centre them in the 56px strip band (y 592..648). */
+#define BTN_ROW_Y       (g_ui.isMapFullSize() ? 601 : STD_SCREEN_Y + 323)
+#define BTN_TOWN_X      (g_ui.isMapFullSize() ? 467 : STD_SCREEN_X + 299)
+#define BTN_MINE_X      (g_ui.isMapFullSize() ? 531 : STD_SCREEN_X + 342)
+#define BTN_TEAMS_X     (g_ui.isMapFullSize() ? 595 : STD_SCREEN_X + 385)
+#define BTN_MILITIA_X   (g_ui.isMapFullSize() ? 659 : STD_SCREEN_X + 428)
+#define BTN_AIR_X       (g_ui.isMapFullSize() ? 723 : STD_SCREEN_X + 471)
+#define BTN_ITEM_X      (g_ui.isMapFullSize() ? 787 : STD_SCREEN_X + 514)
 
-#define MAP_LEVEL_MARKER_X    (g_ui.isMapFullSize() ? 958 : STD_SCREEN_X + 565)
-#define MAP_LEVEL_MARKER_Y    (g_ui.isMapFullSize() ? 602 : STD_SCREEN_Y + 323)
+/* Full-size layout: the Wildfire level-marker art (greenarr.sti) is 151x23,
+ * so the selector rows match its width and sit at the right end of the strip
+ * with room to spare (861 + 151 = 1012 < 1024). */
+#define MAP_LEVEL_MARKER_X    (g_ui.isMapFullSize() ? 861 : STD_SCREEN_X + 565)
+#define MAP_LEVEL_MARKER_Y    (g_ui.isMapFullSize() ? 601 : STD_SCREEN_Y + 323)
 #define MAP_LEVEL_MARKER_DELTA   8
-#define MAP_LEVEL_MARKER_WIDTH  55
+#define MAP_LEVEL_MARKER_WIDTH  (g_ui.isMapFullSize() ? 151 : 55)
 
 
 #define MAP_BORDER_X (STD_SCREEN_X + 261)
@@ -116,6 +125,41 @@ void RenderMapBorderEtaPopUp( void )
 	BltVideoObject(FRAME_BUFFER, guiMapBorderEtaPopUp, 0, MAP_BORDER_X + 215, STD_SCREEN_Y + 291);
 
 	InvalidateRegion( MAP_BORDER_X + 215, (STD_SCREEN_Y + 291), MAP_BORDER_X + 215 + 100 , (STD_SCREEN_Y + 310));
+}
+
+
+/* Full-size layout: RenderMapBorder() (which normally draws the level strip
+ * art and marker) is skipped, so draw a small self-made level selector at the
+ * end of the toggle strip: four sunken rows plus the white marker. The mouse
+ * regions already sit at MAP_LEVEL_MARKER_X/Y. */
+void RenderMapLevelSelectorFullSize(void)
+{
+	UINT16 const boxFill = Get16BPPColor(FROMRGB(10, 12, 9));
+	for (INT32 i = 0; i < 4; ++i)
+	{
+		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
+			MAP_LEVEL_MARKER_X, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * i + 1,
+			MAP_LEVEL_MARKER_X + MAP_LEVEL_MARKER_WIDTH, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * (i + 1), boxFill);
+	}
+	{
+		SGPVSurface::Lock l(guiSAVEBUFFER);
+		UINT16 const dark  = Get16BPPColor(FROMRGB(20, 24, 18));
+		UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
+
+		/* sunken sockets, one per toggle button, evenly spaced along the
+		 * strip like the reference layout */
+		INT16 const btnX[] = { (INT16)BTN_TOWN_X, (INT16)BTN_MINE_X, (INT16)BTN_TEAMS_X, (INT16)BTN_MILITIA_X, (INT16)BTN_AIR_X, (INT16)BTN_ITEM_X };
+		for (INT16 const x : btnX)
+		{
+			RectangleDraw(TRUE, x - 3, BTN_ROW_Y - 3, x + 52, BTN_ROW_Y + 46, dark,  l.Buffer<UINT16>());
+			RectangleDraw(TRUE, x - 2, BTN_ROW_Y - 2, x + 53, BTN_ROW_Y + 47, light, l.Buffer<UINT16>());
+		}
+
+		RectangleDraw(TRUE, MAP_LEVEL_MARKER_X - 2, MAP_LEVEL_MARKER_Y - 2, MAP_LEVEL_MARKER_X + MAP_LEVEL_MARKER_WIDTH + 2, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * 4 + 2, dark, l.Buffer<UINT16>());
+		RectangleDraw(TRUE, MAP_LEVEL_MARKER_X - 1, MAP_LEVEL_MARKER_Y - 1, MAP_LEVEL_MARKER_X + MAP_LEVEL_MARKER_WIDTH + 1, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * 4 + 1, light, l.Buffer<UINT16>());
+	}
+	// the white rectangle highlighting the current level
+	BltVideoObject(guiSAVEBUFFER, guiLEVELMARKER, 0, MAP_LEVEL_MARKER_X, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * iCurrentMapSectorZ);
 }
 
 
