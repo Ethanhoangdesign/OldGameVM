@@ -4997,13 +4997,38 @@ void RenderMapRegionBackground( void )
 			/* The wood band sits below the map (grid bottom = 612), like
 			 * Wildfire's Map_Bord.sti (bar at 609..648); the buttons and
 			 * the level selector poke a few px above it by design. */
-			SGPBox const strip = {262, 613, (UINT16)(SCREEN_WIDTH - 262), 35};
+			/* WOODFRAME3: the map art is 714x612, so on screens wider or taller than
+			 * 1024x768 it no longer covers the whole region. Fill only the margins
+			 * AROUND the art with the wooden filler, never the art itself, so this
+			 * stays correct no matter when it runs relative to DrawMap(). */
+			{
+				UINT16 const artX = g_ui.get_MAP_VIEW_START_X() + 1;
+				UINT16 const artY = g_ui.get_MAP_VIEW_START_Y() + 1;
+				UINT16 const bandH = (UINT16)(g_ui.get_MAP_VIEW_START_Y() + 613);
+				if (artX > 261)
+				{
+					SGPBox const b = {261, 0, (UINT16)(artX - 261), bandH};
+					DrawFillerOnSurface(guiSAVEBUFFER, b);
+				}
+				if (artX + 714 < SCREEN_WIDTH)
+				{
+					SGPBox const b = {(UINT16)(artX + 714), 0, (UINT16)(SCREEN_WIDTH - artX - 714), bandH};
+					DrawFillerOnSurface(guiSAVEBUFFER, b);
+				}
+				if (artY > 1)
+				{
+					SGPBox const b = {artX, 0, 714, artY};
+					DrawFillerOnSurface(guiSAVEBUFFER, b);
+				}
+			}
+
+			SGPBox const strip = {262, (UINT16)(g_ui.get_MAP_VIEW_START_Y() + 613), (UINT16)(SCREEN_WIDTH - 262), 35};
 			DrawFillerOnSurface(guiSAVEBUFFER, strip);
 			SGPVSurface::Lock l(guiSAVEBUFFER);
 			UINT16 const dark  = Get16BPPColor(FROMRGB(20, 24, 18));
 			UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
-			RectangleDraw(TRUE, 264, 615, SCREEN_WIDTH - 3, 645, dark,  l.Buffer<UINT16>());
-			RectangleDraw(TRUE, 265, 616, SCREEN_WIDTH - 2, 646, light, l.Buffer<UINT16>());
+			RectangleDraw(TRUE, 264, g_ui.get_MAP_VIEW_START_Y() + 615, SCREEN_WIDTH - 3, g_ui.get_MAP_VIEW_START_Y() + 645, dark,  l.Buffer<UINT16>());
+			RectangleDraw(TRUE, 265, g_ui.get_MAP_VIEW_START_Y() + 616, SCREEN_WIDTH - 2, g_ui.get_MAP_VIEW_START_Y() + 646, light, l.Buffer<UINT16>());
 		}
 		if (!fShowMapInventoryPool)
 		{
@@ -5011,7 +5036,7 @@ void RenderMapRegionBackground( void )
 			RenderMapLevelSelectorFullSize();
 		}
 		/* Copy the whole full-size map region (the Wildfire right column). */
-		RestoreExternBackgroundRect(261, 0, SCREEN_WIDTH - 261, 647);
+		RestoreExternBackgroundRect(261, 0, SCREEN_WIDTH - 261, g_ui.get_MAP_VIEW_START_Y() + 647);
 	}
 	else
 	{

@@ -1,4 +1,5 @@
 #include "Directories.h"
+#include "Map_Screen_Interface_Border.h"
 #include "Font.h"
 #include "Interface.h"
 #include "HImage.h"
@@ -309,6 +310,13 @@ void RenderMapScreenInterfaceBottom( void )
 		// invalidate region (in full-size mode include the log column on the left)
 		INT16 const restoreX = g_ui.isMapFullSize() ? 0 : MAP_BOTTOM_X;
 		INT16 const restoreY = g_ui.isMapFullSize() ? 354 : MAP_BOTTOM_Y;
+		if (g_ui.isMapFullSize())
+		{
+			/* LEVELRENDER: the filler band drawn above wipes the hand-drawn level
+			 * selector, which lives in this band now, so draw it again right
+			 * before the whole band is pushed from the save buffer to screen. */
+			RenderMapLevelSelectorFullSize();
+		}
 		RestoreExternBackgroundRect(restoreX, restoreY, SCREEN_WIDTH - restoreX, SCREEN_HEIGHT - restoreY);
 
 		// re render radar map

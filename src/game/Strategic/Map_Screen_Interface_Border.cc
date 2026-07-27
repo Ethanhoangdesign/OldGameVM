@@ -30,21 +30,68 @@ struct BUTTON_PICS;
 /* Full-size layout: the Wildfire toggle-button art is 50x44 (frames 1-5, 8 of
  * map_border_buttons.sti), so space the buttons on a 64px pitch (50 + 14 gap)
  * and centre them in the 56px strip band (y 592..648). */
-#define BTN_ROW_Y       (g_ui.isMapFullSize() ? 601 : STD_SCREEN_Y + 323)
-#define BTN_TOWN_X      (g_ui.isMapFullSize() ? 467 : STD_SCREEN_X + 299)
-#define BTN_MINE_X      (g_ui.isMapFullSize() ? 531 : STD_SCREEN_X + 342)
-#define BTN_TEAMS_X     (g_ui.isMapFullSize() ? 595 : STD_SCREEN_X + 385)
-#define BTN_MILITIA_X   (g_ui.isMapFullSize() ? 659 : STD_SCREEN_X + 428)
-#define BTN_AIR_X       (g_ui.isMapFullSize() ? 723 : STD_SCREEN_X + 471)
-#define BTN_ITEM_X      (g_ui.isMapFullSize() ? 787 : STD_SCREEN_X + 514)
+#define BTN_ROW_Y       (g_ui.isMapFullSize() ? (g_ui.get_MAP_VIEW_START_Y() + 601) : STD_SCREEN_Y + 323)
+/* BTNBLOCK: the six map toggle buttons move off the wooden strip under
+ * the map and into the free band to the right of the 763px bottom panel art,
+ * laid out as three columns by two rows of 50x44 buttons. When the screen is
+ * too narrow for that band the old single row under the map is kept. */
+#define BTN_BLOCK_FITS  (g_ui.isMapFullSize() && \
+	(INT32)(g_ui.get_MAP_BOTTOM_BASE_X() + 923) <= (INT32)SCREEN_WIDTH)
+#define BTN_BLOCK_X(c)  (g_ui.get_MAP_BOTTOM_BASE_X() + 773 + 50 * (c))
+#define BTN_BLOCK_Y(r)  (g_ui.get_MAP_BOTTOM_BASE_Y() + 371 + 44 * (r))
+#define BTN_TOWN_X      (BTN_BLOCK_FITS ? BTN_BLOCK_X(0) : \
+	(g_ui.isMapFullSize() ? (g_ui.get_MAP_VIEW_START_X() + 0) : STD_SCREEN_X + 299))
+#define BTN_TOWN_Y      (BTN_BLOCK_FITS ? BTN_BLOCK_Y(0) : BTN_ROW_Y)
+#define BTN_MINE_X      (BTN_BLOCK_FITS ? BTN_BLOCK_X(1) : \
+	(g_ui.isMapFullSize() ? (g_ui.get_MAP_VIEW_START_X() + 50) : STD_SCREEN_X + 342))
+#define BTN_MINE_Y      (BTN_BLOCK_FITS ? BTN_BLOCK_Y(0) : BTN_ROW_Y)
+#define BTN_TEAMS_X      (BTN_BLOCK_FITS ? BTN_BLOCK_X(2) : \
+	(g_ui.isMapFullSize() ? (g_ui.get_MAP_VIEW_START_X() + 100) : STD_SCREEN_X + 385))
+#define BTN_TEAMS_Y      (BTN_BLOCK_FITS ? BTN_BLOCK_Y(0) : BTN_ROW_Y)
+#define BTN_MILITIA_X      (BTN_BLOCK_FITS ? BTN_BLOCK_X(0) : \
+	(g_ui.isMapFullSize() ? (g_ui.get_MAP_VIEW_START_X() + 150) : STD_SCREEN_X + 428))
+#define BTN_MILITIA_Y      (BTN_BLOCK_FITS ? BTN_BLOCK_Y(1) : BTN_ROW_Y)
+#define BTN_AIR_X      (BTN_BLOCK_FITS ? BTN_BLOCK_X(1) : \
+	(g_ui.isMapFullSize() ? (g_ui.get_MAP_VIEW_START_X() + 200) : STD_SCREEN_X + 471))
+#define BTN_AIR_Y      (BTN_BLOCK_FITS ? BTN_BLOCK_Y(1) : BTN_ROW_Y)
+#define BTN_ITEM_X      (BTN_BLOCK_FITS ? BTN_BLOCK_X(2) : \
+	(g_ui.isMapFullSize() ? (g_ui.get_MAP_VIEW_START_X() + 250) : STD_SCREEN_X + 514))
+#define BTN_ITEM_Y      (BTN_BLOCK_FITS ? BTN_BLOCK_Y(1) : BTN_ROW_Y)
 
 /* Full-size layout: the Wildfire level-marker art (greenarr.sti) is 151x23,
  * so the selector rows match its width and sit at the right end of the strip
  * with room to spare (861 + 151 = 1012 < 1024). */
-#define MAP_LEVEL_MARKER_X    (g_ui.isMapFullSize() ? 861 : STD_SCREEN_X + 565)
-#define MAP_LEVEL_MARKER_Y    (g_ui.isMapFullSize() ? 601 : STD_SCREEN_Y + 323)
+/* LEVELSLOT-V: the map art is 714px wide, so the wooden margin beside it is
+ * only 24px at 1024x768 but grows with the screen. When the right margin can
+ * hold the selector we stack the four levels vertically (23px rows, like
+ * Wildfire's 151x23 GreenArr art); otherwise we fall back to four 37x31
+ * cells side by side inside the wooden strip under the map. */
+/* ANCHOR169: the map controls hang off the bottom edge of the map art
+ * (art bottom = MAP_VIEW_START_Y + 613), so they follow the map when it is
+ * centred vertically on a 16:9 screen instead of drifting to the very
+ * bottom of the display. */
+#define MAP_LEVEL_RIGHT_MARGIN (SCREEN_WIDTH - (g_ui.get_MAP_VIEW_START_X() + 715))
+#define MAP_LEVEL_VERTICAL     (g_ui.isMapFullSize() && MAP_LEVEL_RIGHT_MARGIN >= 48)
+#define ONMAP_MAP_LEVEL_MARKER_X    (!g_ui.isMapFullSize() ? (STD_SCREEN_X + 565) : \
+	(MAP_LEVEL_VERTICAL ? (g_ui.get_MAP_VIEW_START_X() + 719) \
+	                    : (g_ui.get_MAP_VIEW_START_X() + 672 - 148)))
+#define ONMAP_MAP_LEVEL_MARKER_Y    (!g_ui.isMapFullSize() ? (STD_SCREEN_Y + 323) : \
+	(MAP_LEVEL_VERTICAL ? (g_ui.get_MAP_VIEW_START_Y() + 521) : (g_ui.get_MAP_VIEW_START_Y() + 613)))
 #define MAP_LEVEL_MARKER_DELTA   8
 #define MAP_LEVEL_MARKER_WIDTH  (g_ui.isMapFullSize() ? 151 : 55)
+/* LEVELSLOT-H: at full size the four level slots sit side by side inside the
+ * wooden strip (37x31 each) because a vertical 4x23 stack does not fit the
+ * 35px band left under the map. Vanilla keeps its vertical 55x8 rows. */
+#define ONMAP_MAP_LEVEL_SLOT_W    (!g_ui.isMapFullSize() ? MAP_LEVEL_MARKER_WIDTH : \
+	(MAP_LEVEL_VERTICAL ? (MAP_LEVEL_RIGHT_MARGIN - 8 > 151 ? 151 : MAP_LEVEL_RIGHT_MARGIN - 8) : 37))
+#define ONMAP_MAP_LEVEL_SLOT_H    (!g_ui.isMapFullSize() ? MAP_LEVEL_MARKER_DELTA : \
+	(MAP_LEVEL_VERTICAL ? 23 : 31))
+#define MAP_LEVEL_SLOT_X(i) (MAP_LEVEL_MARKER_X + \
+	((g_ui.isMapFullSize() && !MAP_LEVEL_VERTICAL) ? MAP_LEVEL_SLOT_W * (i) : 0))
+#define MAP_LEVEL_SLOT_Y(i) (MAP_LEVEL_MARKER_Y + \
+	(!g_ui.isMapFullSize() ? MAP_LEVEL_MARKER_DELTA * (i) : \
+	 (MAP_LEVEL_VERTICAL ? MAP_LEVEL_SLOT_H * (i) : 0)))
+
 
 
 #define MAP_BORDER_X (STD_SCREEN_X + 261)
@@ -52,6 +99,20 @@ struct BUTTON_PICS;
 
 
 // mouse levels
+/* LEVELBAR: when the band to the right of the 763px bottom panel art is
+ * wide enough to hold the six-button block AND the level selector, the
+ * selector moves down there next to the buttons; otherwise it stays in the
+ * wooden margin beside the map. Four rows of 22px fit the 121px panel. */
+#define LEVEL_BAR_FITS  (BTN_BLOCK_FITS && \
+	(INT32)(g_ui.get_MAP_BOTTOM_BASE_X() + 979) <= (INT32)SCREEN_WIDTH)
+#define LEVEL_BAR_X     (g_ui.get_MAP_BOTTOM_BASE_X() + 931)
+#define LEVEL_BAR_Y     (g_ui.get_MAP_BOTTOM_BASE_Y() + 371)
+#define LEVEL_BAR_W     ((INT32)(SCREEN_WIDTH - (g_ui.get_MAP_BOTTOM_BASE_X() + 931)) < 151 ? (INT32)(SCREEN_WIDTH - (g_ui.get_MAP_BOTTOM_BASE_X() + 931)) : 151)
+#define MAP_LEVEL_MARKER_X  (LEVEL_BAR_FITS ? (UINT16)LEVEL_BAR_X : ONMAP_MAP_LEVEL_MARKER_X)
+#define MAP_LEVEL_MARKER_Y  (LEVEL_BAR_FITS ? (UINT16)LEVEL_BAR_Y : ONMAP_MAP_LEVEL_MARKER_Y)
+#define MAP_LEVEL_SLOT_W    (LEVEL_BAR_FITS ? (INT32)LEVEL_BAR_W : ONMAP_MAP_LEVEL_SLOT_W)
+#define MAP_LEVEL_SLOT_H    (LEVEL_BAR_FITS ? 22 : ONMAP_MAP_LEVEL_SLOT_H)
+
 static MOUSE_REGION LevelMouseRegions[4];
 
 // graphics
@@ -128,6 +189,26 @@ void RenderMapBorderEtaPopUp( void )
 }
 
 
+/* LEVELMARK-FS: at full size the 151x23 GreenArr art does not fit the 4x8 px
+ * level rows, so draw a thin highlight frame instead of blitting the art. */
+static void DrawCurrentLevelMarker(void)
+{
+	INT32 const i = iCurrentMapSectorZ;
+	if (g_ui.isMapFullSize())
+	{
+		SGPVSurface::Lock l(guiSAVEBUFFER);
+		UINT16 const white = Get16BPPColor(FROMRGB(220, 226, 200));
+		RectangleDraw(TRUE, MAP_LEVEL_SLOT_X(i) + 1, MAP_LEVEL_SLOT_Y(i) + 1,
+			MAP_LEVEL_SLOT_X(i) + MAP_LEVEL_SLOT_W - 1, MAP_LEVEL_SLOT_Y(i) + MAP_LEVEL_SLOT_H - 1,
+			white, l.Buffer<UINT16>());
+	}
+	else
+	{
+		BltVideoObject(guiSAVEBUFFER, guiLEVELMARKER, 0, MAP_LEVEL_MARKER_X, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * i);
+	}
+}
+
+
 /* Full-size layout: RenderMapBorder() (which normally draws the level strip
  * art and marker) is skipped, so draw a small self-made level selector at the
  * end of the toggle strip: four sunken rows plus the white marker. The mouse
@@ -138,36 +219,33 @@ void RenderMapLevelSelectorFullSize(void)
 	for (INT32 i = 0; i < 4; ++i)
 	{
 		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
-			MAP_LEVEL_MARKER_X, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * i + 1,
-			MAP_LEVEL_MARKER_X + MAP_LEVEL_MARKER_WIDTH, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * (i + 1), boxFill);
+			MAP_LEVEL_SLOT_X(i) + 1, MAP_LEVEL_SLOT_Y(i) + 1,
+			MAP_LEVEL_SLOT_X(i) + MAP_LEVEL_SLOT_W - 1, MAP_LEVEL_SLOT_Y(i) + MAP_LEVEL_SLOT_H - 1,
+			boxFill);
 	}
 	{
 		SGPVSurface::Lock l(guiSAVEBUFFER);
 		UINT16 const dark  = Get16BPPColor(FROMRGB(20, 24, 18));
 		UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
-
-		/* sunken sockets, one per toggle button, evenly spaced along the
-		 * strip like the reference layout */
-		INT16 const btnX[] = { (INT16)BTN_TOWN_X, (INT16)BTN_MINE_X, (INT16)BTN_TEAMS_X, (INT16)BTN_MILITIA_X, (INT16)BTN_AIR_X, (INT16)BTN_ITEM_X };
-		for (INT16 const x : btnX)
+		for (INT32 i = 0; i < 4; ++i)
 		{
-			RectangleDraw(TRUE, x - 3, BTN_ROW_Y - 3, x + 52, BTN_ROW_Y + 46, dark,  l.Buffer<UINT16>());
-			RectangleDraw(TRUE, x - 2, BTN_ROW_Y - 2, x + 53, BTN_ROW_Y + 47, light, l.Buffer<UINT16>());
+			RectangleDraw(TRUE, MAP_LEVEL_SLOT_X(i), MAP_LEVEL_SLOT_Y(i),
+				MAP_LEVEL_SLOT_X(i) + MAP_LEVEL_SLOT_W, MAP_LEVEL_SLOT_Y(i) + MAP_LEVEL_SLOT_H,
+				dark, l.Buffer<UINT16>());
 		}
-
-		RectangleDraw(TRUE, MAP_LEVEL_MARKER_X - 2, MAP_LEVEL_MARKER_Y - 2, MAP_LEVEL_MARKER_X + MAP_LEVEL_MARKER_WIDTH + 2, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * 4 + 2, dark, l.Buffer<UINT16>());
-		RectangleDraw(TRUE, MAP_LEVEL_MARKER_X - 1, MAP_LEVEL_MARKER_Y - 1, MAP_LEVEL_MARKER_X + MAP_LEVEL_MARKER_WIDTH + 1, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * 4 + 1, light, l.Buffer<UINT16>());
+		RectangleDraw(TRUE, MAP_LEVEL_MARKER_X - 2, MAP_LEVEL_MARKER_Y - 2,
+			MAP_LEVEL_SLOT_X(3) + MAP_LEVEL_SLOT_W + 2, MAP_LEVEL_SLOT_Y(3) + MAP_LEVEL_SLOT_H + 2,
+			light, l.Buffer<UINT16>());
 	}
-	// the white rectangle highlighting the current level
-	BltVideoObject(guiSAVEBUFFER, guiLEVELMARKER, 0, MAP_LEVEL_MARKER_X, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * iCurrentMapSectorZ);
+	DrawCurrentLevelMarker();
 }
 
 
-static void MakeButton(UINT idx, UINT gfx, INT16 x, GUI_CALLBACK click, const ST::string& help)
+static void MakeButton(UINT idx, UINT gfx, INT16 x, INT16 y, GUI_CALLBACK click, const ST::string& help)
 {
 	BUTTON_PICS* const img = LoadButtonImage(INTERFACEDIR "/map_border_buttons.sti", gfx, gfx + 9);
 	giMapBorderButtonsImage[idx] = img;
-	GUIButtonRef const btn = QuickCreateButtonNoMove(img, x, BTN_ROW_Y, MSYS_PRIORITY_HIGH, click);
+	GUIButtonRef const btn = QuickCreateButtonNoMove(img, x, y, MSYS_PRIORITY_HIGH, click);
 	giMapBorderButtons[idx] = btn;
 	btn->SetFastHelpText(help);
 	btn->SetCursor(MSYS_NO_CURSOR);
@@ -187,12 +265,12 @@ void CreateButtonsForMapBorder(void)
 {
 	// will create the buttons needed for the map screen border region
 
-	MakeButton(MAP_BORDER_TOWN_BTN,     5, BTN_TOWN_X,    BtnTownCallback,     pMapScreenBorderButtonHelpText[0]); // towns
-	MakeButton(MAP_BORDER_MINE_BTN,     4, BTN_MINE_X,    BtnMineCallback,     pMapScreenBorderButtonHelpText[1]); // mines
-	MakeButton(MAP_BORDER_TEAMS_BTN,    3, BTN_TEAMS_X,   BtnTeamCallback,     pMapScreenBorderButtonHelpText[2]); // people
-	MakeButton(MAP_BORDER_MILITIA_BTN,  8, BTN_MILITIA_X, BtnMilitiaCallback,  pMapScreenBorderButtonHelpText[5]); // militia
-	MakeButton(MAP_BORDER_AIRSPACE_BTN, 2, BTN_AIR_X,     BtnAircraftCallback, pMapScreenBorderButtonHelpText[3]); // airspace
-	MakeButton(MAP_BORDER_ITEM_BTN,     1, BTN_ITEM_X,    BtnItemCallback,     pMapScreenBorderButtonHelpText[4]); // items
+	MakeButton(MAP_BORDER_TOWN_BTN,     5, BTN_TOWN_X, BTN_TOWN_Y,    BtnTownCallback,     pMapScreenBorderButtonHelpText[0]); // towns
+	MakeButton(MAP_BORDER_MINE_BTN,     4, BTN_MINE_X, BTN_MINE_Y,    BtnMineCallback,     pMapScreenBorderButtonHelpText[1]); // mines
+	MakeButton(MAP_BORDER_TEAMS_BTN,    3, BTN_TEAMS_X, BTN_TEAMS_Y,   BtnTeamCallback,     pMapScreenBorderButtonHelpText[2]); // people
+	MakeButton(MAP_BORDER_MILITIA_BTN,  8, BTN_MILITIA_X, BTN_MILITIA_Y, BtnMilitiaCallback,  pMapScreenBorderButtonHelpText[5]); // militia
+	MakeButton(MAP_BORDER_AIRSPACE_BTN, 2, BTN_AIR_X, BTN_AIR_Y,     BtnAircraftCallback, pMapScreenBorderButtonHelpText[3]); // airspace
+	MakeButton(MAP_BORDER_ITEM_BTN,     1, BTN_ITEM_X, BTN_ITEM_Y,    BtnItemCallback,     pMapScreenBorderButtonHelpText[4]); // items
 
 	InitializeMapBorderButtonStates( );
 }
@@ -519,7 +597,7 @@ static void DisplayCurrentLevelMarker(void)
 */
 
 	// it's actually a white rectangle, not a green arrow!
-	BltVideoObject(guiSAVEBUFFER, guiLEVELMARKER, 0, MAP_LEVEL_MARKER_X, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * iCurrentMapSectorZ);
+	DrawCurrentLevelMarker();
 }
 
 
@@ -531,10 +609,10 @@ void CreateMouseRegionsForLevelMarkers(void)
 	for (UINT sCounter = 0; sCounter < 4 ; ++sCounter)
 	{
 		MOUSE_REGION* const r = &LevelMouseRegions[sCounter];
-		const UINT16        x = MAP_LEVEL_MARKER_X;
-		const UINT16        y = MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * sCounter;
-		const UINT16        w = MAP_LEVEL_MARKER_WIDTH;
-		const UINT16        h = MAP_LEVEL_MARKER_DELTA;
+		const UINT16        x = MAP_LEVEL_SLOT_X(sCounter);
+		const UINT16        y = MAP_LEVEL_SLOT_Y(sCounter);
+		const UINT16        w = MAP_LEVEL_SLOT_W;
+		const UINT16        h = MAP_LEVEL_SLOT_H;
 		MSYS_DefineRegion(r, x, y, x + w, y + h, MSYS_PRIORITY_HIGH, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, LevelMarkerBtnCallback);
 
 		MSYS_SetRegionUserData(r, 0, sCounter);
