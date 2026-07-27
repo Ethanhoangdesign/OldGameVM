@@ -117,6 +117,17 @@ public:
 		TranslatableString::Loader& stringLoader;
 	};
 
+	/** Repoint this item's big inventory artwork after load.
+	 *
+	 * Some editions ship a BigItems.slf whose gunNN.sti numbering does not
+	 * follow the item index, so the item table has to be corrected once the
+	 * edition is known.  See WF-ITEMART in DefaultContentManager.cc. */
+	void overrideInventoryGraphicBig(const ST::string& path, uint16_t subImageIndex);
+
+	/** Repoint this item's small inventory artwork to another sub-image of the
+	 * sheet it already uses.  See WF-ITEMART in DefaultContentManager.cc. */
+	void overrideInventoryGraphicSmallSubImage(uint16_t subImageIndex);
+
 	virtual JsonValue serialize() const;
 	static std::unique_ptr<ItemModel> deserialize(const JsonValue &json, TranslatableString::Loader& stringLoader);
 

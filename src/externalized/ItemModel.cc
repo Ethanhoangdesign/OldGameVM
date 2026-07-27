@@ -115,6 +115,16 @@ int8_t          ItemModel::getReliability() const      { return bReliability;   
 int8_t          ItemModel::getRepairEase() const       { return bRepairEase;           }
 uint16_t        ItemModel::getFlags() const            { return fFlags;                }
 const GraphicModel& ItemModel::getInventoryGraphicSmall() const { return inventoryGraphics.small; }
+void ItemModel::overrideInventoryGraphicBig(const ST::string& path, uint16_t subImageIndex)
+{
+	inventoryGraphics.big = GraphicModel(path, subImageIndex);
+}
+
+void ItemModel::overrideInventoryGraphicSmallSubImage(uint16_t subImageIndex)
+{
+	inventoryGraphics.small = GraphicModel(inventoryGraphics.small.getPath(), subImageIndex);
+}
+
 const GraphicModel& ItemModel::getInventoryGraphicBig() const { return inventoryGraphics.big; }
 const TilesetTileIndexModel& ItemModel::getTileGraphic() const { return tileGraphic; }
 

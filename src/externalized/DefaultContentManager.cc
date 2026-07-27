@@ -906,6 +906,55 @@ bool DefaultContentManager::loadGameData(TranslatableString::Loader& stringLoade
 	loadExplosives(stringLoader, m_explosionAnimations);
 	loadArmours(stringLoader);
 
+	// WF-ITEMART: JA2 Wildfire ships a BigItems.slf whose gun artwork is
+	// numbered independently of the item index -- gun00.sti is the mortar, and
+	// the pistol block is shifted as a result.  The original executable carried
+	// that mapping internally, so data-driven builds show the wrong picture for
+	// 14 items.  Repoint them once the item table is loaded.  Detection follows
+	// UsesWildfireInterfaceArt() in UILayout.cc: Wildfire replaces vanilla's
+	// 8-bit b_map.pcx with a 16-bit b_map.sti.
+	if (doesGameResExists("interface/b_map.sti") &&
+		!doesGameResExists("interface/b_map.pcx"))
+	{
+		struct WildfireBigItemFixup
+		{
+			uint16_t    itemIndex;
+			const char* path;
+			uint16_t    smallSubImage;
+			const char* comment;
+		};
+
+		static const WildfireBigItemFixup wildfireBigItemFixups[] =
+		{
+			{  1, "bigitems/gun04.sti",  4, "Calico M950"    },
+			{  4, "bigitems/gun01.sti",  1, "Beretta 92F"    },
+			{ 40, "bigitems/gun37.sti", 37, "M79"            },
+			{ 41, "bigitems/gun00.sti",  0, "Mortar"         },
+			{ 51, "bigitems/gun38.sti", 38, "M72 LAW"        },
+			{ 55, "bigitems/gun52.sti", 52, "SVU"            },
+			{ 56, "bigitems/gun40.sti", 40, "MP7"            },
+			{ 60, "bigitems/gun39.sti", 39, "Cannon"         },
+			{ 61, "bigitems/gun46.sti", 46, "Dart Gun"       },
+			{ 63, "bigitems/gun49.sti", 49, "Flamethrower"   },
+			{ 65, "bigitems/gun48.sti", 48, "AS Val"         },
+			{ 66, "bigitems/gun41.sti", 41, "VSS Vintorez"   },
+			{ 67, "bigitems/gun45.sti", 45, "V-94"           },
+			{ 68, "bigitems/gun50.sti", 50, "F2000"          },
+		};
+
+		int numRepointed = 0;
+		for (const WildfireBigItemFixup& fixup : wildfireBigItemFixups)
+		{
+			ItemModel* item = const_cast<ItemModel*>(m_items.optionalById(fixup.itemIndex));
+			if (item == NULL) continue;
+			item->overrideInventoryGraphicBig(fixup.path, 0);
+			item->overrideInventoryGraphicSmallSubImage(fixup.smallSubImage);
+			++numRepointed;
+		}
+
+		SLOGI("WF-ITEMART: repointed {} Wildfire item pictures", numRepointed);
+	}
+
 	// Setup views
 	m_magazines = MagazinesContainer(m_items);
 	m_weapons = WeaponsContainer(m_items);
