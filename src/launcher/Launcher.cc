@@ -29,7 +29,8 @@ const Fl_Text_Display::Style_Table_Entry styleTable[] = {
 	{  FL_DARK_RED,		FL_COURIER,			14 }, // B - Error Text
 };
 
-const char* defaultResolution = "640x480";
+/* RECRES: default to the size the new layout targets. */
+const char* defaultResolution = "1366x768";
 
 const std::vector<GameVersion> predefinedVersions = {
 	GameVersion::DUTCH,
@@ -43,6 +44,9 @@ const std::vector<GameVersion> predefinedVersions = {
 	GameVersion::SIMPLIFIED_CHINESE
 };
 const std::vector< std::pair<int, int> > predefinedResolutions = {
+	/* RECRES: the full-size Wildfire map screen is laid out and
+	 * tested at this size, so offer it first. */
+	std::make_pair(1366, 768),
 	std::make_pair(640,  480),
 	std::make_pair(800,  600),
 	std::make_pair(1024, 768),
@@ -287,6 +291,11 @@ void Launcher::populateChoices() {
 	}
 	for (std::pair<int,int> res : predefinedResolutions) {
 		ST::string resolutionString = ST::format("{d}x{d}", res.first, res.second);
+		if (res.first == 1366 && res.second == 768) {
+		    /* RECRES: sscanf below reads only the leading numbers,
+		     * so trailing text in the label is harmless. */
+		    resolutionString = ST::format("{} (recommended)", resolutionString);
+		}
 		predefinedResolutionMenuButton->insert(-1, resolutionString.c_str(), 0, setPredefinedResolution, this, 0);
 	}
 
