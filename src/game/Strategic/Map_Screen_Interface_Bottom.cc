@@ -3,6 +3,7 @@
  * It is not the original file. See NOTICE.md.
  */
 #include "Directories.h"
+#include "Logger.h"
 #include "Map_Screen_Interface_Border.h"
 #include "Font.h"
 #include "Interface.h"
@@ -73,11 +74,16 @@
 #define MESSAGE_BOX_W (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 40) : 301)
 #define MESSAGE_BOX_H (g_ui.isMapFullSize() ? 100 :  86)
 
-#define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 27) : MAP_BOTTOM_BASE_X + 330)
+/* SCROLLIN: nut van de dua cum cuon vao trong long khung BEVEL3.
+ * Vien khung day 13 pixel nen long khung ket thuc som hon truoc.
+ * So am dich sang trai, so duong dich sang phai. */
+#define SCROLL_NUDGE_X (-6)
+#define SCROLL_NUDGE_Y (2)
+#define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 23 + SCROLL_NUDGE_X) : MAP_BOTTOM_BASE_X + 330)   /* SCROLLBAY */
 #define MESSAGE_SCROLL_AREA_WIDTH    15
 
-#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? 672 : MAP_BOTTOM_BASE_Y + 390)
-#define MESSAGE_SCROLL_AREA_HEIGHT  (g_ui.isMapFullSize() ?  66 :  59)
+#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? (682 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 390)
+#define MESSAGE_SCROLL_AREA_HEIGHT  (g_ui.isMapFullSize() ?  53 :  59)
 
 #define SLIDER_HEIGHT		11
 #define SLIDER_WIDTH		11
@@ -108,6 +114,56 @@ enum{
 /* Top edge of the full-size history-log box, now inside the bottom band
  * (wide, 9 lines) per the reference layout; the left column below the
  * roster stays free for a future taller roster. */
+/* LOGFRAME2: dan khung nhat ky that cua Wildfire thay cho mang to den.
+ * Tranh goc map_screen_log.sti la 261x409, do duoc:
+ *   cot   0..12  mep trai (go noi o cot 10..12)
+ *   cot  13..228 long khung, den phang tuyet doi
+ *   cot 229..260 tron cum thanh cuon (go, ranh, con truot)
+ *   hang   0..13 mep tren
+ *   hang 391..408 mep duoi
+ * Khung cua ta rong hon tranh nen bon goc va cum cuon giu nguyen,
+ * chi lap lai dai giua cho du be ngang. */
+
+static void RenderMapScreenLogFrame(INT32 bx, INT32 by, INT32 bw, INT32 bh)
+{
+	/* BEVEL3: dung khung noi bang 13 lop vien long nhau.
+	   Dai do sang lay tu anh ban goc: 2 diem sang ngoai, ranh toi 3 diem,
+	   dai xam 4 diem, 3 diem sang trong, roi vao long khung. */
+	static UINT8 const prof[13][3] =
+	{
+		{  48,  52,  42 }, {  96, 104,  84 }, {  64,  70,  56 },
+		{  12,  16,  10 }, {   8,  12,   8 }, {  12,  16,  10 },
+		{  28,  32,  24 }, {  28,  32,  24 }, {  28,  32,  24 },
+		{  24,  28,  20 },
+		{  76,  84,  68 }, {  88,  96,  78 }, {  64,  70,  56 }
+	};
+	INT32 const n = 13;
+
+	UINT16 const fill = Get16BPPColor(FROMRGB(0, 12, 0));
+	ColorFillVideoSurfaceArea(guiSAVEBUFFER, bx, by, bx + bw, by + bh, fill);
+
+	if (bw < 2 * n + 8 || bh < 2 * n + 8) return;
+
+	for (INT32 i = 0; i < n; ++i)
+	{
+		INT32 const j = n - 1 - i;
+		UINT16 const ca = Get16BPPColor(FROMRGB(prof[i][0], prof[i][1], prof[i][2]));
+		UINT16 const cb = Get16BPPColor(FROMRGB(prof[j][0], prof[j][1], prof[j][2]));
+
+		/* canh tren va canh trai - huong sang */
+		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
+			bx + i, by + i, bx + bw - i, by + i + 1, ca);
+		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
+			bx + i, by + i, bx + i + 1, by + bh - i, ca);
+
+		/* canh duoi va canh phai - dao chieu cho ra khoi chim */
+		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
+			bx + i, by + bh - i - 1, bx + bw - i, by + bh - i, cb);
+		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
+			bx + bw - i - 1, by + i, bx + bw - i, by + bh - i, cb);
+	}
+}
+
 INT16 MapScreenLogTop()
 {
 	return 650;
@@ -240,8 +296,10 @@ void RenderMapScreenInterfaceBottom( void )
 			BltVideoObject(guiSAVEBUFFER, guiMAPBOTTOMPANEL, 0, MAP_BOTTOM_X, MAP_BOTTOM_Y);
 			/* Sunken dark compartments with bevel frames, like the reference
 			 * layout: log box, three finance boxes, sector picture and clock. */
-			UINT16 const boxFill = Get16BPPColor(FROMRGB(10, 12, 9));
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 10, MapScreenLogTop() + 6, g_ui.get_MAP_BOTTOM_BASE_X() - 10, SCREEN_HEIGHT - 10, boxFill);
+			/* LOGFRAME2: boxFill khong con dung */
+			RenderMapScreenLogFrame(0, MapScreenLogTop(),
+			(INT32)g_ui.get_MAP_BOTTOM_BASE_X(),
+			(INT32)SCREEN_HEIGHT - MapScreenLogTop());   /* LOGFRAME2 */
 					/* DARKFILLS: the panel art already provides every sunken
 					   compartment, so the hand-drawn dark slabs are gone. The
 					   sector-picture one was landing on the level selector. */
@@ -253,7 +311,7 @@ void RenderMapScreenInterfaceBottom( void )
 				/* Raised section frames dividing the band into compartments
 				 * (log | finances | buttons | sector), like the reference. */
 				INT32 const sections[][4] = {
-					{1, 649, 601, SCREEN_HEIGHT - 2},
+					/* SHOWART: khoang nhat ky da co tranh goc, bo khung ve tay */
 					{601, 649, 715, SCREEN_HEIGHT - 2},
 					{715, 649, 827, SCREEN_HEIGHT - 2},
 					{827, 649, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2},
@@ -266,16 +324,7 @@ void RenderMapScreenInterfaceBottom( void )
 
 		/* REALPANEL: cac o chim quanh nut da duoc khoet san trong tranh nen,
 		   khong can ve tay nua. */
-				INT32 const boxes[][4] = {
-					{8, MapScreenLogTop() + 4, (INT32)g_ui.get_MAP_BOTTOM_BASE_X() - 8, SCREEN_HEIGHT - 8},
-		/* MONEYPLATE: the two money plaques are painted into the panel art,
-		   so no hand-drawn frames are needed here any more. */
-				};
-				for (auto const& b : boxes)
-				{
-					RectangleDraw(TRUE, b[0],     b[1],     b[2],     b[3],     dark,  buf);
-					RectangleDraw(TRUE, b[0] + 1, b[1] + 1, b[2] + 1, b[3] + 1, light, buf);
-				}
+				/* SHOWART: bo not khung trong, tranh goc tu lo ra */
 			}
 		}
 		auto const& sMap{ sSelMap };
@@ -372,9 +421,9 @@ static void CreateButtonsForMapScreenInterfaceBottom(void)
 	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, fs ? (MAP_BOTTOM_BASE_X + 558) : MAP_BOTTOM_BASE_X + 466, fs ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
 
 	// scroll buttons
-	INT16 const msgUpX   = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 27) : MAP_BOTTOM_BASE_X + 331;
-	INT16 const msgUpY   = g_ui.isMapFullSize() ? 654 : MAP_BOTTOM_BASE_Y + 371;
-	INT16 const msgDownY = g_ui.isMapFullSize() ? 744 : MAP_BOTTOM_BASE_Y + 452;
+	INT16 const msgUpX   = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 23 + SCROLL_NUDGE_X) : MAP_BOTTOM_BASE_X + 331;   /* SCROLLBAY */
+	INT16 const msgUpY   = g_ui.isMapFullSize() ? (664 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 371;
+	INT16 const msgDownY = g_ui.isMapFullSize() ? (735 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 452;
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_UP]   = MakeArrowButton(11, 4, 6, msgUpX, msgUpY,   BtnMessageUpMapScreenCallback,   pMapScreenBottomFastHelp[5]);
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_DOWN] = MakeArrowButton(12, 5, 7, msgUpX, msgDownY, BtnMessageDownMapScreenCallback, pMapScreenBottomFastHelp[6]);
 }
