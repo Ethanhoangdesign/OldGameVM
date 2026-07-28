@@ -40,9 +40,15 @@ struct BUTTON_PICS;
  * laid out as three columns by two rows of 50x44 buttons. When the screen is
  * too narrow for that band the old single row under the map is kept. */
 #define BTN_BLOCK_FITS  (g_ui.isMapFullSize() && \
-	(INT32)(g_ui.get_MAP_BOTTOM_BASE_X() + 923) <= (INT32)SCREEN_WIDTH)
-#define BTN_BLOCK_X(c)  (g_ui.get_MAP_BOTTOM_BASE_X() + 773 + 50 * (c))
-#define BTN_BLOCK_Y(r)  (g_ui.get_MAP_BOTTOM_BASE_Y() + 371 + 44 * (r))
+	(INT32)(g_ui.get_MAP_BOTTOM_BASE_X() + 763) <= (INT32)SCREEN_WIDTH)
+/* BTNNUDGE: chinh tay cum sau nut bieu tuong.
+ *   X: am = sang trai, duong = sang phai
+ *   Y: am = len tren,  duong = xuong duoi
+ * Sua so o hai dong duoi day roi dung lai la thay ngay. */
+#define BTN_NUDGE_X (-5)
+#define BTN_NUDGE_Y (2)
+#define BTN_BLOCK_X(c)  (g_ui.get_MAP_BOTTOM_BASE_X() + 13 + BTN_NUDGE_X + 58 * (c))  /* BTNSLOTS */
+#define BTN_BLOCK_Y(r)  (g_ui.get_MAP_BOTTOM_BASE_Y() + 368 + BTN_NUDGE_Y + 57 * (r))  /* BTNSLOTS */
 #define BTN_TOWN_X      (BTN_BLOCK_FITS ? BTN_BLOCK_X(0) : \
 	(g_ui.isMapFullSize() ? (g_ui.get_MAP_VIEW_START_X() + 0) : STD_SCREEN_X + 299))
 #define BTN_TOWN_Y      (BTN_BLOCK_FITS ? BTN_BLOCK_Y(0) : BTN_ROW_Y)
@@ -91,10 +97,10 @@ struct BUTTON_PICS;
 #define ONMAP_MAP_LEVEL_SLOT_H    (!g_ui.isMapFullSize() ? MAP_LEVEL_MARKER_DELTA : \
 	(MAP_LEVEL_VERTICAL ? 23 : 31))
 #define MAP_LEVEL_SLOT_X(i) (MAP_LEVEL_MARKER_X + \
-	((g_ui.isMapFullSize() && !MAP_LEVEL_VERTICAL) ? MAP_LEVEL_SLOT_W * (i) : 0))
+	((g_ui.isMapFullSize() && !LEVEL_BAR_FITS && !MAP_LEVEL_VERTICAL) ? MAP_LEVEL_SLOT_W * (i) : 0))
 #define MAP_LEVEL_SLOT_Y(i) (MAP_LEVEL_MARKER_Y + \
 	(!g_ui.isMapFullSize() ? MAP_LEVEL_MARKER_DELTA * (i) : \
-	 (MAP_LEVEL_VERTICAL ? MAP_LEVEL_SLOT_H * (i) : 0)))
+	 ((LEVEL_BAR_FITS || MAP_LEVEL_VERTICAL) ? MAP_LEVEL_SLOT_H * (i) : 0)))
 
 
 
@@ -108,14 +114,14 @@ struct BUTTON_PICS;
  * selector moves down there next to the buttons; otherwise it stays in the
  * wooden margin beside the map. Four rows of 22px fit the 121px panel. */
 #define LEVEL_BAR_FITS  (BTN_BLOCK_FITS && \
-	(INT32)(g_ui.get_MAP_BOTTOM_BASE_X() + 979) <= (INT32)SCREEN_WIDTH)
-#define LEVEL_BAR_X     (g_ui.get_MAP_BOTTOM_BASE_X() + 931)
-#define LEVEL_BAR_Y     (g_ui.get_MAP_BOTTOM_BASE_Y() + 371)
-#define LEVEL_BAR_W     ((INT32)(SCREEN_WIDTH - (g_ui.get_MAP_BOTTOM_BASE_X() + 931)) < 151 ? (INT32)(SCREEN_WIDTH - (g_ui.get_MAP_BOTTOM_BASE_X() + 931)) : 151)
+	(INT32)(g_ui.get_MAP_BOTTOM_BASE_X() + 763) <= (INT32)SCREEN_WIDTH)
+#define LEVEL_BAR_X     (g_ui.get_MAP_BOTTOM_BASE_X() + 200)
+#define LEVEL_BAR_Y     (g_ui.get_MAP_BOTTOM_BASE_Y() + 374)
+#define LEVEL_BAR_W     (149)
 #define MAP_LEVEL_MARKER_X  (LEVEL_BAR_FITS ? (UINT16)LEVEL_BAR_X : ONMAP_MAP_LEVEL_MARKER_X)
 #define MAP_LEVEL_MARKER_Y  (LEVEL_BAR_FITS ? (UINT16)LEVEL_BAR_Y : ONMAP_MAP_LEVEL_MARKER_Y)
 #define MAP_LEVEL_SLOT_W    (LEVEL_BAR_FITS ? (INT32)LEVEL_BAR_W : ONMAP_MAP_LEVEL_SLOT_W)
-#define MAP_LEVEL_SLOT_H    (LEVEL_BAR_FITS ? 22 : ONMAP_MAP_LEVEL_SLOT_H)
+#define MAP_LEVEL_SLOT_H    (LEVEL_BAR_FITS ? 23 : ONMAP_MAP_LEVEL_SLOT_H)
 
 static MOUSE_REGION LevelMouseRegions[4];
 

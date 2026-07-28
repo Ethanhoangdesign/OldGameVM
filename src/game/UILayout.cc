@@ -68,9 +68,9 @@ bool UILayout::isBigScreen() const
 
 
 UINT16 UILayout::currentHeight() const             { return fInMapMode ? (get_MAP_BOTTOM_BASE_Y() + m_mapScreenHeight) : m_screenHeight; }
-UINT16 UILayout::get_CLOCK_X() const               { return fInMapMode ? (isMapFullSize() ? 843 : get_MAP_BOTTOM_BASE_X() + 554) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 109 : 56); }
+UINT16 UILayout::get_CLOCK_X() const               { return fInMapMode ? (isMapFullSize() ? (get_MAP_BOTTOM_BASE_X() + 668) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 554) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 109 : 56); }
 UINT16 UILayout::get_CLOCK_Y() const               { return currentHeight() - 23;                                  }
-UINT16 UILayout::get_RADAR_WINDOW_X() const        { return fInMapMode ? (isMapFullSize() ? 835 : get_MAP_BOTTOM_BASE_X() + 543) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 98 : 45); }
+UINT16 UILayout::get_RADAR_WINDOW_X() const        { return fInMapMode ? (isMapFullSize() ? (get_MAP_BOTTOM_BASE_X() + 663) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 543) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 98 : 45); }
 UINT16 UILayout::get_RADAR_WINDOW_TM_Y() const     { return currentHeight() - 107;                                 }
 UINT16 UILayout::get_INV_INTERFACE_START_Y() const { return m_screenHeight - INV_INTERFACE_HEIGHT;                                  }
 
@@ -223,6 +223,10 @@ UINT16 UILayout::get_MAP_GRID_X() const       { return isMapFullSize() ? 42 : 21
 UINT16 UILayout::get_MAP_GRID_Y() const       { return isMapFullSize() ? 36 : 18; }
 UINT16 UILayout::get_MAP_VIEW_START_X() const { /* LEVELSLOT-H: centre the fixed 672px map in the right-hand region so a
 	   wider screen only grows the wooden background, never the map. */
+	/* LEVELSLOT-H: centre the fixed 672px map in the right-hand region so a
+	   wider screen only grows the wooden background, never the map. The map
+	   art is a fixed 714px picture, so pinning it to the right edge would
+	   only move the empty wood from one side to the other. */
 	return isMapFullSize() ? (UINT16)(261 + (m_screenWidth - 261 - 714) / 2) : m_stdScreenOffsetX + 270; }
 /* Full-size: the map hugs the top of the screen (grid bottom lands at y 612),
  * leaving the 613..648 band free for the toggle strip, matching Wildfire's own
@@ -236,7 +240,9 @@ UINT16 UILayout::get_MAP_VIEW_HEIGHT() const  { return isMapFullSize() ? 596 : 2
 /* The map screen bottom panel keeps its vanilla-relative offsets (+0..640,
  * +359..480); in the full-size Wildfire layout its 763px art sits at
  * (261, 647), i.e. base (261, 288). */
-UINT16 UILayout::get_MAP_BOTTOM_BASE_X() const { return isMapFullSize() ? 261 : m_stdScreenOffsetX; }
+/* PINRIGHT: the 763px bottom panel art is pinned to the right edge, so the
+ * left column grows with the screen and the history log fills it. */
+UINT16 UILayout::get_MAP_BOTTOM_BASE_X() const { return isMapFullSize() ? (UINT16)(m_screenWidth > 1024 ? m_screenWidth - 763 : 261) : m_stdScreenOffsetX; }
 UINT16 UILayout::get_MAP_BOTTOM_BASE_Y() const { return isMapFullSize() ? (UINT16)(m_screenHeight - 480) : m_stdScreenOffsetY; }
 
 UINT16 UILayout::get_MAP_LEFT_COL_X() const { return isMapFullSize() ? 0 : m_stdScreenOffsetX; }

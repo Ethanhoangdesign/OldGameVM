@@ -70,10 +70,10 @@
  * from MapScreenLogTop()). */
 #define MESSAGE_BOX_X (g_ui.isMapFullSize() ?   8 : MAP_BOTTOM_BASE_X +  17)
 #define MESSAGE_BOX_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 13) : MAP_BOTTOM_BASE_Y + 377)
-#define MESSAGE_BOX_W (g_ui.isMapFullSize() ? 552 : 301)
+#define MESSAGE_BOX_W (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 40) : 301)
 #define MESSAGE_BOX_H (g_ui.isMapFullSize() ? 100 :  86)
 
-#define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? 580 : MAP_BOTTOM_BASE_X + 330)
+#define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 27) : MAP_BOTTOM_BASE_X + 330)
 #define MESSAGE_SCROLL_AREA_WIDTH    15
 
 #define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? 672 : MAP_BOTTOM_BASE_Y + 390)
@@ -234,16 +234,17 @@ void RenderMapScreenInterfaceBottom( void )
 			DrawFillerOnSurface(guiSAVEBUFFER, leftColumn);
 			SGPBox const band = {(UINT16)MAP_BOTTOM_X, (UINT16)MAP_BOTTOM_Y, (UINT16)(SCREEN_WIDTH - MAP_BOTTOM_X), 121};
 			DrawFillerOnSurface(guiSAVEBUFFER, band);
+			/* REALPANEL: tam tranh nen goc cua Wildfire rong dung 763 px,
+			 * bang dung khoang tu MAP_BOTTOM_X den mep phai man hinh, nen
+			 * ve thang no len thay vi tu ve khung chim bang tay. */
+			BltVideoObject(guiSAVEBUFFER, guiMAPBOTTOMPANEL, 0, MAP_BOTTOM_X, MAP_BOTTOM_Y);
 			/* Sunken dark compartments with bevel frames, like the reference
 			 * layout: log box, three finance boxes, sector picture and clock. */
 			UINT16 const boxFill = Get16BPPColor(FROMRGB(10, 12, 9));
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 10, MapScreenLogTop() + 6, 593, SCREEN_HEIGHT - 10, boxFill);
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 665, 712, 681, boxFill);   // Current Balance
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 701, 712, 717, boxFill);   // Daily Income
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 606, 737, 712, 753, boxFill);   // Daily Expenses
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 833, 657, 925, 709, boxFill);   // sector picture backdrop
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 833, 717, 925, 731, boxFill);   // sector name label
-			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 833, 741, 929, 761, boxFill);   // date / time
+			ColorFillVideoSurfaceArea(guiSAVEBUFFER, 10, MapScreenLogTop() + 6, g_ui.get_MAP_BOTTOM_BASE_X() - 10, SCREEN_HEIGHT - 10, boxFill);
+					/* DARKFILLS: the panel art already provides every sunken
+					   compartment, so the hand-drawn dark slabs are gone. The
+					   sector-picture one was landing on the level selector. */
 			{
 				SGPVSurface::Lock l(guiSAVEBUFFER);
 				UINT16* const buf  = l.Buffer<UINT16>();
@@ -263,27 +264,12 @@ void RenderMapScreenInterfaceBottom( void )
 					RectangleDraw(TRUE, s[0] + 1, s[1] + 1, s[2] - 1, s[3] - 1, dark,  buf);
 				}
 
-				/* Raised sockets under each button, like the reference. */
-				INT32 const sockets[][4] = {
-					{720, 657, 822, 694},   // options disc (94x27 plate)
-					{721, 698, 776, 742},   // laptop (43x32)
-					{768, 698, 823, 742},   // to tactical (43x32)
-					{719, 748, 825, 765},   // time compression row
-				};
-				for (auto const& s : sockets)
-				{
-					RectangleDraw(TRUE, s[0],     s[1],     s[2],     s[3],     light, buf);
-					RectangleDraw(TRUE, s[0] + 1, s[1] + 1, s[2] - 1, s[3] - 1, dark,  buf);
-				}
-
+		/* REALPANEL: cac o chim quanh nut da duoc khoet san trong tranh nen,
+		   khong can ve tay nua. */
 				INT32 const boxes[][4] = {
-					{8, MapScreenLogTop() + 4, 595, SCREEN_HEIGHT - 8},
-					{606, 663, 712, 683},
-					{606, 699, 712, 719},
-					{606, 735, 712, 755},
-					{831, 655, 927, 711},
-					{831, 715, 927, 733},
-					{831, 739, 931, 763},
+					{8, MapScreenLogTop() + 4, (INT32)g_ui.get_MAP_BOTTOM_BASE_X() - 8, SCREEN_HEIGHT - 8},
+		/* MONEYPLATE: the two money plaques are painted into the panel art,
+		   so no hand-drawn frames are needed here any more. */
 				};
 				for (auto const& b : boxes)
 				{
@@ -377,16 +363,16 @@ static void CreateButtonsForMapScreenInterfaceBottom(void)
 	bool const fs = g_ui.isMapFullSize();
 	/* Real frame sizes (measured from map_border_buttons.sti): options disc
 	 * 94x27, laptop/tactical 43x32. */
-	guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]   = MakeExitButton( 6, 15, fs ? 727 : MAP_BOTTOM_BASE_X + 456, fs ? 704 : MAP_BOTTOM_BASE_Y + 410, BtnLaptopCallback,               pMapScreenBottomFastHelp[0]);
-	guiMapBottomExitButtons[MAP_EXIT_TO_TACTICAL] = MakeExitButton( 7, 16, fs ? 774 : MAP_BOTTOM_BASE_X + 496, fs ? 704 : MAP_BOTTOM_BASE_Y + 410, BtnTacticalCallback,             pMapScreenBottomFastHelp[1]);
-	guiMapBottomExitButtons[MAP_EXIT_TO_OPTIONS]  = MakeExitButton(18, 19, fs ? 724 : MAP_BOTTOM_BASE_X + 458, fs ? 663 : MAP_BOTTOM_BASE_Y + 372, BtnOptionsFromMapScreenCallback, pMapScreenBottomFastHelp[2]);
+	guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]   = MakeExitButton( 6, 15, fs ? (MAP_BOTTOM_BASE_X + 554) : MAP_BOTTOM_BASE_X + 456, fs ? (MAP_BOTTOM_BASE_Y + 410) : MAP_BOTTOM_BASE_Y + 410, BtnLaptopCallback,               pMapScreenBottomFastHelp[0]);
+	guiMapBottomExitButtons[MAP_EXIT_TO_TACTICAL] = MakeExitButton( 7, 16, fs ? (MAP_BOTTOM_BASE_X + 607) : MAP_BOTTOM_BASE_X + 496, fs ? (MAP_BOTTOM_BASE_Y + 410) : MAP_BOTTOM_BASE_Y + 410, BtnTacticalCallback,             pMapScreenBottomFastHelp[1]);
+	guiMapBottomExitButtons[MAP_EXIT_TO_OPTIONS]  = MakeExitButton(18, 19, fs ? (MAP_BOTTOM_BASE_X + 554) : MAP_BOTTOM_BASE_X + 458, fs ? (MAP_BOTTOM_BASE_Y + 372) : MAP_BOTTOM_BASE_Y + 372, BtnOptionsFromMapScreenCallback, pMapScreenBottomFastHelp[2]);
 
 	// time compression buttons
-	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_MORE] = MakeArrowButton(10, 1, 3, fs ? 809 : MAP_BOTTOM_BASE_X + 528, fs ? 751 : MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressMoreMapScreenCallback, pMapScreenBottomFastHelp[3]);
-	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, fs ? 723 : MAP_BOTTOM_BASE_X + 466, fs ? 751 : MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
+	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_MORE] = MakeArrowButton(10, 1, 3, fs ? (MAP_BOTTOM_BASE_X + 639) : MAP_BOTTOM_BASE_X + 528, fs ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressMoreMapScreenCallback, pMapScreenBottomFastHelp[3]);
+	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, fs ? (MAP_BOTTOM_BASE_X + 558) : MAP_BOTTOM_BASE_X + 466, fs ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
 
 	// scroll buttons
-	INT16 const msgUpX   = g_ui.isMapFullSize() ? 580 : MAP_BOTTOM_BASE_X + 331;
+	INT16 const msgUpX   = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 27) : MAP_BOTTOM_BASE_X + 331;
 	INT16 const msgUpY   = g_ui.isMapFullSize() ? 654 : MAP_BOTTOM_BASE_Y + 371;
 	INT16 const msgDownY = g_ui.isMapFullSize() ? 744 : MAP_BOTTOM_BASE_Y + 452;
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_UP]   = MakeArrowButton(11, 4, 6, msgUpX, msgUpY,   BtnMessageUpMapScreenCallback,   pMapScreenBottomFastHelp[5]);
@@ -437,11 +423,11 @@ static void DrawNameOfLoadedSector()
 	SetFontAttributes(font, 183);
 
 	ST::string buf = GetSectorIDString(sSelMap, TRUE);
-	buf = ReduceStringLength(buf, 80, font);
+	buf = ReduceStringLength(buf, g_ui.isMapFullSize() ? 92 : 80, font);
 
 	if (g_ui.isMapFullSize())
 	{
-		MPrint(839, 716, buf, HCenterVCenterAlign(80, 16));
+		MPrint(MAP_BOTTOM_BASE_X + 663, MAP_BOTTOM_BASE_Y + 423, buf, HCenterVCenterAlign(94, 23));   /* RIGHTBAY */
 	}
 	else
 	{
@@ -626,9 +612,12 @@ static void DisplayCompressMode(void)
 		Time = sTimeStrings[IsTimeBeingCompressed() ? giTimeCompressMode : 0];
 	}
 
-	INT16 const cmX = g_ui.isMapFullSize() ? 757 : MAP_BOTTOM_BASE_X + 489;
-	INT16 const cmY = g_ui.isMapFullSize() ? 752 : MAP_BOTTOM_BASE_Y + 457;
-	RestoreExternBackgroundRect( cmX, cmY, 522 - 489, 467 - 454 );
+	INT16 const cmX = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X + 573) : MAP_BOTTOM_BASE_X + 489;
+	INT16 const cmY = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 457;
+	/* RIGHTBAY: khoang trong giua hai mui ten rong 66, cao 13. */
+	INT16 const cmW = g_ui.isMapFullSize() ? 66 : (522 - 489);
+	INT16 const cmH = g_ui.isMapFullSize() ? 13 : (467 - 454);
+	RestoreExternBackgroundRect( cmX, cmY, cmW, cmH );
 	SetFontDestBuffer(FRAME_BUFFER);
 
 	if( GetJA2Clock() - guiCompressionStringBaseTime >= PAUSE_GAME_TIMER )
@@ -651,15 +640,15 @@ static void DisplayCompressMode(void)
 	}
 
 	SetFontAttributes(COMPFONT, usColor);
-	MPrint(cmX, cmY, Time, HCenterVCenterAlign(522 - 489, 467 - 454));
+	MPrint(cmX, cmY, Time, HCenterVCenterAlign(cmW, cmH));
 }
 
 
 static void CreateCompressModePause(void)
 {
-	INT16 const pzX = g_ui.isMapFullSize() ? 755 : MAP_BOTTOM_BASE_X + 487;
-	INT16 const pzY = g_ui.isMapFullSize() ? 751 : MAP_BOTTOM_BASE_Y + 456;
-	MSYS_DefineRegion( &gMapPauseRegion, pzX, pzY, pzX + 35, pzY + 11, MSYS_PRIORITY_HIGH,
+	INT16 const pzX = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X + 573) : MAP_BOTTOM_BASE_X + 487;
+	INT16 const pzY = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 456;
+	MSYS_DefineRegion( &gMapPauseRegion, pzX, pzY, pzX + (g_ui.isMapFullSize() ? 66 : 35), pzY + (g_ui.isMapFullSize() ? 13 : 11), MSYS_PRIORITY_HIGH,
 							MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressModeClickCallback );
 	gMapPauseRegion.SetFastHelpText(pMapScreenBottomFastHelp[7]);
 }
@@ -965,10 +954,12 @@ static void DisplayCurrentBalanceTitleForMapBottom(void)
 
 	if (g_ui.isMapFullSize())
 	{
-		HCenterVCenterAlign const a{ 110, 10 };
-		MPrint(604, 652, pMapScreenBottomText,   a);
-		MPrint(604, 688, zMarksMapScreenText[2], a);
-		MPrint(604, 724, "Daily Expenses",       a);
+		/* MONEYPLATE: the panel art recesses only two money plaques, at panel
+		   (372,27)-(528,50) and (372,85)-(528,108). Each label sits on the
+		   wood just above its plaque; the figure goes inside the plaque. */
+		HCenterVCenterAlign const a{ 157, 24 };
+		MPrint(MAP_BOTTOM_BASE_X + 372, MAP_BOTTOM_BASE_Y + 362, pMapScreenBottomText,   a);
+		MPrint(MAP_BOTTOM_BASE_X + 372, MAP_BOTTOM_BASE_Y + 416, zMarksMapScreenText[2], a);
 	}
 	else
 	{
@@ -987,7 +978,7 @@ static void DisplayCurrentBalanceForMapBottom(void)
 	SetFontAttributes(COMPFONT, 183);
 	if (g_ui.isMapFullSize())
 	{
-		MPrint(606, 667, SPrintMoney(LaptopSaveInfo.iCurrentBalance), HCenterVCenterAlign(106, 10));
+		MPrint(MAP_BOTTOM_BASE_X + 372, MAP_BOTTOM_BASE_Y + 386, SPrintMoney(LaptopSaveInfo.iCurrentBalance), HCenterVCenterAlign(157, 24));
 	}
 	else
 	{
@@ -1011,8 +1002,8 @@ void CreateDestroyMouseRegionMasksForTimeCompressionButtons()
 	{
 		// Mask over compress more, compress less and paus game buttons.
 		bool const fsm = g_ui.isMapFullSize();
-		INT16 const mMoreX = fsm ? 809 : MAP_BOTTOM_BASE_X + 528, mLessX = fsm ? 723 : MAP_BOTTOM_BASE_X + 466;
-		INT16 const mPzX   = fsm ? 755 : MAP_BOTTOM_BASE_X + 487, mY    = fsm ? 752 : MAP_BOTTOM_BASE_Y + 457;
+		INT16 const mMoreX = fsm ? (MAP_BOTTOM_BASE_X + 639) : MAP_BOTTOM_BASE_X + 528, mLessX = fsm ? (MAP_BOTTOM_BASE_X + 558) : MAP_BOTTOM_BASE_X + 466;
+		INT16 const mPzX   = fsm ? (MAP_BOTTOM_BASE_X + 573) : MAP_BOTTOM_BASE_X + 487, mY    = fsm ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 457;
 		MSYS_DefineRegion(&gTimeCompressionMask[0], mMoreX, mY, mMoreX + 13, mY + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
 		MSYS_DefineRegion(&gTimeCompressionMask[1], mLessX, mY, mLessX + 13, mY + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
 		MSYS_DefineRegion(&gTimeCompressionMask[2], mPzX,   mY, mPzX + 35,  mY + 11, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
@@ -1056,7 +1047,7 @@ static void DisplayProjectedDailyMineIncome(void)
 	SetFontAttributes(COMPFONT, 183);
 	if (g_ui.isMapFullSize())
 	{
-		MPrint(606, 703, SPrintMoney(iRate), HCenterVCenterAlign(106, 10));
+		MPrint(MAP_BOTTOM_BASE_X + 372, MAP_BOTTOM_BASE_Y + 444, SPrintMoney(iRate), HCenterVCenterAlign(157, 24));
 	}
 	else
 	{
@@ -1092,9 +1083,10 @@ static void DisplayProjectedDailyExpenses(void)
 		if (!fMapBottomDirtied) return;
 	}
 
-	SetFontDestBuffer(FRAME_BUFFER);
-	SetFontAttributes(COMPFONT, FONT_RED);
-	MPrint(606, 739, SPrintMoney(iExpenses), HCenterVCenterAlign(106, 10));
+	/* MONEYPLATE: the Wildfire panel art has room for two money plaques
+	   only, so the daily expenses figure is no longer drawn. The tally is
+	   kept because it still marks the panel dirty when the payroll moves. */
+	(void)iExpenses;
 }
 
 

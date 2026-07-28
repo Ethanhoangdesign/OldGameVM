@@ -135,10 +135,10 @@ void SetMapCursorItem();
 #define DEST_ETA_WIDTH        (g_ui.get_MAP_LEFT_COL_X() + 217 - DEST_ETA_X)
 #define TIME_REMAINING_X      (g_ui.get_MAP_LEFT_COL_X() + 222)
 #define TIME_REMAINING_WIDTH  (g_ui.get_MAP_LEFT_COL_X() + 250 - TIME_REMAINING_X)
-#define CLOCK_Y_START         (g_ui.get_MAP_BOTTOM_BASE_Y() + 298)
+#define CLOCK_Y_START         (g_ui.get_MAP_BOTTOM_BASE_Y() + (g_ui.isMapFullSize() ? 456 : 298))
 #define CLOCK_ETA_X           (g_ui.get_MAP_BOTTOM_BASE_X() + 463 - 15 + 6 + 30)
-#define CLOCK_HOUR_X_START    (g_ui.get_MAP_BOTTOM_BASE_X() + 463 + 25 + 30)
-#define CLOCK_MIN_X_START     (g_ui.get_MAP_BOTTOM_BASE_X() + 463 + 45 + 30)
+#define CLOCK_HOUR_X_START    (g_ui.get_MAP_BOTTOM_BASE_X() + (g_ui.isMapFullSize() ? 677 : (463 + 25 + 30)))
+#define CLOCK_MIN_X_START     (g_ui.get_MAP_BOTTOM_BASE_X() + (g_ui.isMapFullSize() ? 725 : (463 + 45 + 30)))
 
 // contract
 #define CONTRACT_X            (g_ui.get_MAP_LEFT_COL_X() + 185)
