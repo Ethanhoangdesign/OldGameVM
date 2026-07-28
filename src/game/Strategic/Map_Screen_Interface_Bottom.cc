@@ -82,7 +82,7 @@
 #define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 23 + SCROLL_NUDGE_X) : MAP_BOTTOM_BASE_X + 330)   /* SCROLLBAY */
 #define MESSAGE_SCROLL_AREA_WIDTH    15
 
-#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? (682 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 390)
+#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 32 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 390)
 #define MESSAGE_SCROLL_AREA_HEIGHT  (g_ui.isMapFullSize() ?  53 :  59)
 
 #define SLIDER_HEIGHT		11
@@ -166,7 +166,7 @@ static void RenderMapScreenLogFrame(INT32 bx, INT32 by, INT32 bw, INT32 bh)
 
 INT16 MapScreenLogTop()
 {
-	return 650;
+	return (INT16)(SCREEN_HEIGHT - 118);   /* VFIT */
 }
 
 BOOLEAN fMapScreenBottomDirty = TRUE;
@@ -286,7 +286,21 @@ void RenderMapScreenInterfaceBottom( void )
 			/* Left column below the roster: plain filler (kept free for a
 			 * future taller roster). Bottom band: filler over the corner and
 			 * the art's old log frame, then the wide log box on top. */
-			SGPBox const leftColumn = {0, 643, 261, (UINT16)(SCREEN_HEIGHT - 643)};
+						/* VFILL2: neo dai go cot trai vao DAY BANG DANH SACH LINH bang chinh
+			 * cong thuc engine dung de ve danh sach, thay vi neo vao day ban do
+			 * (hai thu nay khong lien quan nhau nen neo vao nhau la sai). Nho vay
+			 * no tu dung o moi co man va moi co phong chu. */
+			/* LISTLONG: khung danh sach gio da chay cham dinh khung nhat ky, nen dai go
+			 * cot trai chi con can neo vao dung dinh do; neu neo cao hon no se ve
+			 * de len khung danh sach. */
+			INT32 const lcListBot = (INT32)SCREEN_HEIGHT - 118;
+			INT32 const lcSafeTop = (INT32)SCREEN_HEIGHT - 125;
+			/* kep hai dau: chi dung moc tinh duoc khi no nam trong khoang hop ly,
+			 * neu khong thi tro ve cach cu de khong bao gio sinh ra hop am. */
+			INT32 const lcRaw = (lcListBot > 8 && lcListBot < lcSafeTop) ? lcListBot : lcSafeTop;
+			UINT16 const lcTop = (UINT16)lcRaw;
+			UINT16 const lcH   = (UINT16)((INT32)SCREEN_HEIGHT > lcRaw ? (INT32)SCREEN_HEIGHT - lcRaw : 125);
+			SGPBox const leftColumn = {0, lcTop, 261, lcH};
 			DrawFillerOnSurface(guiSAVEBUFFER, leftColumn);
 			SGPBox const band = {(UINT16)MAP_BOTTOM_X, (UINT16)MAP_BOTTOM_Y, (UINT16)(SCREEN_WIDTH - MAP_BOTTOM_X), 121};
 			DrawFillerOnSurface(guiSAVEBUFFER, band);
@@ -310,11 +324,14 @@ void RenderMapScreenInterfaceBottom( void )
 				UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
 				/* Raised section frames dividing the band into compartments
 				 * (log | finances | buttons | sector), like the reference. */
+				/* VFIT: quy ve moc goc bang duoi va chieu cao man hinh */
+				INT32 const bx0   = (INT32)g_ui.get_MAP_BOTTOM_BASE_X();
+				INT32 const byTop = (INT32)SCREEN_HEIGHT - 119;
 				INT32 const sections[][4] = {
 					/* SHOWART: khoang nhat ky da co tranh goc, bo khung ve tay */
-					{601, 649, 715, SCREEN_HEIGHT - 2},
-					{715, 649, 827, SCREEN_HEIGHT - 2},
-					{827, 649, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2},
+					{bx0 -   2, byTop, bx0 + 112, SCREEN_HEIGHT - 2},
+					{bx0 + 112, byTop, bx0 + 224, SCREEN_HEIGHT - 2},
+					{bx0 + 224, byTop, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2},
 				};
 				for (auto const& s : sections)
 				{
@@ -422,8 +439,8 @@ static void CreateButtonsForMapScreenInterfaceBottom(void)
 
 	// scroll buttons
 	INT16 const msgUpX   = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 23 + SCROLL_NUDGE_X) : MAP_BOTTOM_BASE_X + 331;   /* SCROLLBAY */
-	INT16 const msgUpY   = g_ui.isMapFullSize() ? (664 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 371;
-	INT16 const msgDownY = g_ui.isMapFullSize() ? (735 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 452;
+	INT16 const msgUpY   = g_ui.isMapFullSize() ? (MapScreenLogTop() + 14 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 371;
+	INT16 const msgDownY = g_ui.isMapFullSize() ? (MapScreenLogTop() + 85 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 452;
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_UP]   = MakeArrowButton(11, 4, 6, msgUpX, msgUpY,   BtnMessageUpMapScreenCallback,   pMapScreenBottomFastHelp[5]);
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_DOWN] = MakeArrowButton(12, 5, 7, msgUpX, msgDownY, BtnMessageDownMapScreenCallback, pMapScreenBottomFastHelp[6]);
 }

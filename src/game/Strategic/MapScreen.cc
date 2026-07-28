@@ -5008,7 +5008,8 @@ void RenderMapRegionBackground( void )
 			{
 				UINT16 const artX = g_ui.get_MAP_VIEW_START_X() + 1;
 				UINT16 const artY = g_ui.get_MAP_VIEW_START_Y() + 1;
-				UINT16 const bandH = (UINT16)(g_ui.get_MAP_VIEW_START_Y() + 613);
+				/* VFILL: keo xuong den dinh bang duoi, khong dung o day ban do */
+					UINT16 const bandH = (UINT16)(SCREEN_HEIGHT - 121);
 				if (artX > 261)
 				{
 					SGPBox const b = {261, 0, (UINT16)(artX - 261), bandH};
@@ -5026,13 +5027,16 @@ void RenderMapRegionBackground( void )
 				}
 			}
 
-			SGPBox const strip = {262, (UINT16)(g_ui.get_MAP_VIEW_START_Y() + 613), (UINT16)(SCREEN_WIDTH - 262), 35};
+			/* VFILL: cao bang toan bo cho trong con lai, toi thieu 35 */
+			UINT16 const stripTop = (UINT16)(g_ui.get_MAP_VIEW_START_Y() + 613);
+			UINT16 const stripBot = (UINT16)(SCREEN_HEIGHT - 121);
+			UINT16 const stripH   = (UINT16)(stripBot > stripTop + 35 ? stripBot - stripTop : 35);
+			SGPBox const strip = {262, stripTop, (UINT16)(SCREEN_WIDTH - 262), stripH};
 			DrawFillerOnSurface(guiSAVEBUFFER, strip);
-			SGPVSurface::Lock l(guiSAVEBUFFER);
-			UINT16 const dark  = Get16BPPColor(FROMRGB(20, 24, 18));
-			UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
-			RectangleDraw(TRUE, 264, g_ui.get_MAP_VIEW_START_Y() + 615, SCREEN_WIDTH - 3, g_ui.get_MAP_VIEW_START_Y() + 645, dark,  l.Buffer<UINT16>());
-			RectangleDraw(TRUE, 265, g_ui.get_MAP_VIEW_START_Y() + 616, SCREEN_WIDTH - 2, g_ui.get_MAP_VIEW_START_Y() + 646, light, l.Buffer<UINT16>());
+			/* LISTLONG: da bo hai duong ke trang tri o day. Chung la khung cua
+			 * dai nut trong bo cuc 1024; tren man rong hon thi sau nut bam va
+			 * thanh chon tang da nam gon trong bang duoi, nen khung nay khong
+			 * con boc thu gi, chi la hai duong ke lo lung tren go. */
 		}
 		if (!fShowMapInventoryPool)
 		{
@@ -5085,9 +5089,17 @@ static void RenderTeamRegionBackground()
 			SGPBox const srcHead = {0,   0, 262,  40};
 			SGPBox const dstHead = {(UINT16)PLAYER_INFO_X, (UINT16)PLAYER_INFO_Y, 262, 40};
 			SGPBox const srcBody = {0,  40, 262, 190};
-			SGPBox const dstBody = {(UINT16)PLAYER_INFO_X, (UINT16)(PLAYER_INFO_Y + 40), 262, 474};
+			/* LISTLONG: khung chay dai cham dinh khung nhat ky thay vi dung o
+			 * con so cung 474. Dinh khung nhat ky la SCREEN_HEIGHT - 118 (dat o
+			 * ban va chieu doc). Hang tieu de 40 va thanh day 24 giu nguyen chieu
+			 * cao, chi than luoi giua duoc keo. Co ke chan duoi de khong bao gio
+			 * sinh ra chieu cao am tren man qua thap. */
+			INT32 const rosterBot  = (INT32)SCREEN_HEIGHT - 118;
+			INT32 const rosterBodyH = (rosterBot - (INT32)PLAYER_INFO_Y - 40 - 24 > 60)
+				? rosterBot - (INT32)PLAYER_INFO_Y - 40 - 24 : 474;
+			SGPBox const dstBody = {(UINT16)PLAYER_INFO_X, (UINT16)(PLAYER_INFO_Y + 40), 262, (UINT16)rosterBodyH};
 			SGPBox const srcFoot = {0, 230, 262,  24};
-			SGPBox const dstFoot = {(UINT16)PLAYER_INFO_X, (UINT16)(PLAYER_INFO_Y + 514), 262, 24};
+			SGPBox const dstFoot = {(UINT16)PLAYER_INFO_X, (UINT16)((INT32)PLAYER_INFO_Y + 40 + rosterBodyH), 262, 24};
 			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcHead, &dstHead);
 			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcBody, &dstBody);
 			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcFoot, &dstFoot);
