@@ -3,6 +3,7 @@
  * It is not the original file. See NOTICE.md.
  */
 #include "Map_Screen_Interface.h"
+#include "Interface_Panels.h"
 #include "ContentManager.h"
 #include "Dialogue_Control.h"
 #include "Directories.h"
@@ -4178,6 +4179,91 @@ void TurnOffSectorLocator()
 
 
 
+
+/* MAPZOOM-LOCFIT: ti le o ma khung dinh vi duoc phep chiem (phan tram). */
+#define LOCFIT_PCT 100
+
+/* MAPZOOM-LOCFIT
+ * Cang tam tranh khung dinh vi cho vua o luoi hien hanh roi canh giua o.
+ * Bo qua diem mau 0 nen giu duoc phan trong suot.
+ * Chi dung o man hinh rong; man hinh nho van di duong cu. */
+static void BltLocatorFitCell(SGPVSurface* const dst, cache_key_t const& key,
+		UINT16 const idx, INT32 const cellLeft, INT32 const cellTop,
+		INT32 const pctOfCell)
+{
+	auto surf = CreateVideoSurfaceFromObjectFile(key, idx);
+	if (!surf) return;
+
+	INT32 const sw = surf->Width();
+	INT32 const sh = surf->Height();
+	if (sw < 1 || sh < 1) return;
+
+	INT32 bx0 = sw, by0 = sh, bx1 = -1, by1 = -1;
+	{
+		SGPVSurface::Lock ls(surf.get());
+		UINT16 const* const sp = ls.Buffer<UINT16>();
+		INT32 const spitch = ls.Pitch() >> 1;
+		for (INT32 y = 0; y < sh; ++y)
+		{
+			for (INT32 x = 0; x < sw; ++x)
+			{
+				if (sp[y * spitch + x] == 0) continue;
+				if (x < bx0) bx0 = x;
+				if (x > bx1) bx1 = x;
+				if (y < by0) by0 = y;
+				if (y > by1) by1 = y;
+			}
+		}
+	}
+	if (bx1 < bx0 || by1 < by0) return;
+
+	INT32 const cw = bx1 - bx0 + 1;
+	INT32 const ch = by1 - by0 + 1;
+
+	INT32 const targetW = MAP_GRID_X * pctOfCell / 100;
+	INT32 const targetH = MAP_GRID_Y * pctOfCell / 100;
+
+	INT32 w = cw * targetH / ch;
+	INT32 h = targetH;
+	if (w > targetW)
+	{
+		w = targetW;
+		h = ch * targetW / cw;
+	}
+	if (w > MAP_GRID_X) w = MAP_GRID_X;
+	if (h > MAP_GRID_Y) h = MAP_GRID_Y;
+	if (w < 1 || h < 1) return;
+
+	INT32 const px = cellLeft + (MAP_GRID_X - w) / 2;
+	INT32 const py = cellTop  + (MAP_GRID_Y - h) / 2;
+
+	SGPVSurface::Lock ls(surf.get());
+	UINT16 const* const sp = ls.Buffer<UINT16>();
+	INT32 const spitch = ls.Pitch() >> 1;
+
+	SGPVSurface::Lock ld(dst);
+	UINT16* const dp = ld.Buffer<UINT16>();
+	INT32 const dpitch = ld.Pitch() >> 1;
+	INT32 const dw = dst->Width();
+	INT32 const dh = dst->Height();
+
+	for (INT32 iy = 0; iy < h; ++iy)
+	{
+		INT32 const dy = py + iy;
+		if (dy < 0 || dy >= dh) continue;
+		INT32 const sy = by0 + iy * ch / h;
+		for (INT32 ix = 0; ix < w; ++ix)
+		{
+			INT32 const dx = px + ix;
+			if (dx < 0 || dx >= dw) continue;
+			UINT16 const v = sp[sy * spitch + bx0 + ix * cw / w];
+			if (v == 0) continue;
+			dp[dy * dpitch + dx] = v;
+		}
+	}
+}
+
+
 void HandleBlitOfSectorLocatorIcon(const SGPSector& sSector, UINT8 ubLocatorID)
 {
 	static UINT8  ubFrame = 0;
@@ -4253,7 +4339,12 @@ void HandleBlitOfSectorLocatorIcon(const SGPSector& sSector, UINT8 ubLocatorID)
 
 	// blit object to frame buffer
 	SGPVObject const* const locator = GetVObject(guiSectorLocatorGraphicID);
-	if (locator->SubregionProperties(ubFrame).usWidth > MAP_GRID_X + 2)
+	if (MAP_GRID_X >= 60)
+	{
+		/* MAPZOOM-LOCFIT: o luoi da phong 1,5 lan -> cang tranh cho vua o va canh giua. */
+		BltLocatorFitCell(FRAME_BUFFER, guiSectorLocatorGraphicID, ubFrame, sScreenX, sScreenY, LOCFIT_PCT);
+	}
+	else if (locator->SubregionProperties(ubFrame).usWidth > MAP_GRID_X + 2)
 	{
 		/* Oversized locator art (e.g. JA2: Wildfire ships 44x38 frames sized
 		 * for the full-resolution strategic map): draw at half scale so the
