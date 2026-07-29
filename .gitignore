@@ -40,3 +40,4 @@ src/externalized/editiondetector/detector_test
 *.o
 *.out
 /build/
+*.bak

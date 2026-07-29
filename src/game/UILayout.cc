@@ -223,7 +223,26 @@ bool UILayout::isMapFullSize() const
  * O 1024x768 va 1366x768 ham nay tra ve 2, moi bieu thuc thanh x2/2, tuc giu
  * nguyen tuyet doi gia tri cu. 42*3/2=63 va 36*3/2=54 deu la so nguyen, nen
  * buoc luoi khong sinh so thap phan lam lech o khi bam chuot. */
-static inline int MapZoomNum(UINT16 w, UINT16 h) { return (w >= 1600 && h >= 1000) ? 3 : 2; }
+/* MAPZOOM-LOCK: the 1.5x map zoom path is switched OFF on purpose.
+ * Reasons: (a) every other game screen is still hard-coded to the 640x480
+ * layout and some of them (the auto-resolve battle screen in particular)
+ * become unusable above ~1600px, and (b) the zoomed sector icons were harder
+ * to read, not easier. Locking this single function to 2 makes the whole zoom
+ * path dormant at once, because the grid getters below and every zoom-aware
+ * draw site key off MAP_GRID_X >= 60. No zoom code has been deleted -- set
+ * JA2_MAPZOOM_ALLOW_LARGE to 1 to bring it all back. */
+#define JA2_MAPZOOM_ALLOW_LARGE 0
+
+static inline int MapZoomNum(UINT16 w, UINT16 h)
+{
+#if JA2_MAPZOOM_ALLOW_LARGE
+	return (w >= 1600 && h >= 1000) ? 3 : 2;
+#else
+	(void)w;
+	(void)h;
+	return 2;
+#endif
+}
 
 UINT16 UILayout::get_MAP_GRID_X() const       { return isMapFullSize() ? (UINT16)(42 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 21; }
 UINT16 UILayout::get_MAP_GRID_Y() const       { return isMapFullSize() ? (UINT16)(36 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 18; }
