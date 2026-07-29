@@ -133,6 +133,9 @@
 
 /* Origin of the map screen left column (character info + roster). The
  * full-size Wildfire layout pins it to the top-left corner of the screen. */
+/* MAPZOOM: suy he so nguoc tu buoc luoi (63 khi phong, 42 khi khong). */
+#define MAPZOOM_NUM ((g_ui.get_MAP_GRID_X() >= 60) ? 3 : 2)
+
 #define MAP_LEFT_COL_X (g_ui.get_MAP_LEFT_COL_X())
 #define MAP_LEFT_COL_Y (g_ui.get_MAP_LEFT_COL_Y())
 
@@ -5015,20 +5018,20 @@ void RenderMapRegionBackground( void )
 					SGPBox const b = {261, 0, (UINT16)(artX - 261), bandH};
 					DrawFillerOnSurface(guiSAVEBUFFER, b);
 				}
-				if (artX + 714 < SCREEN_WIDTH)
+				if (artX + (714 * MAPZOOM_NUM / 2) < SCREEN_WIDTH)
 				{
-					SGPBox const b = {(UINT16)(artX + 714), 0, (UINT16)(SCREEN_WIDTH - artX - 714), bandH};
+					SGPBox const b = {(UINT16)(artX + (714 * MAPZOOM_NUM / 2)), 0, (UINT16)(SCREEN_WIDTH - artX - (714 * MAPZOOM_NUM / 2)), bandH};
 					DrawFillerOnSurface(guiSAVEBUFFER, b);
 				}
 				if (artY > 1)
 				{
-					SGPBox const b = {artX, 0, 714, artY};
+					SGPBox const b = {artX, 0, (UINT16)(714 * MAPZOOM_NUM / 2), artY};
 					DrawFillerOnSurface(guiSAVEBUFFER, b);
 				}
 			}
 
 			/* VFILL: cao bang toan bo cho trong con lai, toi thieu 35 */
-			UINT16 const stripTop = (UINT16)(g_ui.get_MAP_VIEW_START_Y() + 613);
+			UINT16 const stripTop = (UINT16)(g_ui.get_MAP_VIEW_START_Y() + (613 * MAPZOOM_NUM / 2));
 			UINT16 const stripBot = (UINT16)(SCREEN_HEIGHT - 121);
 			UINT16 const stripH   = (UINT16)(stripBot > stripTop + 35 ? stripBot - stripTop : 35);
 			SGPBox const strip = {262, stripTop, (UINT16)(SCREEN_WIDTH - 262), stripH};
@@ -5044,7 +5047,7 @@ void RenderMapRegionBackground( void )
 			RenderMapLevelSelectorFullSize();
 		}
 		/* Copy the whole full-size map region (the Wildfire right column). */
-		RestoreExternBackgroundRect(261, 0, SCREEN_WIDTH - 261, g_ui.get_MAP_VIEW_START_Y() + 647);
+		RestoreExternBackgroundRect(261, 0, SCREEN_WIDTH - 261, g_ui.get_MAP_VIEW_START_Y() + (612 * MAPZOOM_NUM / 2 + 35));
 	}
 	else
 	{

@@ -219,23 +219,29 @@ bool UILayout::isMapFullSize() const
  * to the Wildfire 1024x768 map screen layout: a 261px left column and a 763px
  * right region whose 714x612 map art starts at x=285 (terrain at art (41,35),
  * so cell (1,1) lands at view start + one grid step, like vanilla). */
-UINT16 UILayout::get_MAP_GRID_X() const       { return isMapFullSize() ? 42 : 21; }
-UINT16 UILayout::get_MAP_GRID_Y() const       { return isMapFullSize() ? 36 : 18; }
+/* MAPZOOM: chi man hinh that su lon (>=1600x1000) moi phong ban do len 1.5 lan.
+ * O 1024x768 va 1366x768 ham nay tra ve 2, moi bieu thuc thanh x2/2, tuc giu
+ * nguyen tuyet doi gia tri cu. 42*3/2=63 va 36*3/2=54 deu la so nguyen, nen
+ * buoc luoi khong sinh so thap phan lam lech o khi bam chuot. */
+static inline int MapZoomNum(UINT16 w, UINT16 h) { return (w >= 1600 && h >= 1000) ? 3 : 2; }
+
+UINT16 UILayout::get_MAP_GRID_X() const       { return isMapFullSize() ? (UINT16)(42 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 21; }
+UINT16 UILayout::get_MAP_GRID_Y() const       { return isMapFullSize() ? (UINT16)(36 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 18; }
 UINT16 UILayout::get_MAP_VIEW_START_X() const { /* LEVELSLOT-H: centre the fixed 672px map in the right-hand region so a
 	   wider screen only grows the wooden background, never the map. */
 	/* LEVELSLOT-H: centre the fixed 672px map in the right-hand region so a
 	   wider screen only grows the wooden background, never the map. The map
 	   art is a fixed 714px picture, so pinning it to the right edge would
 	   only move the empty wood from one side to the other. */
-	return isMapFullSize() ? (UINT16)(261 + (m_screenWidth - 261 - 714) / 2) : m_stdScreenOffsetX + 270; }
+	return isMapFullSize() ? (UINT16)(261 + (m_screenWidth - 261 - 714 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) / 2) : m_stdScreenOffsetX + 270; }
 /* Full-size: the map hugs the top of the screen (grid bottom lands at y 612),
  * leaving the 613..648 band free for the toggle strip, matching Wildfire's own
  * Map_Bord.sti border art (wood bar at 609..648). */
 UINT16 UILayout::get_MAP_VIEW_START_Y() const { return isMapFullSize()
-		? (UINT16)((m_screenHeight - 121) > 647 ? ((m_screenHeight - 121) - 647) / 2 : 0)
+		? (UINT16)((m_screenHeight - 121) > (612 * MapZoomNum(m_screenWidth, m_screenHeight) / 2 + 35) ? ((m_screenHeight - 121) - (612 * MapZoomNum(m_screenWidth, m_screenHeight) / 2 + 35)) / 2 : 0)
 		: m_stdScreenOffsetY + 10; }
-UINT16 UILayout::get_MAP_VIEW_WIDTH() const   { return isMapFullSize() ? 672 : 336; }
-UINT16 UILayout::get_MAP_VIEW_HEIGHT() const  { return isMapFullSize() ? 596 : 298; }
+UINT16 UILayout::get_MAP_VIEW_WIDTH() const   { return isMapFullSize() ? (UINT16)(672 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 336; }
+UINT16 UILayout::get_MAP_VIEW_HEIGHT() const  { return isMapFullSize() ? (UINT16)(596 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 298; }
 
 /* The map screen bottom panel keeps its vanilla-relative offsets (+0..640,
  * +359..480); in the full-size Wildfire layout its 763px art sits at

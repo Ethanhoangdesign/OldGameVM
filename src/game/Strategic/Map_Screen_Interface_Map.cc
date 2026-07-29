@@ -3,6 +3,8 @@
  * It is not the original file. See NOTICE.md.
  */
 #include "Map_Screen_Interface_Map.h"
+#include <cstdlib>
+#include "Interface_Panels.h"
 
 #include "Assignments.h"
 #include "Button_System.h"
@@ -248,6 +250,9 @@ enum{
 	MAP_SHADE_DK_RED,
 };
 // the big map .pcx
+/* MAPZOOM: suy he so nguoc tu buoc luoi (63 khi phong, 42 khi khong). */
+#define MAPZOOM_NUM ((g_ui.get_MAP_GRID_X() >= 60) ? 3 : 2)
+
 static SGPVSurface* guiBIGMAP;
 
 /* LEVELART: the strategic map surface is private to this file, but the
@@ -347,6 +352,269 @@ cache_key_t const guiCHARBETWEENSECTORICONSCLOSE{ INTERFACEDIR "/merc_mvt_green_
 
 // the map arrows graphics
 cache_key_t const guiMAPCURSORS{ INTERFACEDIR "/mapcursr.sti" };
+
+/* MAPZOOM-ICON: cua chung de dan mot bieu tuong len ban do.
+ * Khi khong phong thi chay y het cach cu. Khi phong thi mo dung anh con
+ * do thanh mat ve roi keo gian, giong cach da lam voi tranh tang ham. */
+
+/* MAPZOOM-BOOST: num van chinh co bieu tuong ban do.
+ * Dat bien JA2_ICONZOOM theo phan tram, vi du 150 la to gap ruoi tinh tren
+ * co da phong. Khong dat thi lay 100, tuc giu dung ti le goc. */
+static INT32 MapIconBoostPercent(void)
+{
+	static INT32 pct = -1;
+	if (pct < 0)
+	{
+		char const* const e = std::getenv("JA2_ICONZOOM");
+		pct = (e != NULL) ? std::atoi(e) : 100;
+		if (pct < 50 || pct > 400) pct = 150;
+	}
+	return pct;
+}
+
+/* MAPZOOM-CENTER: dan mot bieu tuong vao GIUA o, va khong cho no tran ra
+ * ngoai o. Nhan vao goc tren trai cua o chu khong phai toa do dan. */
+/* MAPZOOM-ALPHA: keo gian nhung BO QUA diem anh trong suot (mau 0),
+ * va canh giua theo BIEN THAT cua hinh chu khong theo khung bao ngoai. */
+static void BltMapIconCentered(SGPVSurface* const dst, cache_key_t const& key,
+	UINT16 const idx, INT32 const cellLeft, INT32 const cellTop)
+{
+	INT32 const boost = MapIconBoostPercent();
+
+	/* Khong phong: tra lai duong ve nguyen ban (man hinh nho khong doi mot diem anh) */
+	if (MAPZOOM_NUM == 2 && boost == 100)
+	{
+		BltVideoObject(dst, key, idx, cellLeft + MAP_X_ICON_OFFSET, cellTop + MAP_Y_ICON_OFFSET - 1);
+		return;
+	}
+
+	auto surf = CreateVideoSurfaceFromObjectFile(key, idx);
+	if (!surf || surf->BPP() != 16 || dst->BPP() != 16)
+	{
+		BltVideoObject(dst, key, idx, cellLeft, cellTop);
+		return;
+	}
+
+	INT32 const sw = (INT32)surf->Width();
+	INT32 const sh = (INT32)surf->Height();
+
+	/* Buoc 1: quet tim bien that (vung co diem anh khac 0) */
+	INT32 bx0 = sw, by0 = sh, bx1 = -1, by1 = -1;
+	{
+		SGPVSurface::Lock ls(surf.get());
+		UINT16 const* const sp = ls.Buffer<UINT16>();
+		UINT32 const spitch = ls.Pitch() >> 1;
+		for (INT32 yy = 0; yy < sh; ++yy)
+		{
+			for (INT32 xx = 0; xx < sw; ++xx)
+			{
+				if (sp[spitch * yy + xx] == 0) continue;
+				if (xx < bx0) bx0 = xx;
+				if (xx > bx1) bx1 = xx;
+				if (yy < by0) by0 = yy;
+				if (yy > by1) by1 = yy;
+			}
+		}
+	}
+	if (bx1 < bx0 || by1 < by0) { bx0 = 0; by0 = 0; bx1 = sw - 1; by1 = sh - 1; }
+
+	INT32 const cw = bx1 - bx0 + 1;
+	INT32 const ch = by1 - by0 + 1;
+
+	INT32 w = cw * MAPZOOM_NUM * boost / 200;
+	INT32 h = ch * MAPZOOM_NUM * boost / 200;
+	if (w > MAP_GRID_X - 2) w = MAP_GRID_X - 2;
+	if (h > MAP_GRID_Y - 2) h = MAP_GRID_Y - 2;
+	if (w < 1) w = 1;
+	if (h < 1) h = 1;
+
+	INT32 const px = cellLeft + (MAP_GRID_X - w) / 2;
+	INT32 const py = cellTop  + (MAP_GRID_Y - h) / 2;
+
+	/* Buoc 2: keo gian thu cong, bo qua diem anh trong suot */
+	INT32 const dstW = (INT32)dst->Width();
+	INT32 const dstH = (INT32)dst->Height();
+	SGPVSurface::Lock ld(dst);
+	SGPVSurface::Lock ls(surf.get());
+	UINT16 const* const sp = ls.Buffer<UINT16>();
+	UINT16* const dp = ld.Buffer<UINT16>();
+	UINT32 const spitch = ls.Pitch() >> 1;
+	UINT32 const dpitch = ld.Pitch() >> 1;
+	for (INT32 iy = 0; iy < h; ++iy)
+	{
+		INT32 const ty = py + iy;
+		if (ty < 0 || ty >= dstH) continue;
+		INT32 const sy = by0 + iy * ch / h;
+		for (INT32 ix = 0; ix < w; ++ix)
+		{
+			INT32 const tx = px + ix;
+			if (tx < 0 || tx >= dstW) continue;
+			INT32 const sx = bx0 + ix * cw / w;
+			UINT16 const v = sp[spitch * sy + sx];
+			if (v == 0) continue;
+			dp[dpitch * ty + tx] = v;
+		}
+	}
+}
+
+/* MAPZOOM-CLUSTER: giong BltMapIconCentered nhung neo goc tren trai,
+ * dung cho cac hop nho xep thanh luoi trong mot o. */
+static void BltMapIconAlpha(SGPVSurface* const dst, cache_key_t const& key,
+	UINT16 const idx, INT32 const x, INT32 const y)
+{
+	INT32 const boost = MapIconBoostPercent();
+
+	if (MAPZOOM_NUM == 2 && boost == 100)
+	{
+		BltVideoObject(dst, key, idx, x, y);
+		return;
+	}
+
+	auto surf = CreateVideoSurfaceFromObjectFile(key, idx);
+	if (!surf || surf->BPP() != 16 || dst->BPP() != 16)
+	{
+		BltVideoObject(dst, key, idx, x, y);
+		return;
+	}
+
+	INT32 const sw = (INT32)surf->Width();
+	INT32 const sh = (INT32)surf->Height();
+
+	INT32 bx0 = sw, by0 = sh, bx1 = -1, by1 = -1;
+	{
+		SGPVSurface::Lock lb(surf.get());
+		UINT16 const* const bp = lb.Buffer<UINT16>();
+		UINT32 const bpitch = lb.Pitch() >> 1;
+		for (INT32 yy = 0; yy < sh; ++yy)
+		{
+			for (INT32 xx = 0; xx < sw; ++xx)
+			{
+				if (bp[bpitch * yy + xx] == 0) continue;
+				if (xx < bx0) bx0 = xx;
+				if (xx > bx1) bx1 = xx;
+				if (yy < by0) by0 = yy;
+				if (yy > by1) by1 = yy;
+			}
+		}
+	}
+	if (bx1 < bx0 || by1 < by0) { bx0 = 0; by0 = 0; bx1 = sw - 1; by1 = sh - 1; }
+
+	INT32 const cw = bx1 - bx0 + 1;
+	INT32 const ch = by1 - by0 + 1;
+
+	INT32 w = cw * MAPZOOM_NUM * boost / 200;
+	INT32 h = ch * MAPZOOM_NUM * boost / 200;
+	if (w < 1) w = 1;
+	if (h < 1) h = 1;
+
+	INT32 const dstW = (INT32)dst->Width();
+	INT32 const dstH = (INT32)dst->Height();
+	SGPVSurface::Lock ld(dst);
+	SGPVSurface::Lock ls(surf.get());
+	UINT16 const* const sp = ls.Buffer<UINT16>();
+	UINT16* const dp = ld.Buffer<UINT16>();
+	UINT32 const spitch = ls.Pitch() >> 1;
+	UINT32 const dpitch = ld.Pitch() >> 1;
+	for (INT32 iy = 0; iy < h; ++iy)
+	{
+		INT32 const ty = y + iy;
+		if (ty < 0 || ty >= dstH) continue;
+		INT32 const sy = by0 + iy * ch / h;
+		for (INT32 ix = 0; ix < w; ++ix)
+		{
+			INT32 const tx = x + ix;
+			if (tx < 0 || tx >= dstW) continue;
+			INT32 const sx = bx0 + ix * cw / w;
+			UINT16 const v = sp[spitch * sy + sx];
+			if (v == 0) continue;
+			dp[dpitch * ty + tx] = v;
+		}
+	}
+}
+
+/* MAPZOOM-QFIT: phong hinh theo TI LE O (pctOfCell phan tram chieu cao o),
+ * giu ti le khung hinh, canh giua o, va bo qua diem anh trong suot. */
+static void BltMapIconFitCell(SGPVSurface* const dst, cache_key_t const& key,
+	UINT16 const idx, INT32 const cellLeft, INT32 const cellTop, INT32 const pctOfCell)
+{
+	auto surf = CreateVideoSurfaceFromObjectFile(key, idx);
+	if (!surf || surf->BPP() != 16 || dst->BPP() != 16)
+	{
+		BltVideoObject(dst, key, idx, cellLeft, cellTop);
+		return;
+	}
+
+	INT32 const sw = (INT32)surf->Width();
+	INT32 const sh = (INT32)surf->Height();
+
+	/* Buoc 1: tim bien that cua hinh */
+	INT32 bx0 = sw, by0 = sh, bx1 = -1, by1 = -1;
+	{
+		SGPVSurface::Lock lb(surf.get());
+		UINT16 const* const bp = lb.Buffer<UINT16>();
+		UINT32 const bpitch = lb.Pitch() >> 1;
+		for (INT32 yy = 0; yy < sh; ++yy)
+		{
+			for (INT32 xx = 0; xx < sw; ++xx)
+			{
+				if (bp[bpitch * yy + xx] == 0) continue;
+				if (xx < bx0) bx0 = xx;
+				if (xx > bx1) bx1 = xx;
+				if (yy < by0) by0 = yy;
+				if (yy > by1) by1 = yy;
+			}
+		}
+	}
+	if (bx1 < bx0 || by1 < by0) { bx0 = 0; by0 = 0; bx1 = sw - 1; by1 = sh - 1; }
+
+	INT32 const cw = bx1 - bx0 + 1;
+	INT32 const ch = by1 - by0 + 1;
+
+	/* Buoc 2: tinh nguoc tu co O xuong, giu ti le khung hinh */
+	INT32 const targetH = MAP_GRID_Y * pctOfCell / 100;
+	INT32 const targetW = MAP_GRID_X * pctOfCell / 100;
+	INT32 w = cw * targetH / (ch > 0 ? ch : 1);
+	INT32 h = targetH;
+	if (w > targetW)
+	{
+		w = targetW;
+		h = ch * targetW / (cw > 0 ? cw : 1);
+	}
+	if (w > MAP_GRID_X - 2) w = MAP_GRID_X - 2;
+	if (h > MAP_GRID_Y - 2) h = MAP_GRID_Y - 2;
+	if (w < 1) w = 1;
+	if (h < 1) h = 1;
+
+	INT32 const px = cellLeft + (MAP_GRID_X - w) / 2;
+	INT32 const py = cellTop  + (MAP_GRID_Y - h) / 2;
+
+
+	/* Buoc 3: keo gian thu cong, bo qua diem anh trong suot */
+	INT32 const dstW = (INT32)dst->Width();
+	INT32 const dstH = (INT32)dst->Height();
+	SGPVSurface::Lock ld(dst);
+	SGPVSurface::Lock ls(surf.get());
+	UINT16 const* const sp = ls.Buffer<UINT16>();
+	UINT16* const dp = ld.Buffer<UINT16>();
+	UINT32 const spitch = ls.Pitch() >> 1;
+	UINT32 const dpitch = ld.Pitch() >> 1;
+	for (INT32 iy = 0; iy < h; ++iy)
+	{
+		INT32 const ty = py + iy;
+		if (ty < 0 || ty >= dstH) continue;
+		INT32 const sy = by0 + iy * ch / h;
+		for (INT32 ix = 0; ix < w; ++ix)
+		{
+			INT32 const tx = px + ix;
+			if (tx < 0 || tx >= dstW) continue;
+			INT32 const sx = bx0 + ix * cw / w;
+			UINT16 const v = sp[spitch * sy + sx];
+			if (v == 0) continue;
+			dp[dpitch * ty + tx] = v;
+		}
+	}
+}
+
 }
 
 // highlighted sector
@@ -517,7 +785,21 @@ void DrawMap(void)
 			/* Full-size map art (e.g. Wildfire's 714x612 b_map.sti): the
 			 * terrain starts at (41,35) in the art and cell (1,1) must land
 			 * at MAP_VIEW_START + one 42x36 grid step, hence the +1/+1. */
-			BltVideoSurface(guiSAVEBUFFER, guiBIGMAP, MAP_VIEW_START_X + 1, MAP_VIEW_START_Y + 1, NULL);
+			/* MAPZOOM */
+			if (MAPZOOM_NUM == 2)
+			{
+				BltVideoSurface(guiSAVEBUFFER, guiBIGMAP, MAP_VIEW_START_X + 1, MAP_VIEW_START_Y + 1, NULL);
+			}
+			else
+			{
+				SGPBox const zsrc = {0, 0, guiBIGMAP->Width(), guiBIGMAP->Height()};
+				SGPBox const zdst = {
+					(UINT16)(MAP_VIEW_START_X + 1),
+					(UINT16)(MAP_VIEW_START_Y + 1),
+					(UINT16)((INT32)guiBIGMAP->Width()  * MAPZOOM_NUM / 2),
+					(UINT16)((INT32)guiBIGMAP->Height() * MAPZOOM_NUM / 2)};
+				BltStretchVideoSurface(guiSAVEBUFFER, guiBIGMAP, &zsrc, &zdst);
+			}
 		}
 		else
 		{
@@ -760,20 +1042,24 @@ static INT32 ShowVehicles(const SGPSector& sSector, INT32 icon_pos)
 }
 
 
+static void ShowUncertainNumberEnemiesInSector(INT16 sec_x, INT16 sec_y);
+
+
 static void ShowEnemiesInSector(const SGPSector& sMap, INT16 n_enemies, UINT8 icon_pos)
 {
-	while (n_enemies-- != 0)
-	{
-		DrawMapBoxIcon(guiCHARICONS, SMALL_RED_BOX, sMap, icon_pos++);
-	}
+	/* MAPZOOM-ONEQ: o co dich chi hien MOT dau hoi canh giua o,
+	 * thay vi ve mot hop nho cho tung ten dich. */
+	(void)n_enemies;
+	(void)icon_pos;
+	ShowUncertainNumberEnemiesInSector(sMap.x, sMap.y);
 }
 
 
 static void ShowUncertainNumberEnemiesInSector(INT16 const sec_x, INT16 const sec_y)
 {
-	INT16 const x = MAP_VIEW_START_X + sec_x * MAP_GRID_X + MAP_X_ICON_OFFSET;
-	INT16 const y = MAP_VIEW_START_Y + sec_y * MAP_GRID_Y - 1;
-	BltVideoObject(guiSAVEBUFFER, guiCHARICONS, SMALL_QUESTION_MARK, x, y);
+	INT16 const x = MAP_VIEW_START_X + sec_x * MAP_GRID_X;
+	INT16 const y = MAP_VIEW_START_Y + sec_y * MAP_GRID_Y;
+	BltMapIconFitCell(guiSAVEBUFFER, guiCHARICONS, SMALL_QUESTION_MARK, x, y, 92);
 	InvalidateRegion(x, y, x + DMAP_GRID_X, y + DMAP_GRID_Y);
 }
 
@@ -3519,7 +3805,7 @@ static void ShadeSubLevelsNotVisited(void)
 		if (i->uiFlags & SF_ALREADY_VISITED)           continue;
 		/* The sector is on the currently displayed sublevel and has never been
 			* visited.  Remove that portion of the "mine" graphics from view. */
-		HideExistenceOfUndergroundMapSector(i->ubSector);
+		if (getenv("JA2_SHOWMINE") == NULL) HideExistenceOfUndergroundMapSector(i->ubSector);
 	}
 }
 
@@ -3549,9 +3835,33 @@ static void HandleLowerLevelMapBlit(void)
 		UINT16 const fill = Get16BPPColor(FROMRGB(2, 2, 0));
 		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
 			MAP_VIEW_START_X + 1, MAP_VIEW_START_Y + 1,
-			MAP_VIEW_START_X + 1 + guiBIGMAP->Width(),
-			MAP_VIEW_START_Y + 1 + guiBIGMAP->Height(), fill);
-		BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 42, MAP_VIEW_START_Y + 34);
+			MAP_VIEW_START_X + 1 + (INT32)guiBIGMAP->Width()  * MAPZOOM_NUM / 2,
+				MAP_VIEW_START_Y + 1 + (INT32)guiBIGMAP->Height() * MAPZOOM_NUM / 2, fill);
+		if (MAPZOOM_NUM == 2)
+			{
+				BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 42, MAP_VIEW_START_Y + 34);
+			}
+			else
+			{
+				/* MAPZOOM-SUB: tranh tang ham la video object, loai do khong co ham
+				 * keo gian. Mo cung tep do thanh mat ve roi keo gian, dung cach ma
+				 * RenderTeamRegionBackground() da dung cho newgoldpiece3.sti. */
+				auto zsub = CreateVideoSurfaceFromObjectFile(vo, 0);
+				if (zsub)
+				{
+					SGPBox const zsrc = {0, 0, zsub->Width(), zsub->Height()};
+					SGPBox const zdst = {
+						(UINT16)(MAP_VIEW_START_X + 42 * MAPZOOM_NUM / 2),
+						(UINT16)(MAP_VIEW_START_Y + 34 * MAPZOOM_NUM / 2),
+						(UINT16)((INT32)zsub->Width()  * MAPZOOM_NUM / 2),
+						(UINT16)((INT32)zsub->Height() * MAPZOOM_NUM / 2)};
+					BltStretchVideoSurface(guiSAVEBUFFER, zsub.get(), &zsrc, &zdst);
+				}
+				else
+				{
+					BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 42 * MAPZOOM_NUM / 2, MAP_VIEW_START_Y + 34 * MAPZOOM_NUM / 2);
+				}
+			}
 	}
 	else
 	{
@@ -3864,9 +4174,45 @@ static void DrawMapBoxIcon(cache_key_t const vo, UINT16 const icon, const SGPSec
 	INT32 const col = icon_pos % MERC_ICONS_PER_LINE;
 	INT32 const row = icon_pos / MERC_ICONS_PER_LINE;
 
-	INT32 const x = MAP_VIEW_START_X + sMap.x * MAP_GRID_X + MAP_X_ICON_OFFSET + 3 * col;
-	INT32 const y = MAP_VIEW_START_Y + sMap.y * MAP_GRID_Y + MAP_Y_ICON_OFFSET + 3 * row;
-	BltVideoObject(guiSAVEBUFFER, vo, icon, x, y);
+	/* MAPZOOM-ICON2: le trong o va khoang cach xep deu phai phong theo,
+	 * neu khong thi cac hop nho se de len nhau khi o to ra. */
+	INT32 const spread = MapIconBoostPercent();
+	INT32 x, y;
+	if (MAPZOOM_NUM == 2 && spread == 100)
+	{
+		/* Khong phong: giu nguyen bo cuc goc, man hinh nho khong doi mot diem anh */
+		x = MAP_VIEW_START_X + sMap.x * MAP_GRID_X + (MAP_X_ICON_OFFSET + 3 * col);
+		y = MAP_VIEW_START_Y + sMap.y * MAP_GRID_Y + (MAP_Y_ICON_OFFSET + 3 * row);
+	}
+	else
+	{
+		/* MAPZOOM-CLUSTER: dat goc luoi xep sao cho CA CUM nam giua o */
+		INT32 stepX = 3 * MAPZOOM_NUM * spread / 200;
+		INT32 stepY = 3 * MAPZOOM_NUM * spread / 200;
+		if (stepX < 2) stepX = 2;
+		if (stepY < 2) stepY = 2;
+		INT32 clusterW = MERC_ICONS_PER_LINE * stepX;
+		INT32 clusterH = ROWS_PER_SECTOR    * stepY;
+		if (clusterW > MAP_GRID_X - 2)
+		{
+			clusterW = MAP_GRID_X - 2;
+			stepX    = clusterW / MERC_ICONS_PER_LINE;
+			if (stepX < 1) stepX = 1;
+			clusterW = MERC_ICONS_PER_LINE * stepX;
+		}
+		if (clusterH > MAP_GRID_Y - 2)
+		{
+			clusterH = MAP_GRID_Y - 2;
+			stepY    = clusterH / ROWS_PER_SECTOR;
+			if (stepY < 1) stepY = 1;
+			clusterH = ROWS_PER_SECTOR * stepY;
+		}
+		INT32 const originX = MAP_VIEW_START_X + sMap.x * MAP_GRID_X + (MAP_GRID_X - clusterW) / 2;
+		INT32 const originY = MAP_VIEW_START_Y + sMap.y * MAP_GRID_Y + (MAP_GRID_Y - clusterH) / 2;
+		x = originX + col * stepX;
+		y = originY + row * stepY;
+	}
+	BltMapIconAlpha(guiSAVEBUFFER, vo, icon, x, y);
 	InvalidateRegion(x, y, x + DMAP_GRID_X, y + DMAP_GRID_Y);
 }
 
@@ -3885,9 +4231,7 @@ static void DrawBullseye(void)
 	INT16 sX, sY;
 
 	GetScreenXYFromMapXY(g_merc_arrive_sector, &sX, &sY);
-	sY -= 2;
-
-	BltVideoObject(guiSAVEBUFFER, guiBULLSEYE, 0, sX, sY);
+	BltMapIconCentered(guiSAVEBUFFER, guiBULLSEYE, 0, sX, sY);
 }
 
 
