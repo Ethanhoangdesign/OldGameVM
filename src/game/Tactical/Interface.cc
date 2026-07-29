@@ -3,6 +3,7 @@
  * It is not the original file. See NOTICE.md.
  */
 #include "Animation_Control.h"
+#include "Logger.h"
 #include "Animation_Data.h"
 #include "Button_System.h"
 #include "ContentManager.h"
@@ -1711,6 +1712,15 @@ void AddTopMessage(const MESSAGE_TYPES ubType)
 }
 
 
+/* TOPBAR-FILL: nut van. TOPBAR_SRC_COL la cot doc cua tranh duoc lay lam mau
+ * cho ca dai; doi so nay neu cot do roi vao cho co hoa van. TOPBAR_HEIGHT
+ * la chieu cao dai thong bao (mat ve duoc cap phat 20 px o dong 236). */
+#define TOPBAR_SRC_COL 8
+#define TOPBAR_HEIGHT  20
+/* TOPBAR-WIDE: le hai ben cua khung thanh dem tien trinh khi dai chay het be ngang. */
+#define TOPBAR_MARGIN  5
+
+
 static void CreateTopMessage(void)
 {
 	const TacticalStatusType* const ts  = &gTacticalStatus;
@@ -1762,24 +1772,85 @@ static void CreateTopMessage(void)
 	SetFontAttributes(TINYFONT1, foreground, shadow);
 
 	const SGPBox* const bar = &g_ui.m_progress_bar_box;
+	BOOLEAN fTileBar = FALSE; /* TOPBAR-FULL */
+	INT32 topbar_x = bar->x; /* TOPBAR-WIDE */
+	INT32 topbar_w = bar->w;
 	{
 		AutoSGPVObject bar_vo(AddVideoObjectFromFile(bar_file));
 
-		/* Editions whose bar art is at least as wide as the screen (e.g. the
-		 * 1024px JA2: Wildfire art) cover the full width from x=0; narrower
-		 * vanilla art keeps its centered position. */
-		INT32 const bar_art_x = bar_vo->SubregionProperties(0).usWidth >= SCREEN_WIDTH ? 0 : STD_SCREEN_X;
-		BltVideoObject(dst, bar_vo.get(), bar_gfx, bar_art_x, 0);
+		/* TOPBAR-FULL: the strip art is one horizontal band. Vanilla-era art is only
+		 * as wide as the original screen, so on a wide screen tile it from the
+		 * left edge to the right edge instead of parking a single copy in the
+		 * middle. Art at least as wide as the screen keeps the original blit. */
+		INT32 const bar_art_w = bar_vo->SubregionProperties(bar_gfx).usWidth;
+		BltVideoObject(dst, bar_vo.get(), bar_gfx, 0, 0);
+
+		/* TOPBAR-FILL: the strip art is narrower than a modern screen. Tiling it
+		 * leaves a visible seam, so instead sample one clean vertical column of
+		 * the freshly blitted art and replicate that column across the whole
+		 * width. The band keeps the artwork's own top/bottom bevel colours and
+		 * becomes perfectly continuous. The countdown bar, when enabled, is
+		 * drawn afterwards and still lands on top. */
+		if (bar_art_w > 0 && bar_art_w < SCREEN_WIDTH)
+		{
+			fTileBar = TRUE;
+
+			/* TOPBAR-WIDE: the countdown bar is assembled from one-pixel slices, so
+			 * simply widening its box makes it span the real screen instead of
+			 * the legacy 640-wide interface box. */
+			topbar_x = TOPBAR_MARGIN;
+			topbar_w = SCREEN_WIDTH - 2 * TOPBAR_MARGIN;
+
+			static BOOLEAN fWideLogged = FALSE;
+			if (!fWideLogged)
+			{
+				fWideLogged = TRUE;
+				SLOGI("TOPBAR-WIDE: khung thanh dem x={} w={} (truoc: x={} w={})",
+					topbar_x, topbar_w, (INT32)bar->x, (INT32)bar->w);
+			}
+
+			INT32 const src_col = TOPBAR_SRC_COL < bar_art_w ? TOPBAR_SRC_COL : bar_art_w / 2;
+			INT32       fill_h  = dst->Height();
+			if (fill_h > TOPBAR_HEIGHT) fill_h = TOPBAR_HEIGHT;
+
+			SGPVSurface::Lock l(dst);
+			UINT16* const buf   = l.Buffer<UINT16>();
+			UINT32  const pitch = l.Pitch() / 2; /* Pitch() is in bytes. */
+
+			for (INT32 y = 0; y < fill_h; ++y)
+			{
+				UINT16* const row = buf + pitch * y;
+				UINT16  const v   = row[src_col];
+				for (INT32 x = 0; x < SCREEN_WIDTH; ++x)
+				{
+					row[x] = v;
+				}
+			}
+
+			static BOOLEAN fTopBarLogged = FALSE;
+			if (!fTopBarLogged)
+			{
+				fTopBarLogged = TRUE;
+				INT32 const y_mid = fill_h > 10 ? 10 : 0;
+				INT32 const y_bot = fill_h > 0 ? fill_h - 1 : 0;
+				SLOGI("TOPBAR-FILL: tranh {} px, man {} px, buoc dong {} px, cao {}, cot nguon {}, mau dong 0/{}/{} = {} {} {}",
+					bar_art_w, (INT32)SCREEN_WIDTH, (INT32)pitch, fill_h, src_col,
+					y_mid, y_bot,
+					(INT32)buf[src_col],
+					(INT32)buf[pitch * y_mid + src_col],
+					(INT32)buf[pitch * y_bot + src_col]);
+			}
+		}
 
 		if (fDoLimitBar)
 		{
-			INT32 bar_x = bar->x;
+			INT32 bar_x = topbar_x; /* TOPBAR-WIDE */
 			// Render end piece
 			BltVideoObject(dst, bar_vo.get(), 1, bar_x, bar->y);
 
 			INT32  gfx    = 2;
 			// -3 for the end pieces
-			UINT32 length = (bar->w - 3) * ts->usTactialTurnLimitCounter / ts->usTactialTurnLimitMax;
+			UINT32 length = (topbar_w - 3) * ts->usTactialTurnLimitCounter / ts->usTactialTurnLimitMax;
 			while (length-- != 0)
 			{
 				BltVideoObject(dst, bar_vo.get(), gfx, ++bar_x, bar->y);
@@ -1822,7 +1893,10 @@ static void CreateTopMessage(void)
 		default: abort();
 	}
 
-	MPrint(bar->x, bar->y, msg, HCenterVCenterAlign(bar->w, bar->h));
+	/* TOPBAR-WIDE: one placement for both cases -- the caption is centred on the
+	 * same box the countdown bar uses, which is now the full screen width
+	 * on a wide screen and the legacy box on a 640-wide one. */
+	MPrint(topbar_x, bar->y, msg, HCenterVCenterAlign((INT16)topbar_w, bar->h));
 
 	SetFontDestBuffer(FRAME_BUFFER);
 	SetFontShadow(DEFAULT_SHADOW);
