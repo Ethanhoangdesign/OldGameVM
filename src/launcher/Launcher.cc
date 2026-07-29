@@ -135,6 +135,8 @@ void Launcher::loadJa2Json() {
 
 void Launcher::show() {
 	editorButton->callback( (Fl_Callback*)startEditor, (void*)(this) );
+	/* OGVM-AUTODETECT: khai bao truoc; dinh nghia nam gan detectEditionCb */
+	void OgvmAutodetectTimeoutCb(void* userdata);
 	playButton->callback( (Fl_Callback*)startGame, (void*)(this) );
 	gameDirectoryInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
 	saveGameDirectoryInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
@@ -144,6 +146,9 @@ void Launcher::show() {
 	guessVersionButton->callback( (Fl_Callback*)guessVersion, (void*)(this) );
     detectEditionButton->callback( (Fl_Callback*)detectEditionCb, (void*)(this) );
     importGameDataButton->callback( (Fl_Callback*)importGameDataCb, (void*)(this) );
+    /* OGVM-AUTODETECT: do phien ban ngay khi mo launcher. Cho 0,5 giay de
+     * o duong dan kip nap gia tri tu ~/.ja2/ja2.json truoc khi do. */
+    Fl::add_timeout(0.5, OgvmAutodetectTimeoutCb, (void*)(this));
 	scalingModeChoice->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
 	resolutionXInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
 	resolutionYInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
@@ -617,12 +622,112 @@ void Launcher::guessVersion(Fl_Widget* btn, void* userdata) {
 	}
 }
 
+/* OGVM-AUTODETECT ------------------------------------------------------------
+ * Hien phien ban game da nhan dien ngay tren nhan nut, de nguoi dung khong phai
+ * bam gi moi biet launcher da hieu dung bo du lieu nao. Nut van bam duoc de xem
+ * danh sach tep khop.
+ *
+ * LUU Y FLTK: Fl_Button::label() chi luu CON TRO chu khong sao chep chuoi, nen
+ * chuoi phai song lau hon lan ve. Vi vay giu no trong bien duoi day.
+ */
+#define OGVM_IDLE_LABEL "Detect Edition"
+
+static std::string gOgvmEditionLabel;
+
+/* OGVM-SOURCE ---------------------------------------------------------------
+ * Cho biet du lieu game den tu dau: bung ra tu bo cai, hay la thu muc game san co.
+ *
+ * Do bang dau vet thuc te tren dia. Thu muc do innoextract bung ra mang theo ca
+ * phan vo cua goi cai (support.txt, Manual.pdf, mss32.dll, goggame.sdb), con thu
+ * muc game da cai thi chi co Data/ va tep chay.
+ *
+ * Tep mo ta cua GOG thi co trong CA HAI dang, nen khong dung lam dau hieu duoc.
+ *
+ * Chi kiem TEP chu khong kiem thu muc, vi FileMan::exists chac chan voi tep.
+ */
+enum class OgvmDataSource { Unknown, InstallerUnpack, ExistingFolder };
+
+static OgvmDataSource OgvmDetectSource(const std::string& gamedir)
+{
+    if (gamedir.empty()) return OgvmDataSource::Unknown;
+
+    /* Dau vet chi co trong goi cai, khong con lai sau khi cai xong. */
+    static const char* const wrapperFiles[] = {
+        "support.txt",
+        "Manual.pdf",
+        "mss32.dll",
+        "goggame.sdb",
+    };
+
+    int hits = 0;
+    for (const char* const name : wrapperFiles) {
+        std::string probe = gamedir;
+        if (!probe.empty() && probe[probe.size() - 1] != '/') probe += "/";
+        probe += name;
+        if (FileMan::exists(probe.c_str())) hits++;
+    }
+
+    /* Doi it nhat hai dau vet, de mot tep le loi khong lam ket luan sai. */
+    if (hits >= 2) return OgvmDataSource::InstallerUnpack;
+    return OgvmDataSource::ExistingFolder;
+}
+
+static std::string OgvmSourceToString(OgvmDataSource src)
+{
+    switch (src) {
+        case OgvmDataSource::InstallerUnpack:
+            return "unpacked from an installer (no need to install the game)";
+        case OgvmDataSource::ExistingFolder:
+            return "an existing game folder";
+        default:
+            return "not known yet - choose a game directory first";
+    }
+}
+
+static std::string gOgvmSourceTip;
+/* ---------------------------------------------------------------------- */
+
+static void OgvmRefreshEditionLabel(Launcher* window)
+{
+    const char* raw = window->gameDirectoryInput->value();
+    std::string gamedir = raw ? raw : "";
+
+    if (gamedir.empty()) {
+        gOgvmEditionLabel = OGVM_IDLE_LABEL;
+    } else {
+        DetectionResult result = detectEdition(gamedir);
+        if (result.edition == EditionId::Unknown) {
+            gOgvmEditionLabel = "Unknown edition - click for details";
+        } else {
+            gOgvmEditionLabel = editionIdToString(result.edition)
+                + " (" + detectionConfidenceToString(result.confidence) + ")";
+        }
+    }
+
+    window->detectEditionButton->label(gOgvmEditionLabel.c_str());
+
+    /* OGVM-SOURCE: chu goi y noi ro du lieu den tu dau. Fl_Widget::tooltip()
+     * cung chi giu con tro, nen chuoi phai song lau -> dung bien tren. */
+    gOgvmSourceTip = "Data source: "
+        + OgvmSourceToString(OgvmDetectSource(gamedir));
+    window->detectEditionButton->tooltip(gOgvmSourceTip.c_str());
+    window->detectEditionButton->redraw();
+}
+
+void OgvmAutodetectTimeoutCb(void* userdata)
+{
+    OgvmRefreshEditionLabel(static_cast< Launcher* >(userdata));
+}
+/* --------------------------------------------------------------------- */
+
 void Launcher::detectEditionCb(Fl_Widget* btn, void* userdata) {
     Launcher* window = static_cast<Launcher*>(userdata);
     const char* raw = window->gameDirectoryInput->value();
     std::string gamedir = raw ? raw : "";
 
-    fl_message_title(window->detectEditionButton->label());
+    /* OGVM-AUTODETECT: nhan nut nay gio la ket qua do, khong dung lam
+     * tieu de hop thoai duoc nua. */
+    fl_message_title("Detect Edition");
 
     if (gamedir.empty()) {
         fl_alert("Please choose the JA2 game directory first.");
@@ -641,6 +746,9 @@ void Launcher::detectEditionCb(Fl_Widget* btn, void* userdata) {
     } else {
         message = "Detected edition: " + editionIdToString(result.edition) + "\n";
         message += "Confidence: " + detectionConfidenceToString(result.confidence) + "\n\n";
+        /* OGVM-SOURCE */
+        message += "Data source: "
+            + OgvmSourceToString(OgvmDetectSource(gamedir)) + "\n\n";
         message += "Matched files:\n";
         for (const std::string& f : result.foundFiles) {
             message += "  + " + f + "\n";
@@ -648,6 +756,9 @@ void Launcher::detectEditionCb(Fl_Widget* btn, void* userdata) {
     }
 
     fl_message("%s", message.c_str());
+
+    /* OGVM-AUTODETECT: dong bo lai nhan sau khi xem chi tiet. */
+    OgvmRefreshEditionLabel(window);
 }
 
 void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
