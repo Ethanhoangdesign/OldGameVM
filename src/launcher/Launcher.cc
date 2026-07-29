@@ -51,15 +51,17 @@ const std::vector< std::pair<int, int> > predefinedResolutions = {
     /* RESLIST-LOCK: only the modes that have actually been played through are
      * offered here. 1024x768 is Wildfire's native size -- its interface art is
      * exactly 1024px wide, so nothing has to be stretched or tiled. 1366x768 is
-     * the layout that was tuned screen by screen. 640x480 is the original
-     * vanilla/Gold layout, useful for comparison. Wider modes were removed on
+     * the layout that was tuned screen by screen. 640x480 was dropped from
+     * this menu too: nobody plays at that size and tuning it costs real time.
+     * Every 640x480 code path is still in place though, so it can still be
+     * entered by hand in the two resolution fields when the original layout
+     * needs to be compared against. Wider modes were removed on
      * purpose: most screens are still hard-coded to the 640x480 layout, and some
      * of them (the auto-resolve battle screen above all) become unusable on very
      * wide screens. Do not add modes back without playing through a battle, the
      * strategic map and the sector inventory at that size first. */
     std::make_pair(1024, 768),
     std::make_pair(1366, 768),
-    std::make_pair(640, 480),
 };
 const std::vector<VideoScaleQuality> scalingModes = {
 	VideoScaleQuality::LINEAR,
