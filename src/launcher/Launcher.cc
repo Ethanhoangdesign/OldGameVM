@@ -105,6 +105,9 @@ ST::char_buffer decodePath(const char* path) {
 	return ST::char_buffer{buf.c_str(), len};
 }
 
+
+/* OGVM early forward — browse/import callbacks sit above OGVM block */
+static void OgvmRefreshEditionLabel(Launcher* window);
 Launcher::Launcher(int argc, char* argv[]) : StracciatellaLauncher() {
 	this->argc = argc;
 	this->argv = argv;
@@ -341,6 +344,8 @@ void Launcher::openGameDirectorySelector(Fl_Widget *btn, void *userdata) {
 			if (!checkGameDirectoryForCommonMistakes(dir)) return;
 			window->gameDirectoryInput->value(dir.c_str());
 			window->update(true);
+			OgvmRefreshEditionLabel(window);
+
 			break; // FILE CHOSEN
 		}
 	}
@@ -626,78 +631,112 @@ void Launcher::guessVersion(Fl_Widget* btn, void* userdata) {
 }
 
 /* OGVM-AUTODETECT ------------------------------------------------------------
- * Hien phien ban game da nhan dien ngay tren nhan nut, de nguoi dung khong phai
- * bam gi moi biet launcher da hieu dung bo du lieu nao. Nut van bam duoc de xem
- * danh sach tep khop.
- *
- * LUU Y FLTK: Fl_Button::label() chi luu CON TRO chu khong sao chep chuoi, nen
- * chuoi phai song lau hon lan ve. Vi vay giu no trong bien duoi day.
+ * Hien phien ban game da nhan dien ngay tren nhan nut.
+ * LUU Y FLTK: label()/tooltip() chi giu CON TRO — chuoi phai song lau.
  */
 #define OGVM_IDLE_LABEL "Detect Edition"
 
 static std::string gOgvmEditionLabel;
 
-/* OGVM-SOURCE ---------------------------------------------------------------
- * Cho biet du lieu game den tu dau: bung ra tu bo cai, hay la thu muc game san co.
- *
- * Do bang dau vet thuc te tren dia. Thu muc do innoextract bung ra mang theo ca
- * phan vo cua goi cai (support.txt, Manual.pdf, mss32.dll, goggame.sdb), con thu
- * muc game da cai thi chi co Data/ va tep chay.
- *
- * Tep mo ta cua GOG thi co trong CA HAI dang, nen khong dung lam dau hieu duoc.
- *
- * Chi kiem TEP chu khong kiem thu muc, vi FileMan::exists chac chan voi tep.
- */
+/* OGVM-SRC2: unpack dirs vs installed files (khong dung Manual.pdf/mss32.dll). */
 enum class OgvmDataSource { Unknown, InstallerUnpack, ExistingFolder };
 
 static OgvmDataSource OgvmDetectSource(const std::string& gamedir)
 {
-    if (gamedir.empty()) return OgvmDataSource::Unknown;
-
-    /* Dau vet chi co trong goi cai, khong con lai sau khi cai xong. */
-    static const char* const wrapperFiles[] = {
-        "support.txt",
-        "Manual.pdf",
-        "mss32.dll",
-        "goggame.sdb",
-    };
-
-    int hits = 0;
-    for (const char* const name : wrapperFiles) {
-        std::string probe = gamedir;
-        if (!probe.empty() && probe[probe.size() - 1] != '/') probe += "/";
-        probe += name;
-        if (FileMan::exists(probe.c_str())) hits++;
+    if (gamedir.empty()) {
+        return OgvmDataSource::Unknown;
     }
+    try {
+        ST::char_buffer decoded = decodePath(gamedir.c_str());
+        if (decoded.empty()) {
+            return OgvmDataSource::Unknown;
+        }
+        const std::filesystem::path root(decoded.c_str());
+        std::error_code ec;
+        if (!std::filesystem::is_directory(root, ec)) {
+            return OgvmDataSource::Unknown;
+        }
 
-    /* Doi it nhat hai dau vet, de mot tep le loi khong lam ket luan sai. */
-    if (hits >= 2) return OgvmDataSource::InstallerUnpack;
-    return OgvmDataSource::ExistingFolder;
+        static const char* const unpackDirs[] = {
+            "app", "tmp", "commonappdata", "__redist", "__support",
+        };
+        static const char* const installedFiles[] = {
+            "Uninstall.exe", "Uninstall.log", "WF6.set",
+            "unins000.exe", "unins000.dat",
+        };
+
+        int unpackHits = 0;
+        for (const char* name : unpackDirs) {
+            std::error_code e2;
+            if (std::filesystem::is_directory(root / name, e2)) {
+                unpackHits++;
+            }
+        }
+        int installedHits = 0;
+        for (const char* name : installedFiles) {
+            std::error_code e2;
+            if (std::filesystem::is_regular_file(root / name, e2)) {
+                installedHits++;
+            }
+        }
+
+        if (unpackHits >= 2) {
+            return OgvmDataSource::InstallerUnpack;
+        }
+        return OgvmDataSource::ExistingFolder;
+    } catch (...) {
+        return OgvmDataSource::Unknown;
+    }
 }
 
 static std::string OgvmSourceToString(OgvmDataSource src)
 {
     switch (src) {
         case OgvmDataSource::InstallerUnpack:
-            return "unpacked from an installer (no need to install the game)";
+            return "a GOG installer that has been unpacked";
         case OgvmDataSource::ExistingFolder:
-            return "an existing game folder";
+            return "an existing game folder (Steam, or an installed copy)";
         default:
             return "not known yet - choose a game directory first";
     }
 }
 
 static std::string gOgvmSourceTip;
-/* ---------------------------------------------------------------------- */
-
-/* OGVM-RADIO: dong chu trang thai va callback cua hai nut radio.
-   label() cua Fl_Box cung CHI GIU CON TRO -> phai co bien song lau. */
 static std::string gOgvmStatusText;
+
+/* Forwards — phai nam truoc moi ham dung chung */
 static void OgvmRefreshEditionLabel(Launcher* window);
-/* OGVM-PROGRESS: bao tien trinh khi Import. Launcher khong doc duoc dau ra
- * cua innoextract, nen ta do SO MB THAT da bung ra thu muc dich. Tong thi
- * khong biet truoc -> uoc luong OGVM_IMPORT_MB_GUESS va kep o 99%, de
- * khong bao gio day 100% roi con phai cho. */
+static void OgvmApplySourceLayout(Launcher* window);
+static bool gOgvmRadioUserClick = true;
+
+static void OgvmApplySourceLayout(Launcher* window)
+{
+    if (!window) {
+        return;
+    }
+    const bool installer = window->sourceInstallerRadio
+        && window->sourceInstallerRadio->value();
+    if (window->ogvmInstallerPanel) {
+        if (installer) {
+            window->ogvmInstallerPanel->show();
+        } else {
+            window->ogvmInstallerPanel->hide();
+        }
+        window->ogvmInstallerPanel->redraw();
+    }
+    if (window->ogvmFolderPanel) {
+        if (installer) {
+            window->ogvmFolderPanel->hide();
+        } else {
+            window->ogvmFolderPanel->show();
+        }
+        window->ogvmFolderPanel->redraw();
+    }
+    if (window->tabs) {
+        window->tabs->redraw();
+    }
+}
+
 #define OGVM_IMPORT_MB_GUESS 1024.0
 #define OGVM_IMPORT_TICK 0.5
 
@@ -711,87 +750,75 @@ static Fl_Button* gOgvmImportBtn = nullptr;
 
 static double OgvmDirMegabytes(const std::string& dir)
 {
-	std::error_code ec;
-	const std::filesystem::path root(dir);
-	if (dir.empty() || !std::filesystem::is_directory(root, ec))
-	{
-		return 0.0;
-	}
-	uintmax_t total = 0;
-	std::error_code walkEc;
-	std::filesystem::recursive_directory_iterator it(root, std::filesystem::directory_options::skip_permission_denied, walkEc);
-	std::filesystem::recursive_directory_iterator end;
-	for (; it != end; it.increment(walkEc))
-	{
-		std::error_code fileEc;
-		if (it->is_regular_file(fileEc))
-		{
-			std::error_code sizeEc;
-			total += it->file_size(sizeEc);
-		}
-	}
-	return (double) total / (1024.0 * 1024.0);
+    std::error_code ec;
+    const std::filesystem::path root(dir);
+    if (dir.empty() || !std::filesystem::is_directory(root, ec)) {
+        return 0.0;
+    }
+    uintmax_t total = 0;
+    std::error_code walkEc;
+    std::filesystem::recursive_directory_iterator it(
+        root, std::filesystem::directory_options::skip_permission_denied, walkEc);
+    std::filesystem::recursive_directory_iterator end;
+    for (; it != end; it.increment(walkEc)) {
+        std::error_code fileEc;
+        if (it->is_regular_file(fileEc)) {
+            std::error_code sizeEc;
+            total += it->file_size(sizeEc);
+        }
+    }
+    return (double) total / (1024.0 * 1024.0);
 }
 
 static void OgvmImportFinishLook()
 {
-	if (gOgvmProgress)
-	{
-		gOgvmProgress->hide();
-	}
-	if (gOgvmStatusBox)
-	{
-		gOgvmStatusBox->show();
-		gOgvmStatusBox->redraw();
-	}
-	if (gOgvmImportBtn)
-	{
-		gOgvmImportBtn->activate();
-		gOgvmImportBtn->redraw();
-	}
+    if (gOgvmProgress) {
+        gOgvmProgress->hide();
+    }
+    if (gOgvmStatusBox) {
+        gOgvmStatusBox->show();
+        gOgvmStatusBox->redraw();
+    }
+    if (gOgvmImportBtn) {
+        gOgvmImportBtn->activate();
+        gOgvmImportBtn->redraw();
+    }
 }
 
 void OgvmImportTickCb(void* userdata)
 {
-	if (!gOgvmImportRunning)
-	{
-		OgvmImportFinishLook();
-		return;
-	}
-	gOgvmImportTicks++;
-	const double mb = OgvmDirMegabytes(gOgvmImportDir);
-	const int secs = (int) (gOgvmImportTicks * OGVM_IMPORT_TICK);
-	double pct = mb / OGVM_IMPORT_MB_GUESS * 100.0;
-	if (pct > 99.0) pct = 99.0;
-	if (pct < 0.0) pct = 0.0;
-	gOgvmImportText = "Importing... " + std::to_string((int) (mb + 0.5))
-		+ " MB unpacked, " + std::to_string(secs) + "s";
-	if (gOgvmProgress)
-	{
-		gOgvmProgress->value((float) pct);
-		gOgvmProgress->label(gOgvmImportText.c_str());
-		gOgvmProgress->redraw();
-	}
-	Fl::add_timeout(OGVM_IMPORT_TICK, OgvmImportTickCb, userdata);
+    if (!gOgvmImportRunning) {
+        OgvmImportFinishLook();
+        return;
+    }
+    gOgvmImportTicks++;
+    const double mb = OgvmDirMegabytes(gOgvmImportDir);
+    const int secs = (int) (gOgvmImportTicks * OGVM_IMPORT_TICK);
+    double pct = mb / OGVM_IMPORT_MB_GUESS * 100.0;
+    if (pct > 99.0) pct = 99.0;
+    if (pct < 0.0) pct = 0.0;
+    gOgvmImportText = "Importing... " + std::to_string((int) (mb + 0.5))
+        + " MB unpacked, " + std::to_string(secs) + "s";
+    if (gOgvmProgress) {
+        gOgvmProgress->value((float) pct);
+        gOgvmProgress->label(gOgvmImportText.c_str());
+        gOgvmProgress->redraw();
+    }
+    Fl::add_timeout(OGVM_IMPORT_TICK, OgvmImportTickCb, userdata);
 }
 
 void OgvmSourceRadioCb(Fl_Widget* w, void* userdata)
 {
-    /* Hai nut chi de DOC: bam vao thi do lai va nhay ve dung ket qua. */
     Launcher* window = static_cast< Launcher* >(userdata);
-    /* OGVM-RADIO2: bam radio thi bam ho cai nut tuong ung. Cach nay giu
-     * nguyen mot duong chay duy nhat cho moi luong, nen sua nut la radio
-     * di theo, khong bao gio lech nhau. */
-    if (w == window->sourceFolderRadio)
-    {
-        window->browseJa2DirectoryButton->do_callback();
+    OgvmApplySourceLayout(window);
+    if (!gOgvmRadioUserClick) {
+        return;
     }
-    else if (w == window->sourceInstallerRadio)
-    {
+    if (w == window->sourceFolderRadio) {
+        window->browseJa2DirectoryButton->do_callback();
+    } else if (w == window->sourceInstallerRadio) {
         window->importGameDataButton->do_callback();
     }
-    /* Luong Import chay ngam: dong chu se con la ket qua cu cho den khi
-     * bung xong. Tha noi that la chua biet hon la hien ket qua sai. */
     OgvmRefreshEditionLabel(window);
 }
 
@@ -800,10 +827,12 @@ static void OgvmRefreshEditionLabel(Launcher* window)
     const char* raw = window->gameDirectoryInput->value();
     std::string gamedir = raw ? raw : "";
 
+    DetectionResult result;
+    result.edition = EditionId::Unknown;
     if (gamedir.empty()) {
         gOgvmEditionLabel = OGVM_IDLE_LABEL;
     } else {
-        DetectionResult result = detectEdition(gamedir);
+        result = detectEdition(gamedir);
         if (result.edition == EditionId::Unknown) {
             gOgvmEditionLabel = "Unknown edition - click for details";
         } else {
@@ -813,25 +842,48 @@ static void OgvmRefreshEditionLabel(Launcher* window)
     }
 
     window->detectEditionButton->label(gOgvmEditionLabel.c_str());
-
-    /* OGVM-SOURCE: chu goi y noi ro du lieu den tu dau. Fl_Widget::tooltip()
-     * cung chi giu con tro, nen chuoi phai song lau -> dung bien tren. */
-    gOgvmSourceTip = "Data source: "
-        + OgvmSourceToString(OgvmDetectSource(gamedir));
+    gOgvmSourceTip = "Data source: " + OgvmSourceToString(OgvmDetectSource(gamedir));
     window->detectEditionButton->tooltip(gOgvmSourceTip.c_str());
-    {   /* OGVM-RADIO: cham san mot trong hai nut theo ket qua vua do */
+
+    {
         OgvmDataSource ogvmSrc = OgvmDetectSource(gamedir);
-        window->sourceInstallerRadio->value(ogvmSrc == OgvmDataSource::InstallerUnpack ? 1 : 0);
-        window->sourceFolderRadio->value(ogvmSrc == OgvmDataSource::ExistingFolder ? 1 : 0);
-        if (ogvmSrc == OgvmDataSource::Unknown)
-        {
-            gOgvmStatusText = "Unknown - pick a folder or import from an installer";
+        gOgvmRadioUserClick = false;
+        if (ogvmSrc == OgvmDataSource::InstallerUnpack) {
+            window->sourceInstallerRadio->value(1);
+            window->sourceFolderRadio->value(0);
+        } else if (ogvmSrc == OgvmDataSource::ExistingFolder) {
+            window->sourceInstallerRadio->value(0);
+            window->sourceFolderRadio->value(1);
+        } else if (!window->sourceInstallerRadio->value()
+                   && !window->sourceFolderRadio->value()) {
+            window->sourceFolderRadio->value(1);
         }
-        else
-        {
-            gOgvmStatusText = "Detected automatically when the launcher started";
+        OgvmApplySourceLayout(window);
+        gOgvmRadioUserClick = true;
+
+        if (gamedir.empty()) {
+            gOgvmStatusText = "Choose how you have the game data";
+        } else if (result.edition == EditionId::Unknown) {
+            gOgvmStatusText = "Folder set — edition unknown (click Detect for details)";
+        } else {
+            gOgvmStatusText = "Ready — "
+                + editionIdToString(result.edition)
+                + " (" + detectionConfidenceToString(result.confidence) + ") — to play";
         }
         window->sourceStatusLabel->label(gOgvmStatusText.c_str());
+        /* OGVM-READYSTYLE: xanh la + 12pt; an nut Detect khi da biet edition */
+        window->sourceStatusLabel->labelfont(FL_HELVETICA);
+        window->sourceStatusLabel->labelsize(12);
+        if (!gamedir.empty() && result.edition != EditionId::Unknown) {
+            window->sourceStatusLabel->labelcolor(FL_DARK_GREEN);
+            window->detectEditionButton->hide();
+        } else {
+            window->sourceStatusLabel->labelcolor(
+                gamedir.empty() ? FL_BLACK : FL_DARK_RED);
+            window->detectEditionButton->show();
+            window->detectEditionButton->redraw();
+        }
+
         window->sourceStatusLabel->redraw();
         window->sourceInstallerRadio->redraw();
         window->sourceFolderRadio->redraw();
@@ -850,8 +902,6 @@ void Launcher::detectEditionCb(Fl_Widget* btn, void* userdata) {
     const char* raw = window->gameDirectoryInput->value();
     std::string gamedir = raw ? raw : "";
 
-    /* OGVM-AUTODETECT: nhan nut nay gio la ket qua do, khong dung lam
-     * tieu de hop thoai duoc nua. */
     fl_message_title("Detect Edition");
 
     if (gamedir.empty()) {
@@ -871,7 +921,6 @@ void Launcher::detectEditionCb(Fl_Widget* btn, void* userdata) {
     } else {
         message = "Detected edition: " + editionIdToString(result.edition) + "\n";
         message += "Confidence: " + detectionConfidenceToString(result.confidence) + "\n\n";
-        /* OGVM-SOURCE */
         message += "Data source: "
             + OgvmSourceToString(OgvmDetectSource(gamedir)) + "\n\n";
         message += "Matched files:\n";
@@ -880,10 +929,9 @@ void Launcher::detectEditionCb(Fl_Widget* btn, void* userdata) {
         }
     }
 
-    fl_message("%s", message.c_str());
-
-    /* OGVM-AUTODETECT: dong bo lai nhan sau khi xem chi tiet. */
+    /* OGVM-SYNCORDER */
     OgvmRefreshEditionLabel(window);
+    fl_message("%s", message.c_str());
 }
 
 void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
@@ -1057,6 +1105,8 @@ void Launcher::maintainImportState(void* userdata) {
 
     window->gameDirectoryInput->value(window->importDestination.c_str());
     window->update(true);
+    OgvmRefreshEditionLabel(window);
+
 
     DetectionResult result = detectEdition(destination.string());
     std::string message = "The game data was imported successfully.\n\n";

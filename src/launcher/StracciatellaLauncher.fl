@@ -1,3 +1,7 @@
+# OGVM-LAYOUTB: StracciatellaLauncher.fl is reference-only.
+# Build machine has no fluid; StracciatellaLauncher.cc/.h are hand-edited source of truth.
+# See StracciatellaLauncher.cc for coordinates (window 520x470, Data radio-first).
+
 # data file for the Fltk User Interface Designer (fluid)
 version 1.0309
 header_name {.h}
@@ -34,7 +38,7 @@ class StracciatellaLauncher {open
             xywh {10 60 500 50}
           } {
             Fl_Input gameDirectoryInput {
-              label {JA2 Game Directory:}
+              label {Step 2 - JA2 game folder (filled in after Step 1):}
               xywh {20 75 440 30} align 5 resizable
             }
             Fl_Button browseJa2DirectoryButton {
@@ -46,7 +50,7 @@ class StracciatellaLauncher {open
             xywh {10 110 500 50}
           } {
             Fl_Choice gameVersionInput {
-              label {Game Version:} open
+              label {Data language:} open
               xywh {20 130 440 30} down_box BORDER_BOX align 5 resizable
             } {}
             Fl_Button guessVersionButton {
@@ -83,7 +87,7 @@ class StracciatellaLauncher {open
             xywh {10 170 500 50}
           } {
             Fl_Input saveGameDirectoryInput {
-              label {Save Game Directory:}
+              label {Saved games folder (optional):}
               xywh {20 185 440 30} align 5 resizable
             }
             Fl_Button browseSaveGameDirectoryButton {
@@ -99,8 +103,8 @@ class StracciatellaLauncher {open
               tooltip {Detect which JA2 edition (Vanilla / Gold / Wildfire) is installed in the game directory.} xywh {20 230 160 30}
             }
             Fl_Button importGameDataButton {
-              label {Import Game Data...}
-              tooltip {Extract game data straight from a GOG or retail installer, without having to install the original game first.} xywh {190 230 180 30}
+              label {Step 1 - Import from installer...}
+              tooltip {Extract game data straight from a GOG or retail installer, without having to install the original game first.} xywh {190 230 300 30}   # OGVM-UX1
             }
           }
         }
