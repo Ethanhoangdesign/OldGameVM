@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <vector>
 #include <limits>
+#include <cstring>
 
 #define RESOLUTION_SEPARATOR "x"
 
@@ -136,6 +137,242 @@ void Launcher::loadJa2Json() {
 	}
 }
 
+
+/* OGVM-FLUENT2-DARK ----------------------------------------------------------
+ * WinUI3 / Fluent 2 dual-mode theme for FLTK.
+ * Light: F3F3F3 bg, 0078D4 accent.
+ * Dark : 202020 bg, 60CDFF accent (WinUI3 dark accent).
+ */
+
+/* Forward so toggle button callback can call it */
+static void OgvmApplyFluent2Theme(Launcher* w, bool dark);
+static bool gOgvmDarkMode = false;
+
+/* macOS system dark mode detection (compile-time guard) */
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_MAC
+#include <objc/objc.h>
+#include <objc/runtime.h>
+#include <objc/message.h>
+static bool OgvmSystemIsDark()
+{
+    /* NSApp.effectiveAppearance.name contains "Dark" when in dark mode. */
+    id app = ((id(*)(Class,SEL))objc_msgSend)(objc_getClass("NSApplication"),
+              sel_registerName("sharedApplication"));
+    if (!app) return false;
+    id ap = ((id(*)(id,SEL))objc_msgSend)(app,
+              sel_registerName("effectiveAppearance"));
+    if (!ap) return false;
+    id name = ((id(*)(id,SEL))objc_msgSend)(ap, sel_registerName("name"));
+    if (!name) return false;
+    const char* cs = ((const char*(*)(id,SEL))objc_msgSend)(name,
+                       sel_registerName("UTF8String"));
+    if (!cs) return false;
+    return strstr(cs, "Dark") != nullptr;
+}
+#else
+static bool OgvmSystemIsDark() { return false; }
+#endif
+#else
+static bool OgvmSystemIsDark() { return false; }
+#endif
+
+static const char* OgvmThemeIcon(bool dark) { return dark ? "\xe2\x98\x80" : "\xe2\x98\xbd"; }
+
+static void OgvmThemeToggleCb(Fl_Widget* btn, void* userdata)
+{
+    Launcher* window = static_cast<Launcher*>(userdata);
+    gOgvmDarkMode = !gOgvmDarkMode;
+    OgvmApplyFluent2Theme(window, gOgvmDarkMode);
+    btn->label(OgvmThemeIcon(gOgvmDarkMode));
+    btn->redraw();
+}
+
+static void OgvmApplyFluent2Theme(Launcher* window, bool dark)
+{
+    if (!window || !window->stracciatellaLauncher) return;
+
+    /* ---- Palettes -------------------------------------------------------- */
+    Fl_Color bg, card, text, secondary, accent, accentDk, accentFg,
+             green, stroke, tabBar;
+
+    if (!dark) {
+        /* Fluent 2 Light */
+        bg        = fl_rgb_color(243, 243, 243);
+        card      = fl_rgb_color(255, 255, 255);
+        text      = fl_rgb_color( 32,  31,  30);
+        secondary = fl_rgb_color( 96,  94,  92);
+        accent    = fl_rgb_color(  0, 120, 212);
+        accentDk  = fl_rgb_color(  0,  90, 158);
+        accentFg  = FL_WHITE;
+        green     = fl_rgb_color( 16, 124,  16);
+        stroke    = fl_rgb_color(237, 235, 233);
+        tabBar    = fl_rgb_color(243, 243, 243);
+        Fl::background(243, 243, 243);
+        Fl::background2(255, 255, 255);
+        Fl::foreground( 32,  31,  30);
+    } else {
+        /* WinUI3 Dark */
+        bg        = fl_rgb_color( 32,  32,  32);
+        card      = fl_rgb_color( 43,  43,  43);
+        text      = fl_rgb_color(255, 255, 255);
+        secondary = fl_rgb_color(160, 160, 160);
+        accent    = fl_rgb_color( 96, 205, 255);   /* 60CDFF */
+        accentDk  = fl_rgb_color( 60, 180, 230);
+        accentFg  = fl_rgb_color( 32,  32,  32);
+        green     = fl_rgb_color( 92, 192,  92);
+        stroke    = fl_rgb_color( 60,  60,  60);
+        tabBar    = fl_rgb_color( 40,  40,  40);
+        Fl::background( 32,  32,  32);
+        Fl::background2( 43,  43,  43);
+        Fl::foreground(255, 255, 255);
+    }
+
+    Fl::scheme("none");
+    fl_message_font(FL_HELVETICA, 13);
+
+    window->stracciatellaLauncher->color(bg);
+    window->stracciatellaLauncher->labelcolor(text);
+
+    if (window->tabs) {
+        window->tabs->color(tabBar);
+        window->tabs->selection_color(card);
+        window->tabs->labelcolor(secondary);
+        window->tabs->labelsize(14);
+    }
+
+    /* Play button */
+    if (window->playButton) {
+        window->playButton->box(FL_ROUNDED_BOX);
+        window->playButton->color(accent);
+        window->playButton->selection_color(accentDk);
+        window->playButton->labelcolor(accentFg);
+        window->playButton->labelfont(FL_HELVETICA_BOLD);
+        window->playButton->labelsize(16);
+    }
+    if (window->editorButton) {
+        window->editorButton->box(FL_ROUNDED_BOX);
+        window->editorButton->color(card);
+        window->editorButton->labelcolor(accent);
+        window->editorButton->labelsize(13);
+    }
+
+    /* Inputs */
+    Fl_Input* ins[] = { window->gameDirectoryInput, window->saveGameDirectoryInput };
+    for (Fl_Input* w : ins) {
+        if (!w) continue;
+        w->box(FL_ROUNDED_BOX); w->color(card);
+        w->textcolor(text); w->textsize(13); w->textfont(FL_HELVETICA);
+        w->labelsize(12); w->labelcolor(secondary);
+    }
+    if (window->gameSettingsOutput) {
+        window->gameSettingsOutput->box(FL_ROUNDED_BOX);
+        window->gameSettingsOutput->color(card);
+        window->gameSettingsOutput->textcolor(secondary);
+        window->gameSettingsOutput->textsize(12); window->gameSettingsOutput->labelsize(12);
+        window->gameSettingsOutput->labelcolor(secondary);
+    }
+    if (window->ja2JsonPathOutput) {
+        window->ja2JsonPathOutput->box(FL_FLAT_BOX);
+        window->ja2JsonPathOutput->color(bg);
+        window->ja2JsonPathOutput->textcolor(secondary);
+        window->ja2JsonPathOutput->textsize(11);
+    }
+
+    /* Dropdowns */
+    Fl_Choice* chs[] = { window->gameVersionInput, window->scalingModeChoice };
+    for (Fl_Choice* w : chs) {
+        if (!w) continue;
+        w->box(FL_ROUNDED_BOX); w->down_box(FL_BORDER_BOX);
+        w->color(card); w->textcolor(text); w->textsize(13);
+        w->textfont(FL_HELVETICA); w->labelcolor(secondary); w->labelsize(12);
+    }
+
+    /* Secondary buttons */
+    Fl_Button* sec[] = {
+        window->browseJa2DirectoryButton,
+        window->browseSaveGameDirectoryButton,
+        window->guessVersionButton,
+        window->detectEditionButton,
+        window->ja2JsonReloadBtn,
+        window->ja2JsonSaveBtn,
+        window->enableModsButton,
+        window->disableModsButton,
+        window->moveUpModsButton,
+        window->moveDownModsButton,
+    };
+    for (Fl_Button* w : sec) {
+        if (!w) continue;
+        w->box(FL_ROUNDED_BOX); w->color(card);
+        w->labelcolor(accent); w->labelsize(13);
+    }
+    if (window->predefinedResolutionMenuButton) {
+        window->predefinedResolutionMenuButton->box(FL_ROUNDED_BOX);
+        window->predefinedResolutionMenuButton->color(card);
+        window->predefinedResolutionMenuButton->labelcolor(text);
+        window->predefinedResolutionMenuButton->labelsize(13);
+    }
+    if (window->importGameDataButton) {
+        window->importGameDataButton->box(FL_ROUNDED_BOX);
+        window->importGameDataButton->color(accent);
+        window->importGameDataButton->selection_color(accentDk);
+        window->importGameDataButton->labelcolor(accentFg);
+        window->importGameDataButton->labelfont(FL_HELVETICA_BOLD);
+        window->importGameDataButton->labelsize(14);
+    }
+
+    /* Radios + checkboxes */
+    for (Fl_Round_Button* w : {window->sourceInstallerRadio, window->sourceFolderRadio}) {
+        if (!w) continue;
+        w->labelsize(13); w->labelcolor(text);
+        w->labelfont(FL_HELVETICA); w->selection_color(accent);
+    }
+    for (Fl_Check_Button* w : {window->fullscreenCheckbox, window->playSoundsCheckbox}) {
+        if (!w) continue;
+        w->labelcolor(text); w->selection_color(accent); w->labelsize(13);
+    }
+
+    /* Status */
+    if (window->sourceStatusLabel) {
+        window->sourceStatusLabel->labelfont(FL_HELVETICA);
+        window->sourceStatusLabel->labelsize(13);
+        window->sourceStatusLabel->labelcolor(green);
+    }
+    if (window->importProgress) {
+        window->importProgress->color(stroke);
+        window->importProgress->selection_color(accent);
+        window->importProgress->labelsize(12);
+    }
+
+    /* Value inputs */
+    for (Fl_Value_Input* w : {window->resolutionXInput, window->resolutionYInput}) {
+        if (!w) continue;
+        w->box(FL_ROUNDED_BOX); w->color(card);
+        w->textsize(13); w->labelsize(12); w->labelcolor(secondary);
+    }
+
+    /* Browsers / logs */
+    if (window->enabledModsBrowser) {
+        window->enabledModsBrowser->color(card);
+        window->enabledModsBrowser->textsize(13); window->enabledModsBrowser->textfont(FL_HELVETICA);
+        window->enabledModsBrowser->labelsize(12); window->enabledModsBrowser->labelcolor(secondary);
+    }
+    if (window->availableModsBrowser) {
+        window->availableModsBrowser->color(card);
+        window->availableModsBrowser->textsize(13); window->availableModsBrowser->textfont(FL_HELVETICA);
+        window->availableModsBrowser->labelsize(12); window->availableModsBrowser->labelcolor(secondary);
+    }
+    if (window->logsDisplay) {
+        window->logsDisplay->color(card);
+        window->logsDisplay->textsize(12); window->logsDisplay->textfont(FL_COURIER);
+        window->logsDisplay->labelcolor(secondary);
+    }
+    if (window->modDetails) { window->modDetails->color(card); }
+
+    window->stracciatellaLauncher->redraw();
+}
+
 void Launcher::show() {
 	editorButton->callback( (Fl_Callback*)startEditor, (void*)(this) );
 	/* OGVM-AUTODETECT: khai bao truoc; dinh nghia nam gan detectEditionCb */
@@ -194,6 +431,20 @@ void Launcher::show() {
 
 	const Fl_PNG_Image icon("logo32.png", logo32_png, 1374);
 	stracciatellaLauncher->icon(&icon);
+
+    fl_message_font(FL_HELVETICA, 13); /* OGVM-FLUENT2-DARK popup */
+    /* OGVM-FLUENT2-DARK: detect system dark mode, apply theme, add toggle btn */
+    gOgvmDarkMode = OgvmSystemIsDark();
+    OgvmApplyFluent2Theme(this, gOgvmDarkMode);
+    /* Toggle button lives on the main window so it is always visible */
+    {
+        Fl_Button* togBtn = new Fl_Button(542, 526, 34, 34, OgvmThemeIcon(gOgvmDarkMode));
+        togBtn->box(FL_ROUNDED_BOX);
+        togBtn->tooltip("Toggle light / dark mode");
+        togBtn->labelsize(16);
+        togBtn->callback(OgvmThemeToggleCb, (void*)(this));
+        stracciatellaLauncher->add(togBtn);
+    }
 	stracciatellaLauncher->show();
 
 	logsDisplay->buffer(logsBuffer);
@@ -875,11 +1126,12 @@ static void OgvmRefreshEditionLabel(Launcher* window)
         window->sourceStatusLabel->labelfont(FL_HELVETICA);
         window->sourceStatusLabel->labelsize(12);
         if (!gamedir.empty() && result.edition != EditionId::Unknown) {
-            window->sourceStatusLabel->labelcolor(FL_DARK_GREEN);
+            window->sourceStatusLabel->labelcolor(fl_rgb_color(16,124,16)); /* OGVM-FLUENT2-DARK */
             window->detectEditionButton->hide();
         } else {
             window->sourceStatusLabel->labelcolor(
-                gamedir.empty() ? FL_BLACK : FL_DARK_RED);
+                gamedir.empty() ? fl_rgb_color(32,31,30)
+                               : fl_rgb_color(196,43,28) /* OGVM-FLUENT2-DARK */);
             window->detectEditionButton->show();
             window->detectEditionButton->redraw();
         }

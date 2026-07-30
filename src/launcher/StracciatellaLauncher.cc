@@ -8,20 +8,22 @@
 #include "StracciatellaLauncher.h"
 
 StracciatellaLauncher::StracciatellaLauncher() {
-  { stracciatellaLauncher = new Fl_Double_Window(520, 470, "JA2 Stracciatella Launcher");
+  { stracciatellaLauncher = new Fl_Double_Window(580, 560, "OldGameVM"); /* OGVM-FLUENT2-DARK */
     stracciatellaLauncher->user_data((void*)(this));
-    { tabs = new Fl_Tabs(0, 0, 520, 440);
+    { tabs = new Fl_Tabs(0, 0, 580, 520);
       tabs->align(Fl_Align(FL_ALIGN_TOP_RIGHT));
-      { Fl_Group* o = new Fl_Group(0, 50, 520, 390, "@> Play  ");
+      { Fl_Group* o = new Fl_Group(0, 55, 580, 465, "   Play   ");
         o->labelsize(16);
         o->labelcolor((Fl_Color)24);
-        { editorButton = new Fl_Button(160, 170, 200, 25, "Start Map Editor");
+        { editorButton = new Fl_Button(180, 168, 220, 30, "Start Map Editor");
+          editorButton->box(FL_ROUNDED_BOX);
         } // Fl_Button* editorButton
-        { playButton = new Fl_Button(160, 205, 200, 55, "Play Ja2 Stracciatella");
+        { playButton = new Fl_Button(140, 205, 300, 64, "Play"); /* OGVM-FLUENT2-DARK */
+          playButton->box(FL_ROUNDED_BOX); playButton->labelsize(16);
         } // Fl_Button* playButton
         o->end();
       } // Fl_Group* o
-      { Fl_Group* o = new Fl_Group(0, 50, 520, 390, "@filenew Data ");
+      { Fl_Group* o = new Fl_Group(0, 55, 580, 465, "   Data   ");
         o->labelcolor((Fl_Color)24);
         o->hide();
         /* OGVM-LAYOUTB --------------------------------------------------------
@@ -31,21 +33,21 @@ StracciatellaLauncher::StracciatellaLauncher() {
          *  3) exclusive panels (installer import XOR existing folder)
          *  4) language / saves / detect (always visible)
          */
-        { sourceStatusLabel = new Fl_Box(20, 58, 480, 22, "Choose how you have the game data");
+        { sourceStatusLabel = new Fl_Box(24, 70, 530, 26, /* OGVM-FLUENT2-DARK */ "Choose how you have the game data");
           sourceStatusLabel->box(FL_NO_BOX);
           sourceStatusLabel->labelfont(FL_HELVETICA);   /* OGVM-READYSTYLE: 12pt, not bold */
           sourceStatusLabel->labelsize(12);
-          sourceStatusLabel->labelcolor(FL_DARK_GREEN);
+          sourceStatusLabel->labelcolor(fl_rgb_color(16,124,16)); /* OGVM-FLUENT2-DARK */
           sourceStatusLabel->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
         }
-        { sourceInstallerRadio = new Fl_Round_Button(20, 86, 480, 24,
+        { sourceInstallerRadio = new Fl_Round_Button(24, 104, 530, 30,
             "I have a GOG installer file (.exe) - import it here");
           sourceInstallerRadio->down_box(FL_ROUND_DOWN_BOX);
           sourceInstallerRadio->type(FL_RADIO_BUTTON);
           sourceInstallerRadio->labelsize(13);
           sourceInstallerRadio->tooltip("Import game data from a GOG or retail setup_*.exe without installing the original game.");
         }
-        { sourceFolderRadio = new Fl_Round_Button(20, 112, 480, 24,
+        { sourceFolderRadio = new Fl_Round_Button(24, 140, 530, 30,
             "I already have a game folder (Steam, or an installed copy)");
           sourceFolderRadio->down_box(FL_ROUND_DOWN_BOX);
           sourceFolderRadio->type(FL_RADIO_BUTTON);
@@ -54,12 +56,12 @@ StracciatellaLauncher::StracciatellaLauncher() {
           sourceFolderRadio->value(1);
         }
         { /* Installer-only panel (same slot as folder panel; only one shown) */
-          ogvmInstallerPanel = new Fl_Group(10, 142, 500, 72);
+          ogvmInstallerPanel = new Fl_Group(10, 178, 560, 82);
           ogvmInstallerPanel->box(FL_NO_BOX);
-          { importGameDataButton = new Fl_Button(20, 150, 480, 32, "Import from installer...");
+          { importGameDataButton = new Fl_Button(24, 186, 530, 40, "Import from installer...");
             importGameDataButton->tooltip("Extract game data straight from a GOG or retail installer.");
           }
-          { importProgress = new Fl_Progress(20, 190, 480, 18, "");
+          { importProgress = new Fl_Progress(24, 232, 530, 20, "");
             importProgress->minimum(0.0f);
             importProgress->maximum(100.0f);
             importProgress->value(0.0f);
@@ -71,42 +73,42 @@ StracciatellaLauncher::StracciatellaLauncher() {
           ogvmInstallerPanel->hide();   /* default: existing-folder path */
         }
         { /* Existing-folder panel */
-          ogvmFolderPanel = new Fl_Group(10, 142, 500, 72);
+          ogvmFolderPanel = new Fl_Group(10, 178, 560, 82);
           ogvmFolderPanel->box(FL_NO_BOX);
-          { gameDirectoryInput = new Fl_Input(20, 160, 440, 30, "JA2 game folder:");
+          { gameDirectoryInput = new Fl_Input(24, 200, 490, 36, "JA2 game folder:");
             gameDirectoryInput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(gameDirectoryInput);
           }
-          { browseJa2DirectoryButton = new Fl_Button(470, 160, 30, 30, "@fileopen");
+          { browseJa2DirectoryButton = new Fl_Button(522, 200, 36, 36, "@fileopen");
             browseJa2DirectoryButton->tooltip("Choose JA2 game directory.");
           }
           ogvmFolderPanel->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 222, 500, 50);
-          { gameVersionInput = new Fl_Choice(20, 242, 440, 30, "Data language:");
+        { Fl_Group* g = new Fl_Group(10, 270, 560, 58);
+          { gameVersionInput = new Fl_Choice(24, 294, 490, 36, "Data language:");
             gameVersionInput->down_box(FL_BORDER_BOX);
             gameVersionInput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(gameVersionInput);
           }
-          { guessVersionButton = new Fl_Button(470, 242, 30, 30, "@search");
+          { guessVersionButton = new Fl_Button(522, 294, 36, 36, "@search");
             guessVersionButton->tooltip("Guess Game Version");
           }
           g->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 278, 500, 50);
-          { saveGameDirectoryInput = new Fl_Input(20, 298, 440, 30, "Saved games folder (optional):");
+        { Fl_Group* g = new Fl_Group(10, 340, 560, 58);
+          { saveGameDirectoryInput = new Fl_Input(24, 364, 490, 36, "Saved games folder (optional):");
             saveGameDirectoryInput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(saveGameDirectoryInput);
           }
-          { browseSaveGameDirectoryButton = new Fl_Button(470, 298, 30, 30, "@fileopen");
+          { browseSaveGameDirectoryButton = new Fl_Button(522, 364, 36, 36, "@fileopen");
             browseSaveGameDirectoryButton->tooltip("Choose save game directory.");
           }
           g->end();
         }
-        { detectEditionButton = new Fl_Button(20, 340, 220, 28, "Detect Edition");
+        { detectEditionButton = new Fl_Button(24, 412, 260, 34, "Detect Edition");
           detectEditionButton->tooltip("Show matched files and detection details for the current game folder.");
         }
-        { Fl_Group* g = new Fl_Group(10, 375, 500, 20, "resizable");
+        { Fl_Group* g = new Fl_Group(10, 456, 560, 10, "resizable");
           g->labeltype(FL_NO_LABEL);
           g->align(Fl_Align(FL_ALIGN_TOP|FL_ALIGN_INSIDE));
           g->end();
@@ -114,11 +116,11 @@ StracciatellaLauncher::StracciatellaLauncher() {
         }
         o->end();
       } // Fl_Group* Data
-      { Fl_Group* o = new Fl_Group(0, 50, 520, 390, "@-> Mods ");
+      { Fl_Group* o = new Fl_Group(0, 55, 580, 465, "   Mods   ");
         o->labelcolor((Fl_Color)24);
         o->hide();
         { Fl_Group* g = new Fl_Group(10, 80, 500, 165);
-          { enabledModsBrowser = new Fl_Browser(20, 95, 215, 150, "Enabled Mods:");
+          { enabledModsBrowser = new Fl_Browser(20, 95, 245, 190, "Enabled Mods:");
             enabledModsBrowser->type(3);
             enabledModsBrowser->align(Fl_Align(FL_ALIGN_TOP_LEFT));
           }
@@ -138,13 +140,13 @@ StracciatellaLauncher::StracciatellaLauncher() {
             moveDownModsButton->tooltip("Move mod down in the list and increase mod priority.");
             moveDownModsButton->deactivate();
           }
-          { availableModsBrowser = new Fl_Browser(285, 95, 215, 150, "Disabled Mods:");
+          { availableModsBrowser = new Fl_Browser(320, 95, 245, 190, "Disabled Mods:");
             availableModsBrowser->type(3);
             availableModsBrowser->align(Fl_Align(FL_ALIGN_TOP_LEFT));
           }
           g->end();
         }
-        { modDetails = new Fl_Text_Display(20, 255, 480, 80);
+        { modDetails = new Fl_Text_Display(20, 300, 540, 90);
           modDetails->color((Fl_Color)55);
           modDetails->hide();
         }
@@ -154,40 +156,40 @@ StracciatellaLauncher::StracciatellaLauncher() {
         }
         o->end();
       }
-      { Fl_Group* o = new Fl_Group(0, 50, 520, 390, "@menu Settings ");
+      { Fl_Group* o = new Fl_Group(0, 55, 580, 465, "  Settings  ");
         o->labelcolor((Fl_Color)24);
         o->hide();
-        { Fl_Group* g = new Fl_Group(10, 60, 500, 45);
-          { gameSettingsOutput = new Fl_Output(20, 75, 480, 30, "Game Settings:");
+        { Fl_Group* g = new Fl_Group(10, 68, 560, 52);
+          { gameSettingsOutput = new Fl_Output(24, 84, 530, 34, "Game Settings:");
             gameSettingsOutput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(gameSettingsOutput);
           }
           g->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 115, 500, 52);
+        { Fl_Group* g = new Fl_Group(10, 132, 560, 58);
           g->tooltip("Specify the internal rendering resolution. Text and sprites become very small at high resolutions. The strategic map screen needs at least 768 pixels of height to show the full map, so 1366x768 or larger is recommended.");
-          { resolutionXInput = new Fl_Value_Input(20, 130, 75, 30, "Internal Resolution:");
+          { resolutionXInput = new Fl_Value_Input(24, 150, 80, 34, "Internal Resolution:");
             resolutionXInput->minimum(640);
             resolutionXInput->maximum(0);
             resolutionXInput->value(640);
             resolutionXInput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
           }
-          { new Fl_Box(95, 130, 20, 30, "x"); }
-          { resolutionYInput = new Fl_Value_Input(115, 130, 75, 30);
+          { new Fl_Box(108, 150, 20, 34, "x"); }
+          { resolutionYInput = new Fl_Value_Input(132, 150, 80, 34);
             resolutionYInput->labeltype(FL_NO_LABEL);
             resolutionYInput->minimum(480);
             resolutionYInput->maximum(0);
             resolutionYInput->value(480);
             resolutionYInput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
           }
-          { predefinedResolutionMenuButton = new Fl_Menu_Button(210, 130, 110, 30, "Predefined"); }
+          { predefinedResolutionMenuButton = new Fl_Menu_Button(230, 150, 130, 34, "Predefined"); }
           { Fl_Group* r = new Fl_Group(415, 115, 30, 30, "resizable");
             r->labeltype(FL_NO_LABEL);
             r->align(Fl_Align(FL_ALIGN_TOP|FL_ALIGN_INSIDE));
             r->end();
             Fl_Group::current()->resizable(r);
           }
-          { invalidResolutionLabel = new Fl_Box(340, 130, 160, 30, "invalid!");
+          { invalidResolutionLabel = new Fl_Box(378, 150, 180, 34, "invalid!");
             invalidResolutionLabel->tooltip("the resolution must be at least 640x480, the original game resolution; 1366x768 or larger is recommended so the strategic map fits");
             invalidResolutionLabel->labelfont(1);
             invalidResolutionLabel->labelcolor((Fl_Color)1);
@@ -195,21 +197,21 @@ StracciatellaLauncher::StracciatellaLauncher() {
           }
           g->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 170, 500, 55);
+        { Fl_Group* g = new Fl_Group(10, 206, 560, 60);
           g->tooltip("Choose a scaling mode to stretch the game video to fit the screen.");
-          { scalingModeChoice = new Fl_Choice(20, 185, 480, 30, "Scaling Mode:");
+          { scalingModeChoice = new Fl_Choice(24, 224, 530, 34, "Scaling Mode:");
             scalingModeChoice->down_box(FL_BORDER_BOX);
             scalingModeChoice->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(scalingModeChoice);
           }
           g->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 220, 500, 65);
-          { fullscreenCheckbox = new Fl_Check_Button(20, 225, 95, 30, "Fullscreen");
+        { Fl_Group* g = new Fl_Group(10, 280, 560, 74);
+          { fullscreenCheckbox = new Fl_Check_Button(24, 288, 110, 34, "Fullscreen");
             fullscreenCheckbox->tooltip("Check to run in a borderless full-screen window");
             fullscreenCheckbox->down_box(FL_DOWN_BOX);
           }
-          { playSoundsCheckbox = new Fl_Check_Button(20, 255, 109, 30, "Play Sounds");
+          { playSoundsCheckbox = new Fl_Check_Button(24, 328, 120, 34, "Play Sounds");
             playSoundsCheckbox->down_box(FL_DOWN_BOX);
             playSoundsCheckbox->value(1);
           }
@@ -217,10 +219,10 @@ StracciatellaLauncher::StracciatellaLauncher() {
         }
         o->end();
       }
-      { logsTab = new Fl_Group(0, 50, 520, 390, "@square Logs");
+      { logsTab = new Fl_Group(0, 55, 580, 465, "   Logs   ");
         logsTab->labelcolor((Fl_Color)24);
         logsTab->hide();
-        { logsDisplay = new Fl_Text_Display(20, 95, 480, 330, "You can view the logs of the latest JA2 Stracciatella execution here. If you want to report a bug, please include them in your bug report.");
+        { logsDisplay = new Fl_Text_Display(20, 95, 540, 410, "You can view the logs of the latest JA2 Stracciatella execution here. If you want to report a bug, please include them in your bug report.");
           logsDisplay->box(FL_DOWN_BOX);
           logsDisplay->align(Fl_Align(133));
           Fl_Group::current()->resizable(logsDisplay);
@@ -230,26 +232,26 @@ StracciatellaLauncher::StracciatellaLauncher() {
       tabs->end();
       Fl_Group::current()->resizable(tabs);
     } // Fl_Tabs* tabs
-    { Fl_Group* o = new Fl_Group(0, 440, 520, 30);
-      { ja2JsonPathOutput = new Fl_Output(0, 440, 460, 30);
+    { Fl_Group* o = new Fl_Group(0, 520, 580, 40); /* OGVM-FLUENT2-DARK */
+      { ja2JsonPathOutput = new Fl_Output(0, 520, 472, 40);
         ja2JsonPathOutput->tooltip("Path to stracciatella engine options");
         ja2JsonPathOutput->color(FL_BACKGROUND_COLOR);
         ja2JsonPathOutput->align(Fl_Align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE));
         Fl_Group::current()->resizable(ja2JsonPathOutput);
       }
-      { ja2JsonReloadBtn = new Fl_Button(460, 440, 30, 30, "@reload");
+      { ja2JsonReloadBtn = new Fl_Button(472, 520, 35, 40, "@reload");
         ja2JsonReloadBtn->tooltip("Reload stracciatella engine options");
         ja2JsonReloadBtn->box(FL_THIN_UP_BOX);
         ja2JsonReloadBtn->labelcolor(FL_INACTIVE_COLOR);
       }
-      { ja2JsonSaveBtn = new Fl_Button(490, 440, 30, 30, "@filesave");
+      { ja2JsonSaveBtn = new Fl_Button(507, 520, 35, 40, "@filesave");
         ja2JsonSaveBtn->tooltip("Save stracciatella engine options");
         ja2JsonSaveBtn->box(FL_THIN_UP_BOX);
         ja2JsonSaveBtn->labelcolor(FL_INACTIVE_COLOR);
       }
       o->end();
     }
-    stracciatellaLauncher->size_range(520, 480);
+    stracciatellaLauncher->size_range(580, 560);
     stracciatellaLauncher->end();
   }
 }

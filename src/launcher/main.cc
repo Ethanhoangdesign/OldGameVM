@@ -11,6 +11,12 @@ int main(int argc, char* argv[])
 try
 {
 	Logger_initialize("ja2-launcher.log");
+	/* OGVM-FLUENT2-DARK baseline */
+	Fl::scheme("none");
+	Fl::background(243, 243, 243);
+	Fl::background2(255, 255, 255);
+	Fl::foreground(32, 31, 30);
+
 
 #ifdef _WIN32
 	// Ensure quick-edit mode is off, or else it will block execution
