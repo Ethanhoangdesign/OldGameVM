@@ -56,6 +56,27 @@ class StracciatellaLauncher {open
           }
           Fl_Group {} {
             label resizable
+            Fl_Group {} {open
+              xywh {10 284 500 66}
+            } {
+              Fl_Round_Button sourceInstallerRadio {
+                label {Unpacked from an installer - no need to install the game}
+                tooltip {Shows how the engine found your game data. Read-only: it always snaps back to what was detected.} xywh {20 286 470 22} type Radio down_box ROUND_DOWN_BOX labelsize 14
+              }
+              Fl_Round_Button sourceFolderRadio {
+                label {An existing game folder}
+                tooltip {Shows how the engine found your game data. Read-only: it always snaps back to what was detected.} xywh {20 308 470 22} type Radio down_box ROUND_DOWN_BOX labelsize 14
+              }
+              Fl_Box sourceStatusLabel {
+                label {Detecting the game data source...}
+                xywh {20 330 470 18} labelsize 14 align 20
+              }
+              Fl_Progress importProgress {
+                xywh {20 330 470 18} labelsize 12 selection_color 63 hide
+                # OGVM-PROGCOLOR: selection_color 63 = FL_GREEN
+              }   # OGVM-PROGRESS
+            }
+            # OGVM-RADIO: khoi tren duoc go tay, may khong co fluid
             xywh {10 265 500 25} labeltype NO_LABEL align 17 resizable
           } {}
           Fl_Group {} {

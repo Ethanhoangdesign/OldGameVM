@@ -137,6 +137,7 @@ void Launcher::show() {
 	editorButton->callback( (Fl_Callback*)startEditor, (void*)(this) );
 	/* OGVM-AUTODETECT: khai bao truoc; dinh nghia nam gan detectEditionCb */
 	void OgvmAutodetectTimeoutCb(void* userdata);
+	void OgvmSourceRadioCb(Fl_Widget* w, void* userdata);   /* OGVM-RADIO */
 	playButton->callback( (Fl_Callback*)startGame, (void*)(this) );
 	gameDirectoryInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
 	saveGameDirectoryInput->callback( (Fl_Callback*)widgetChanged, (void*)(this) );
@@ -146,6 +147,8 @@ void Launcher::show() {
 	guessVersionButton->callback( (Fl_Callback*)guessVersion, (void*)(this) );
     detectEditionButton->callback( (Fl_Callback*)detectEditionCb, (void*)(this) );
     importGameDataButton->callback( (Fl_Callback*)importGameDataCb, (void*)(this) );
+    sourceInstallerRadio->callback(OgvmSourceRadioCb, (void*)(this));   /* OGVM-RADIO */
+    sourceFolderRadio->callback(OgvmSourceRadioCb, (void*)(this));
     /* OGVM-AUTODETECT: do phien ban ngay khi mo launcher. Cho 0,5 giay de
      * o duong dan kip nap gia tri tu ~/.ja2/ja2.json truoc khi do. */
     Fl::add_timeout(0.5, OgvmAutodetectTimeoutCb, (void*)(this));
@@ -687,6 +690,111 @@ static std::string OgvmSourceToString(OgvmDataSource src)
 static std::string gOgvmSourceTip;
 /* ---------------------------------------------------------------------- */
 
+/* OGVM-RADIO: dong chu trang thai va callback cua hai nut radio.
+   label() cua Fl_Box cung CHI GIU CON TRO -> phai co bien song lau. */
+static std::string gOgvmStatusText;
+static void OgvmRefreshEditionLabel(Launcher* window);
+/* OGVM-PROGRESS: bao tien trinh khi Import. Launcher khong doc duoc dau ra
+ * cua innoextract, nen ta do SO MB THAT da bung ra thu muc dich. Tong thi
+ * khong biet truoc -> uoc luong OGVM_IMPORT_MB_GUESS va kep o 99%, de
+ * khong bao gio day 100% roi con phai cho. */
+#define OGVM_IMPORT_MB_GUESS 1024.0
+#define OGVM_IMPORT_TICK 0.5
+
+static bool gOgvmImportRunning = false;
+static std::string gOgvmImportDir;
+static std::string gOgvmImportText;
+static int gOgvmImportTicks = 0;
+static Fl_Progress* gOgvmProgress = nullptr;
+static Fl_Box* gOgvmStatusBox = nullptr;
+static Fl_Button* gOgvmImportBtn = nullptr;
+
+static double OgvmDirMegabytes(const std::string& dir)
+{
+	std::error_code ec;
+	const std::filesystem::path root(dir);
+	if (dir.empty() || !std::filesystem::is_directory(root, ec))
+	{
+		return 0.0;
+	}
+	uintmax_t total = 0;
+	std::error_code walkEc;
+	std::filesystem::recursive_directory_iterator it(root, std::filesystem::directory_options::skip_permission_denied, walkEc);
+	std::filesystem::recursive_directory_iterator end;
+	for (; it != end; it.increment(walkEc))
+	{
+		std::error_code fileEc;
+		if (it->is_regular_file(fileEc))
+		{
+			std::error_code sizeEc;
+			total += it->file_size(sizeEc);
+		}
+	}
+	return (double) total / (1024.0 * 1024.0);
+}
+
+static void OgvmImportFinishLook()
+{
+	if (gOgvmProgress)
+	{
+		gOgvmProgress->hide();
+	}
+	if (gOgvmStatusBox)
+	{
+		gOgvmStatusBox->show();
+		gOgvmStatusBox->redraw();
+	}
+	if (gOgvmImportBtn)
+	{
+		gOgvmImportBtn->activate();
+		gOgvmImportBtn->redraw();
+	}
+}
+
+void OgvmImportTickCb(void* userdata)
+{
+	if (!gOgvmImportRunning)
+	{
+		OgvmImportFinishLook();
+		return;
+	}
+	gOgvmImportTicks++;
+	const double mb = OgvmDirMegabytes(gOgvmImportDir);
+	const int secs = (int) (gOgvmImportTicks * OGVM_IMPORT_TICK);
+	double pct = mb / OGVM_IMPORT_MB_GUESS * 100.0;
+	if (pct > 99.0) pct = 99.0;
+	if (pct < 0.0) pct = 0.0;
+	gOgvmImportText = "Importing... " + std::to_string((int) (mb + 0.5))
+		+ " MB unpacked, " + std::to_string(secs) + "s";
+	if (gOgvmProgress)
+	{
+		gOgvmProgress->value((float) pct);
+		gOgvmProgress->label(gOgvmImportText.c_str());
+		gOgvmProgress->redraw();
+	}
+	Fl::add_timeout(OGVM_IMPORT_TICK, OgvmImportTickCb, userdata);
+}
+
+void OgvmSourceRadioCb(Fl_Widget* w, void* userdata)
+{
+    /* Hai nut chi de DOC: bam vao thi do lai va nhay ve dung ket qua. */
+    Launcher* window = static_cast< Launcher* >(userdata);
+    /* OGVM-RADIO2: bam radio thi bam ho cai nut tuong ung. Cach nay giu
+     * nguyen mot duong chay duy nhat cho moi luong, nen sua nut la radio
+     * di theo, khong bao gio lech nhau. */
+    if (w == window->sourceFolderRadio)
+    {
+        window->browseJa2DirectoryButton->do_callback();
+    }
+    else if (w == window->sourceInstallerRadio)
+    {
+        window->importGameDataButton->do_callback();
+    }
+    /* Luong Import chay ngam: dong chu se con la ket qua cu cho den khi
+     * bung xong. Tha noi that la chua biet hon la hien ket qua sai. */
+    OgvmRefreshEditionLabel(window);
+}
+
 static void OgvmRefreshEditionLabel(Launcher* window)
 {
     const char* raw = window->gameDirectoryInput->value();
@@ -711,6 +819,23 @@ static void OgvmRefreshEditionLabel(Launcher* window)
     gOgvmSourceTip = "Data source: "
         + OgvmSourceToString(OgvmDetectSource(gamedir));
     window->detectEditionButton->tooltip(gOgvmSourceTip.c_str());
+    {   /* OGVM-RADIO: cham san mot trong hai nut theo ket qua vua do */
+        OgvmDataSource ogvmSrc = OgvmDetectSource(gamedir);
+        window->sourceInstallerRadio->value(ogvmSrc == OgvmDataSource::InstallerUnpack ? 1 : 0);
+        window->sourceFolderRadio->value(ogvmSrc == OgvmDataSource::ExistingFolder ? 1 : 0);
+        if (ogvmSrc == OgvmDataSource::Unknown)
+        {
+            gOgvmStatusText = "Unknown - pick a folder or import from an installer";
+        }
+        else
+        {
+            gOgvmStatusText = "Detected automatically when the launcher started";
+        }
+        window->sourceStatusLabel->label(gOgvmStatusText.c_str());
+        window->sourceStatusLabel->redraw();
+        window->sourceInstallerRadio->redraw();
+        window->sourceFolderRadio->redraw();
+    }
     window->detectEditionButton->redraw();
 }
 
@@ -860,6 +985,31 @@ void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
 
     window->importDestination = encodePath(destinationPath.c_str());
     window->importProcess = std::make_optional(RustPointer<SubProcess>(Subprocess_new(tool.c_str(), args.get())));
+    /* OGVM-PROGRESS: bat dau do tien trinh. Duong dan phai qua decodePath
+     * dung nhu cach ma hien co lam, khong lay chuoi tho. */
+    ST::char_buffer ogvmDestDecoded = decodePath(window->importDestination.c_str());
+    gOgvmImportDir = std::string(ogvmDestDecoded.c_str());
+    gOgvmImportRunning = true;
+    gOgvmImportTicks = 0;
+    gOgvmProgress = window->importProgress;
+    gOgvmStatusBox = window->sourceStatusLabel;
+    gOgvmImportBtn = window->importGameDataButton;
+    gOgvmImportText = "Importing... starting";
+    if (gOgvmImportBtn)
+    {
+    	gOgvmImportBtn->deactivate();
+    }
+    if (gOgvmStatusBox)
+    {
+    	gOgvmStatusBox->hide();
+    }
+    if (gOgvmProgress)
+    {
+    	gOgvmProgress->value(0.0f);
+    	gOgvmProgress->label(gOgvmImportText.c_str());
+    	gOgvmProgress->show();
+    }
+    Fl::add_timeout(OGVM_IMPORT_TICK, OgvmImportTickCb, (void*)(window));
     Launcher::maintainImportState(window);
 }
 
@@ -877,6 +1027,8 @@ void Launcher::maintainImportState(void* userdata) {
 
     auto exitCode = Subprocess_getExitCode(window->importProcess.value().get());
     window->importProcess = std::nullopt;
+    gOgvmImportRunning = false;   /* OGVM-PROGRESS */
+    OgvmImportFinishLook();
 
     // Installers frequently contain redistributable payloads that cannot be
     // unpacked, which makes innoextract report a non-zero exit code even

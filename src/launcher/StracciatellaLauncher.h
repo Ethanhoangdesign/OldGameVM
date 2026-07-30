@@ -20,6 +20,8 @@
 #include <FL/Fl_Value_Input.H>
 #include <FL/Fl_Menu_Button.H>
 #include <FL/Fl_Check_Button.H>
+#include <FL/Fl_Round_Button.H>   /* OGVM-RADIO */
+#include <FL/Fl_Progress.H>   /* OGVM-PROGRESS */
 
 class StracciatellaLauncher {
 public:
@@ -34,6 +36,10 @@ public:
   Fl_Button *guessVersionButton;
   Fl_Button *detectEditionButton;
   Fl_Button *importGameDataButton;
+  Fl_Round_Button *sourceInstallerRadio;   /* OGVM-RADIO */
+  Fl_Round_Button *sourceFolderRadio;
+  Fl_Box *sourceStatusLabel;
+  Fl_Progress *importProgress;   /* OGVM-PROGRESS */
   Fl_Input *saveGameDirectoryInput;
   Fl_Button *browseSaveGameDirectoryButton;
   Fl_Browser *enabledModsBrowser;

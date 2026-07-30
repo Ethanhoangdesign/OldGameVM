@@ -50,6 +50,36 @@ StracciatellaLauncher::StracciatellaLauncher() {
     { importGameDataButton = new Fl_Button(190, 230, 180, 30, "Import Game Data...");
       importGameDataButton->tooltip("Extract game data straight from a GOG or retail installer, without having to install the original game first.");
     } // Fl_Button* importGameDataButton
+    { /* OGVM-RADIO: hai nut radio hien nguon du lieu, dai y 288..348 truoc gio con trong */
+      Fl_Group* ogvmSourceGroup = new Fl_Group(10, 284, 500, 66);
+      { sourceInstallerRadio = new Fl_Round_Button(20, 286, 470, 22, "Unpacked from an installer - no need to install the game");
+        sourceInstallerRadio->down_box(FL_ROUND_DOWN_BOX);
+        sourceInstallerRadio->type(FL_RADIO_BUTTON);
+        sourceInstallerRadio->labelsize(14);
+        sourceInstallerRadio->tooltip("Shows how the engine found your game data. Read-only: it always snaps back to what was detected.");
+      }
+      { sourceFolderRadio = new Fl_Round_Button(20, 308, 470, 22, "An existing game folder");
+        sourceFolderRadio->down_box(FL_ROUND_DOWN_BOX);
+        sourceFolderRadio->type(FL_RADIO_BUTTON);
+        sourceFolderRadio->labelsize(14);
+        sourceFolderRadio->tooltip("Shows how the engine found your game data. Read-only: it always snaps back to what was detected.");
+      }
+      { sourceStatusLabel = new Fl_Box(20, 330, 470, 18, "Detecting the game data source...");
+        sourceStatusLabel->box(FL_NO_BOX);
+        sourceStatusLabel->labelsize(14);
+        sourceStatusLabel->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
+      }
+      /* OGVM-PROGRESS: thanh nam DE LEN cho dong chu trang thai, an san.
+       * Khi import thi an dong chu va hien thanh, xong thi doi lai. */
+      importProgress = new Fl_Progress(20, 330, 470, 18, "");
+      importProgress->minimum(0.0f);
+      importProgress->maximum(100.0f);
+      importProgress->value(0.0f);
+      importProgress->labelsize(12);
+      importProgress->selection_color(FL_GREEN);   /* OGVM-PROGCOLOR */
+      importProgress->hide();
+      ogvmSourceGroup->end();
+    } /* OGVM-RADIO het khoi */
     { Fl_Group* o = new Fl_Group(10, 265, 500, 25, "resizable");
           o->labeltype(FL_NO_LABEL);
           o->align(Fl_Align(FL_ALIGN_TOP|FL_ALIGN_INSIDE));
