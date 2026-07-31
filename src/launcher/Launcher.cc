@@ -1195,6 +1195,24 @@ void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
         return;
     }
 
+    // OGVM-INNOPATH: search innoextract next to the launcher exe first
+    std::string ogvmInnoDir;
+    {
+        RustPointer<char> _exeP(Env_currentExe());
+        if (_exeP) {
+            std::string _ep(_exeP.get());
+            auto _sl = _ep.find_last_of("/\\");
+            if (_sl != std::string::npos) {
+                std::string _dir = _ep.substr(0, _sl + 1);
+#ifdef _WIN32
+                std::string _cand = _dir + "innoextract.exe";
+#else
+                std::string _cand = _dir + "innoextract";
+#endif
+                if (FileMan::exists(_cand.c_str())) ogvmInnoDir = _cand;
+            }
+        }
+    }
     // innoextract performs the actual unpacking. It is an external tool, so
     // locate it first and tell the user how to install it when it is missing.
     const char* toolCandidates[] = {
@@ -1203,6 +1221,7 @@ void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
         "/usr/bin/innoextract",
     };
     ST::string tool;
+    if (!ogvmInnoDir.empty()) tool = ogvmInnoDir; // OGVM-INNOPATH set
     for (const char* candidate : toolCandidates) {
         if (FileMan::exists(candidate)) {
             tool = candidate;
@@ -1210,9 +1229,17 @@ void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
         }
     }
     if (tool.empty()) {
-        fl_alert("Could not find innoextract, which is required to unpack an installer.\n\nOn macOS install it with:\n    brew install innoextract");
+        fl_alert("Could not find innoextract, which is required to unpack an installer.\n\n"
+#ifdef _WIN32
+            "Place innoextract.exe in the same folder as ja2-launcher.exe\n"
+            "Download from: https://constexpr.org/innoextract/"
+#else
+            "On macOS install it with:\n    brew install innoextract"
+#endif
+        );
         return;
     }
+
 
     Fl_Native_File_Chooser installerChooser;
     installerChooser.title("Select the Jagged Alliance 2 installer (setup_*.exe)");
