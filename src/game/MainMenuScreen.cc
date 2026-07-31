@@ -60,6 +60,8 @@ static GUIButtonRef iMenuButtons[NUM_MENU_ITEMS];
 namespace {
 cache_key_t const guiMainMenuBackGroundImage{ LOADSCREENSDIR "/mainmenubackground.sti" };
 cache_key_t const guiJa2LogoImage{ LOADSCREENSDIR "/ja2logo.sti" };
+cache_key_t const guiMainMenuBackGroundImageWide{ LOADSCREENSDIR "/mainmenubackground_wide.sti" };
+cache_key_t const guiMainMenuBackGroundImage1024{ LOADSCREENSDIR "/mainmenubackground_1024.sti" };
 }
 
 static INT8    gbHandledMainMenu = 0;
@@ -253,6 +255,8 @@ static void ExitMainMenu(void)
 {
 	CreateDestroyMainMenuButtons(FALSE);
 	RemoveVObject(guiMainMenuBackGroundImage);
+	if (SCREEN_WIDTH >= 1366) RemoveVObject(guiMainMenuBackGroundImageWide);
+	else if (SCREEN_WIDTH > 640) RemoveVObject(guiMainMenuBackGroundImage1024);
 	RemoveVObject(guiJa2LogoImage);
 	gMsgBox.uiExitScreen = MAINMENU_SCREEN;
 }
@@ -375,15 +379,22 @@ static void RenderMainMenu(void)
 	/* Editions with a larger-than-640x480 fullscreen background (e.g. the
 	 * 1024x768 JA2: Wildfire art) are centered on the screen so they cover it
 	 * without black borders; smaller vanilla art keeps its standard position. */
-	ETRLEObject const& bgProps = GetVObject(guiMainMenuBackGroundImage)->SubregionProperties(0);
+	// Use wide background for screens wider than 640; original otherwise
+	cache_key_t const& bgKey = (SCREEN_WIDTH >= 1366)
+		? guiMainMenuBackGroundImageWide
+		: (SCREEN_WIDTH > 640)
+			? guiMainMenuBackGroundImage1024
+			: guiMainMenuBackGroundImage;
+	ETRLEObject const& bgProps = GetVObject(bgKey)->SubregionProperties(0);
 	INT32 bg_x = STD_SCREEN_X;
 	INT32 bg_y = STD_SCREEN_Y;
 	if (bgProps.usWidth > 640 || bgProps.usHeight > 480)
 	{
-		bg_x = ((INT32)SCREEN_WIDTH  - bgProps.usWidth)  / 2;
-		bg_y = ((INT32)SCREEN_HEIGHT - bgProps.usHeight) / 2;
+		// Clamp to 0 so image crops instead of crashing when wider than screen
+		bg_x = std::max(0, ((INT32)SCREEN_WIDTH  - bgProps.usWidth)  / 2);
+		bg_y = std::max(0, ((INT32)SCREEN_HEIGHT - bgProps.usHeight) / 2);
 	}
-	BltVideoObject(FRAME_BUFFER, guiMainMenuBackGroundImage, 0, bg_x, bg_y);
+	BltVideoObject(FRAME_BUFFER, bgKey, 0, bg_x, bg_y);
 	BltVideoObject(FRAME_BUFFER, guiJa2LogoImage,            0, STD_SCREEN_X + 188, STD_SCREEN_Y + 15);
 }
 
