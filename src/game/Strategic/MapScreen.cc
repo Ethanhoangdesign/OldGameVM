@@ -7,6 +7,7 @@
 #include "Campaign.h"
 #include "Cheats.h"
 #include "ContentManager.h"
+#include "UILayout.h"
 #include "Creature_Spreading.h"
 #include "Cursor_Control.h"
 #include "Cursors.h"
@@ -1316,6 +1317,10 @@ static void RefreshMapScreen()
 // THIS IS STUFF THAT RUNS *ONCE* DURING APPLICATION EXECUTION, AT INITIAL STARTUP
 void MapScreenInit(void)
 {
+	// OGVM-UILAYOUT: sync g_ui to actual screen size
+	g_ui.setScreenSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+	g_ui.recalculatePositions();
+
 	InitMapScreenInterfaceMap();
 
 	// set up leave list arrays for dismissed mercs
