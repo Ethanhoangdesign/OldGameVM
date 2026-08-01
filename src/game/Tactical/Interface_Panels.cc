@@ -143,9 +143,9 @@
 #define SM_LOOKB_Y				108
 #define SM_STEALTHMODE_X			187
 #define SM_STEALTHMODE_Y			73
-#define SM_DONE_X				(g_ui.m_teamPanelSlotsTotalWidth + 45)
+#define SM_DONE_X				(g_ui.m_teamPanelSlotsTotalWidth + (g_ui.m_teamPanelSlotsTotalWidth > 600 ? 97 : 45))
 #define SM_DONE_Y				4
-#define SM_MAPSCREEN_X				(g_ui.m_teamPanelSlotsTotalWidth + 91)
+#define SM_MAPSCREEN_X				(g_ui.m_teamPanelSlotsTotalWidth + (g_ui.m_teamPanelSlotsTotalWidth > 600 ? 143 : 91))
 #define SM_MAPSCREEN_Y				4
 
 
@@ -920,7 +920,7 @@ void InitializeSMPanel()
 	}
 	DeleteVideoObject(voSMPanel);
 
-	INT16 sFillerWidth = g_ui.m_teamPanelWidth - 640;
+	INT16 sFillerWidth = g_ui.m_teamPanelSlotsTotalWidth - SM_INVINTERFACE_WIDTH;
 	if (sFillerWidth > 0)
 	{
 		// draw a space filler if needed
