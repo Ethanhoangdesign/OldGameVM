@@ -3,7 +3,6 @@
  * It is not the original file. See NOTICE.md.
  */
 #include "Interface_Panels.h"
-#include "deadzone_strip.h"
 #include "Animation_Control.h"
 #include "Assignments.h"
 #include "Boxing.h"
@@ -144,9 +143,15 @@
 #define SM_LOOKB_Y				108
 #define SM_STEALTHMODE_X			187
 #define SM_STEALTHMODE_Y			73
-#define SM_DONE_X				(g_ui.m_teamPanelWidth >= 748 ? (g_ui.m_teamPanelSlotsTotalWidth + 131) : (g_ui.m_teamPanelSlotsTotalWidth + 46))
+/* OGVM-UILAYOUT: the SM panel is always built from the vanilla
+ * inventory_bottom_panel.sti art, whose buttons box is
+ * TEAMPANEL_BUTTONSBOX_WIDTH (142) wide and is right-aligned to the end of the
+ * SM panel. These offsets are therefore relative to the slot area and are the
+ * same for every edition. Do NOT branch on m_teamPanelWidth here: that width
+ * belongs to the TEAM panel, which may use a wider (194px) Wildfire box. */
+#define SM_DONE_X				(g_ui.m_teamPanelSlotsTotalWidth + 46)
 #define SM_DONE_Y				4
-#define SM_MAPSCREEN_X				(g_ui.m_teamPanelWidth >= 748 ? (g_ui.m_teamPanelSlotsTotalWidth + 177) : (g_ui.m_teamPanelSlotsTotalWidth + 92))
+#define SM_MAPSCREEN_X				(g_ui.m_teamPanelSlotsTotalWidth + 92)
 #define SM_MAPSCREEN_Y				4
 
 
@@ -854,8 +859,21 @@ static void SelectedMercPopupMoveCallback(MOUSE_REGION* pRegion, uint32_t iReaso
 static void SelectedMercEnemyIndicatorCallback(MOUSE_REGION* pRegion, UINT32 iReason);
 
 
-/** Fill empty space at the bottom of the screen. */
-static void FillEmptySpaceAtBottom()
+/* OGVM-UILAYOUT: width of the assembled Single-Merc panel.
+ *
+ * The SM panel is composed from INTERFACEDIR "/inventory_bottom_panel.sti",
+ * which is vanilla art: slot area + a 142px buttons box. The TEAM panel may be
+ * composed from Wildfire's bottom_bar.sti whose buttons box is 194px wide, so
+ * g_ui.m_teamPanelWidth is 52px too wide to describe the SM panel. Using it
+ * left an uncovered 52px strip at the right edge of the SM panel. */
+static UINT16 GetSMPanelWidth()
+{
+	return g_ui.m_teamPanelSlotsTotalWidth + TEAMPANEL_BUTTONSBOX_WIDTH;
+}
+
+/** Fill empty space at the bottom of the screen.
+ * @param panelWidth width of the bottom panel that is currently assembled. */
+static void FillEmptySpaceAtBottom(UINT16 const panelWidth)
 {
 	if(g_ui.isBigScreen())
 	{
@@ -868,7 +886,7 @@ static void FillEmptySpaceAtBottom()
 			SGPBox const left = {0, y, (UINT16)INTERFACE_START_X, h};
 			DrawFillerOnSurface(guiSAVEBUFFER, left);
 		}
-		UINT16 const panelEnd = INTERFACE_START_X + g_ui.m_teamPanelWidth;
+		UINT16 const panelEnd = INTERFACE_START_X + panelWidth;
 		if (panelEnd < g_ui.m_screenWidth)
 		{
 			SGPBox const right = {panelEnd, y, (UINT16)(g_ui.m_screenWidth - panelEnd), h};
@@ -898,58 +916,53 @@ void InitializeSMPanel()
 	// For visual consistency, the SMPanel should fill up the same width as the TEAMPanel, that the buttons and
 	// minimap are in the bottom-right corner.
 	SGPVObject* voSMPanel = AddVideoObjectFromFile(INTERFACEDIR "/inventory_bottom_panel.sti");
-	guiSMPanel = new SGPVSurface(g_ui.m_teamPanelWidth, INV_INTERFACE_HEIGHT, PIXEL_DEPTH);
+	UINT16 const artWidth     = voSMPanel->SubregionProperties(0).usWidth;
+	UINT16 const smPanelWidth = GetSMPanelWidth();
+
+	/* OGVM-UILAYOUT: never tune offsets against this panel without reading these
+	 * four numbers first. artWidth is what the art actually is, smPanelWidth is
+	 * what we allocate, m_teamPanelWidth is the TEAM panel and is NOT the same. */
+	SLOGD("OGVM-UILAYOUT SM panel: artWidth={} smPanelWidth={} slotsTotal={} teamPanelWidth={} buttonsBox={}",
+		artWidth, smPanelWidth, g_ui.m_teamPanelSlotsTotalWidth,
+		g_ui.m_teamPanelWidth, g_ui.getTeamPanelButtonsBoxWidth());
+
+	guiSMPanel = new SGPVSurface(smPanelWidth, INV_INTERFACE_HEIGHT, PIXEL_DEPTH);
 	{
 		/* Clip to the panel surface: some editions (JA2: Wildfire) ship this
 		 * art 1024px wide, and the unclipped vanilla double-blit below would
 		 * write past the surface (bus error). */
 		SGPRect panelClip;
-		panelClip.set(0, 0, g_ui.m_teamPanelWidth, INV_INTERFACE_HEIGHT);
+		panelClip.set(0, 0, smPanelWidth, INV_INTERFACE_HEIGHT);
 		SGPRect const oldClip = SetClippingRect(panelClip);
 
-		UINT16 const artWidth = voSMPanel->SubregionProperties(0).usWidth;
-		if (artWidth < g_ui.m_teamPanelWidth)
+		if (artWidth < smPanelWidth)
 		{
-			// The team panel is longer than the art:
-			// need a second blit, and we will start from the right
-			BltVideoObject(guiSMPanel, voSMPanel, 0, g_ui.m_teamPanelWidth - artWidth, 0);
+			// The panel is longer than the art (more than 6 merc slots):
+			// need a second blit, and we will start from the right so that the
+			// buttons box ends up flush with the right edge of the panel.
+			BltVideoObject(guiSMPanel, voSMPanel, 0, smPanelWidth - artWidth, 0);
 		}
 		// draw the basic Single-Merc panel
 		BltVideoObject(guiSMPanel, voSMPanel, 0, 0, 0);
 
 		SetClippingRect(oldClip);
 	}
-	}
 	DeleteVideoObject(voSMPanel);
 
-	INT16 sFillerWidth = static_cast<INT16>(g_ui.m_teamPanelWidth) - 640;
-	if (sFillerWidth > 0 && g_ui.getTeamPanelButtonsBoxWidth() != TEAMPANEL_BUTTONSBOX_WIDTH_WF)
+	/* Cover the seam between the two blits above with the textured space
+	 * filler. When the art is exactly as wide as the panel (the common
+	 * 6-slot case) there is no seam and nothing to fill. */
+	INT16 const sFillerWidth = static_cast<INT16>(smPanelWidth) - static_cast<INT16>(artWidth);
+	if (sFillerWidth > 0)
 	{
-		// draw a space filler if needed
 		SGPBox const dest = {SM_INVINTERFACE_WIDTH, 2, static_cast<UINT16>(sFillerWidth), INV_INTERFACE_HEIGHT - 6};
 		DrawFillerOnSurface(guiSMPanel, dest);
-	}
-	if (sFillerWidth > 0 && g_ui.getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF)
-	{
-		// OGVM-UILAYOUT: blit dead zone texture strip onto surface[640..640+sFillerWidth]
-		SGPVSurface::Lock lock(guiSMPanel);
-		UINT16* const pDest = lock.Buffer<UINT16>();
-		UINT32 const pitch  = lock.Pitch() / 2;
-		for (INT16 iy = 0; iy < INV_INTERFACE_HEIGHT; ++iy)
-		{
-			for (INT16 ix = 0; ix < sFillerWidth; ++ix)
-			{
-				INT32 const texX = (ix * 52) / sFillerWidth;
-				INT32 const texY = (iy * 140) / INV_INTERFACE_HEIGHT;
-				pDest[iy * pitch + 640 + ix] = kDeadZoneStrip[texY * 52 + texX];
-			}
-		}
 	}
 
 	guiSMObjects  = AddVideoObjectFromFile(INTERFACEDIR "/inventory_gold_front.sti");
 	guiSMObjects2 = AddVideoObjectFromFile(INTERFACEDIR "/inv_frn.sti");
 
-	FillEmptySpaceAtBottom();
+	FillEmptySpaceAtBottom(smPanelWidth);
 
 	// INit viewport region
 	// Set global mouse regions
@@ -2361,7 +2374,7 @@ void InitializeTEAMPanel()
 	guiTEAMObjects = AddVideoObjectFromFile(INTERFACEDIR "/gold_front.sti");
 	guiVEHINV      = AddVideoObjectFromFile(INTERFACEDIR "/inventor.sti");
 
-	FillEmptySpaceAtBottom();
+	FillEmptySpaceAtBottom(g_ui.m_teamPanelWidth);
 
 	// Create buttons
 	CreateTEAMPanelButtons();
@@ -3286,10 +3299,11 @@ void RenderTownIDString(void)
 	SetFontAttributes(COMPFONT, 183);
 	ST::string zTownIDString = GetSectorIDString(gWorldSector, TRUE);
 	zTownIDString = ReduceStringLength(zTownIDString, 80, COMPFONT);
-	/* Center the string under the radar window, whose position depends on the
-	 * loaded interface art edition (vanilla: radar at +45, Wildfire: +98). */
-	INT16 const offset = g_ui.getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 103 : 50;
-	MPrint(INTERFACE_START_X + g_ui.m_teamPanelSlotsTotalWidth + offset,
+	/* OGVM-UILAYOUT: centered under the radar window, so it must use the
+	 * exact same anchor as UILayout::get_RADAR_WINDOW_X(): slotsTotal + a
+	 * fixed offset + the ACTIVE PANEL's buttons-box shift. The shift is a
+	 * property of which panel is on screen, not of the art edition. */
+	MPrint(INTERFACE_START_X + g_ui.m_teamPanelSlotsTotalWidth + 50 + g_ui.activeButtonsBoxShift(),
 		SCREEN_HEIGHT - 55, zTownIDString, HCenterVCenterAlign(80, 16));
 }
 

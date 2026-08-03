@@ -162,6 +162,23 @@ public:
 	/** Width of the buttons box on the right of the team panel, depending on the loaded interface art edition. */
 	UINT16 getTeamPanelButtonsBoxWidth() const;
 
+	/** Horizontal shift of the widgets that live inside the buttons box
+	 *  (radar window, clock, town name) for the panel that is currently
+	 *  on screen.
+	 *
+	 *  The SM (single-merc inventory) panel is always composed from the
+	 *  vanilla inventory_bottom_panel.sti, whose buttons box is
+	 *  TEAMPANEL_BUTTONSBOX_WIDTH (142) wide, while the TEAM panel may be
+	 *  composed from Wildfire's bottom_bar.sti with a 194px box. Both
+	 *  boxes are flush right, so their left edge -- the point every offset
+	 *  below is measured from -- differs by (boxWidth - 142) px.
+	 *
+	 *  Anything positioned inside the buttons box MUST add this. Do not
+	 *  branch on getTeamPanelButtonsBoxWidth() directly: that describes
+	 *  the art edition, not the panel currently being drawn, and picking
+	 *  either constant then leaves the other panel 52px out. */
+	UINT16 activeButtonsBoxShift() const;
+
 	/** True when the strategic map is drawn at full size (Wildfire 714x612 map
 	 *  art on a big enough screen) instead of the vanilla half scale.
 	 *  See docs/KE-HOACH-mapscreen-fullsize.md. */

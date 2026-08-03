@@ -41,3 +41,12 @@ src/externalized/editiondetector/detector_test
 *.out
 /build/
 *.bak
+
+# OGVM: build artifacts - khong bao gio commit
+/build/
+/build-win/
+*.o
+*.a
+*.obj
+*.lib
+*.ogvm-bak
