@@ -70,7 +70,7 @@ bool UILayout::isBigScreen() const
 UINT16 UILayout::currentHeight() const             { return fInMapMode ? (get_MAP_BOTTOM_BASE_Y() + m_mapScreenHeight) : m_screenHeight; }
 UINT16 UILayout::get_CLOCK_X() const               { return fInMapMode ? (isMapFullSize() ? (get_MAP_BOTTOM_BASE_X() + 668) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 554) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 109 : 56); }
 UINT16 UILayout::get_CLOCK_Y() const               { return currentHeight() - 23;                                  }
-UINT16 UILayout::get_RADAR_WINDOW_X() const        { return fInMapMode ? (isMapFullSize() ? (get_MAP_BOTTOM_BASE_X() + 663) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 543) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 98 : 45); }
+UINT16 UILayout::get_RADAR_WINDOW_X() const        { return fInMapMode ? (isMapFullSize() ? (get_MAP_BOTTOM_BASE_X() + 663) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 543) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + (getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF ? 45 : 45); }
 UINT16 UILayout::get_RADAR_WINDOW_TM_Y() const     { return currentHeight() - 107;                                 }
 UINT16 UILayout::get_INV_INTERFACE_START_Y() const { return m_screenHeight - INV_INTERFACE_HEIGHT;                                  }
 
