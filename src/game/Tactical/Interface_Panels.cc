@@ -3,6 +3,7 @@
  * It is not the original file. See NOTICE.md.
  */
 #include "Interface_Panels.h"
+#include "deadzone_strip.h"
 #include "Animation_Control.h"
 #include "Assignments.h"
 #include "Boxing.h"
@@ -143,9 +144,9 @@
 #define SM_LOOKB_Y				108
 #define SM_STEALTHMODE_X			187
 #define SM_STEALTHMODE_Y			73
-#define SM_DONE_X				(g_ui.m_teamPanelSlotsTotalWidth + (g_ui.m_teamPanelSlotsTotalWidth > 600 ? 97 : 45))
+#define SM_DONE_X				(g_ui.m_teamPanelWidth >= 748 ? (g_ui.m_teamPanelSlotsTotalWidth + 131) : (g_ui.m_teamPanelSlotsTotalWidth + 46))
 #define SM_DONE_Y				4
-#define SM_MAPSCREEN_X				(g_ui.m_teamPanelSlotsTotalWidth + (g_ui.m_teamPanelSlotsTotalWidth > 600 ? 143 : 91))
+#define SM_MAPSCREEN_X				(g_ui.m_teamPanelWidth >= 748 ? (g_ui.m_teamPanelSlotsTotalWidth + 177) : (g_ui.m_teamPanelSlotsTotalWidth + 92))
 #define SM_MAPSCREEN_Y				4
 
 
@@ -918,14 +919,31 @@ void InitializeSMPanel()
 
 		SetClippingRect(oldClip);
 	}
+	}
 	DeleteVideoObject(voSMPanel);
 
-	INT16 sFillerWidth = g_ui.m_teamPanelSlotsTotalWidth - SM_INVINTERFACE_WIDTH;
-	if (sFillerWidth > 0)
+	INT16 sFillerWidth = static_cast<INT16>(g_ui.m_teamPanelWidth) - 640;
+	if (sFillerWidth > 0 && g_ui.getTeamPanelButtonsBoxWidth() != TEAMPANEL_BUTTONSBOX_WIDTH_WF)
 	{
 		// draw a space filler if needed
 		SGPBox const dest = {SM_INVINTERFACE_WIDTH, 2, static_cast<UINT16>(sFillerWidth), INV_INTERFACE_HEIGHT - 6};
 		DrawFillerOnSurface(guiSMPanel, dest);
+	}
+	if (sFillerWidth > 0 && g_ui.getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF)
+	{
+		// OGVM-UILAYOUT: blit dead zone texture strip onto surface[640..640+sFillerWidth]
+		SGPVSurface::Lock lock(guiSMPanel);
+		UINT16* const pDest = lock.Buffer<UINT16>();
+		UINT32 const pitch  = lock.Pitch() / 2;
+		for (INT16 iy = 0; iy < INV_INTERFACE_HEIGHT; ++iy)
+		{
+			for (INT16 ix = 0; ix < sFillerWidth; ++ix)
+			{
+				INT32 const texX = (ix * 52) / sFillerWidth;
+				INT32 const texY = (iy * 140) / INV_INTERFACE_HEIGHT;
+				pDest[iy * pitch + 640 + ix] = kDeadZoneStrip[texY * 52 + texX];
+			}
+		}
 	}
 
 	guiSMObjects  = AddVideoObjectFromFile(INTERFACEDIR "/inventory_gold_front.sti");
