@@ -4980,7 +4980,20 @@ void RenderMapRegionBackground( void )
 	// Khung vien cua mot so ban (vd Wildfire) co long hep hon vi tri
 	// engine dat ban do, nen neu ve sau se xen mat o bien.
 	// blit in border
-	if (!g_ui.isMapFullSize())
+	/* SECTORINV-FIX: BlitInventoryPoolGraphic() truoc day nam BEN TRONG
+	 * RenderMapBorder(). RenderMapBorder() bi bo qua o che do map
+	 * full-size (khung vien vanilla khong vua), nen bang sector inventory
+	 * khong bao gio duoc ve: chi thay o xam phang va phai bam chuot phai
+	 * moi thoat ra duoc. Goi thang o day cho ca hai che do. */
+	/* SECTORINV-GRID: da go khoi lap nen go cua SECTORINV-BG.
+	 * Art Wildfire (763x647) tu phu kin vung ban do nen khong con
+	 * mep ho nao de lap; bo cuc that do truc tiep tu art trong
+	 * Map_Screen_Interface_Map_Inventory.cc. */
+	if (fShowMapInventoryPool)
+	{
+		BlitInventoryPoolGraphic( );
+	}
+	else if (!g_ui.isMapFullSize())
 	{
 		/* The vanilla-sized map border does not fit the full-size map. */
 		RenderMapBorder( );

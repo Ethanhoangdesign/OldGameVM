@@ -10,6 +10,7 @@
 #include "Map_Screen_Interface_Map_Inventory.h"
 #include "MessageBoxScreen.h"
 #include "Object_Cache.h"
+#include "Logger.h"
 #include "Timer_Control.h"
 #include "VObject.h"
 #include "SysUtil.h"
@@ -55,19 +56,10 @@
 #define MAP_IVEN_FONT						SMALLCOMPFONT
 
 // inventory pool slot positions and sizes
-#define MAP_INV_SLOT_ROWS 9
+#define MAP_INV_SLOT_ROWS (InvLayout().rows)
 
-
-static const SGPBox g_sector_inv_box        = { 261,   0, 379, 360 };
-static const SGPBox g_sector_inv_title_box  = { 266,   5, 370,  29 };
-static const SGPBox g_sector_inv_slot_box   = { 274,  37,  72,  32 };
-static const SGPBox g_sector_inv_region_box = {   0,   0,  67,  31 }; // relative to g_sector_inv_slot_box
-static const SGPBox g_sector_inv_item_box   = {   6,   0,  61,  24 }; // relative to g_sector_inv_slot_box
-static const SGPBox g_sector_inv_bar_box    = {   2,   2,   2,  20 }; // relative to g_sector_inv_slot_box
-static const SGPBox g_sector_inv_name_box   = {   0,  24,  67,   7 }; // relative to g_sector_inv_slot_box
-static const SGPBox g_sector_inv_loc_box    = { 326, 337,  39,  10 };
-static const SGPBox g_sector_inv_count_box  = { 437, 337,  39,  10 };
-static const SGPBox g_sector_inv_page_box   = { 505, 337,  50,  10 };
+/* SECTORINV-GRID: khoi bo cuc dat SAU khai bao
+ * guiMapInventoryPoolBackground vi ProbeSectorInvArt() can dung no. */
 
 
 // the current highlighted item
@@ -80,6 +72,162 @@ BOOLEAN fShowMapInventoryPool = FALSE;
 // the v-object index value for the background
 static cache_key_t const guiMapInventoryPoolBackground{ INTERFACEDIR "/sector_inventory.sti" };
 
+/* SECTORINV-GRID: bo hang so bo cuc cua bang sector inventory.
+ *
+ * Co HAI bo art, va header STCI cua ca hai deu ghi 380x360 nen khong
+ * the tin header. Kich thuoc that nam o SubregionProperties(0) vi
+ * BltVideoObject() ve subregion 0:
+ *
+ *     vanilla  : 379 x 360  -> 5 cot x  9 hang, o  72 x 32
+ *     Wildfire : 763 x 647  -> 5 cot x 10 hang, o 145 x 57
+ *
+ * Cac so cua ban WF do truc tiep tu art (khe giua cac o deu 145 theo
+ * chieu ngang va 57 theo chieu doc, long o sang 123x48).
+ */
+struct SectorInvLayout
+{
+	SGPBox box;         // ca bang, tuong doi so voi goc bang
+	SGPBox title_box;
+	SGPBox slot_box;    // o dau tien + buoc luoi (w,h = buoc)
+	SGPBox region_box;  // rel slot_box
+	SGPBox item_box;    // rel slot_box
+	/* rel slot_box. Rieng thanh tinh trang dung kieu CO DAU: o ban WF
+	 * ranh lom nam NGOAI long o nen offset x am. SGPBox dung UINT16,
+	 * -3 se thanh 65533 va thanh bay ra khoi man hinh. */
+	struct { INT16 x, y, w, h; } bar_box;
+	SGPBox name_box;    // rel slot_box
+	SGPBox loc_box;
+	SGPBox count_box;
+	SGPBox page_box;
+	INT32  rows;
+	INT32  cols;
+	INT16  prev_x, prev_y;
+	INT16  next_x, next_y;
+	INT16  done_x, done_y;
+	INT16  label1_x, label1_y, label1_w;
+	INT16  label2_x, label2_w;
+};
+
+static const SectorInvLayout g_inv_layout_vanilla = {
+	{ 261,   0, 379, 360 },
+	{ 266,   5, 370,  29 },
+	{ 274,  37,  72,  32 },
+	{   0,   0,  67,  31 },
+	{   6,   0,  61,  24 },
+	{   2,   2,   2,  20 },
+	{   0,  24,  67,   7 },
+	{ 326, 337,  39,  10 },
+	{ 437, 337,  39,  10 },
+	{ 505, 337,  50,  10 },
+	9, 5,
+	487, 336,   559, 336,   587, 333,
+	268, 342, 53,
+	369, 65,
+};
+
+/* Ban Wildfire: art 763x647. Tat ca so duoi day DO TU ART:
+ *   luoi  : cot bat dau x=35 buoc 145 (5 cot), hang y=37 buoc 57 (10 hang)
+ *   long o: 123 x 48  (vung sang giua hai khe)
+ *   o day : tim bang flood-fill vung xanh tham, khong doan:
+ *             loc   x231..281 y617..636
+ *             count x473..502 y618..632
+ *             page  x552..598 y619..634
+ *             done  x684..721 y622..636
+ *
+ *   ranh lom cho thanh tinh trang: doi chieu voi ban vanilla (noi hang so
+ *   goc von dung) thi ranh la vet TOI nam giua hai go SANG, khong phai
+ *   vet sang:
+ *       vanilla: go sang rel +1 (lum 55) | RANH rel +2..+3 (lum 13)
+ *                | go sang rel +4..+5
+ *       WF     : go sang rel -7 (lum 40) | RANH rel -6..-5 (lum 14)
+ *                | go sang rel -3..-2 (lum 65)
+ *   Ranh WF nam NGOAI long o nen bar_box.x am. Da do tren ca 50 o.
+ *   Chieu doc: ranh bat dau rel y +2, cao 43.
+ * Toa do duoi day deu TUONG DOI so voi goc trai-tren cua bang. */
+static const SectorInvLayout g_inv_layout_wf = {
+	{   0,   0, 763, 647 },
+	{   6,   5, 751,  29 },
+	{  35,  37, 145,  57 },
+	{   0,   0, 123,  48 },
+	{  11,   0, 112,  37 },
+	{  -6,   2,   2,  43 },
+	{   0,  37, 123,  11 },
+	{ 231, 617,  51,  20 },
+	{ 473, 618,  30,  15 },
+	{ 552, 619,  47,  16 },
+	10, 5,
+	518, 617,   607, 617,   684, 617,
+	150, 627, 75,
+	330, 110,
+};
+
+/* Kich thuoc that cua art, doc mot lan luc dau. */
+static bool  g_inv_probed = false;
+static bool  g_inv_is_wf  = false;
+
+static void ProbeSectorInvArt(void)
+{
+	if (g_inv_probed) return;
+	g_inv_probed = true;
+	try
+	{
+		SGPVObject const* const vo = GetVObject(guiMapInventoryPoolBackground);
+		if (vo != NULL && vo->SubregionCount() > 0)
+		{
+			ETRLEObject const& e = vo->SubregionProperties(0);
+			/* Art vanilla rong 379; ban WF rong 763. Lay 512 lam nguong
+			 * de bat duoc ca nhung ban art che khac doi chut. */
+			g_inv_is_wf = (e.usWidth >= 512);
+			SLOGD("Sector inventory art: {}x{} -> {}",
+				e.usWidth, e.usHeight, g_inv_is_wf ? "Wildfire" : "vanilla");
+		}
+	}
+	catch (...)
+	{
+		/* khong doc duoc thi giu mac dinh vanilla */
+	}
+}
+
+static SectorInvLayout const& InvLayout(void)
+{
+	ProbeSectorInvArt();
+	return g_inv_is_wf ? g_inv_layout_wf : g_inv_layout_vanilla;
+}
+
+INT32 GetMapInventoryPoolSlotCount(void)
+{
+	SectorInvLayout const& L = InvLayout();
+	return L.rows * L.cols;
+}
+
+/* Goc trai-tren cua bang tren man hinh.
+ *
+ * Ban vanilla giu nguyen neo cu (STD_SCREEN + box.x/y) de khong doi
+ * hanh vi da co. Ban WF neo vao giua vung ban do full-size, vi art
+ * duoc ve de phu kin dung vung do. */
+static void InvOrigin(INT32* const px, INT32* const py)
+{
+	SectorInvLayout const& L = InvLayout();
+	if (!g_inv_is_wf)
+	{
+		*px = STD_SCREEN_X;
+		*py = STD_SCREEN_Y;
+		return;
+	}
+
+	INT32 const avail_x = 261;
+	INT32 const avail_w = SCREEN_WIDTH - avail_x;
+	*px = avail_x + (avail_w - L.box.w) / 2;
+	if (*px < avail_x) *px = avail_x;
+
+	INT32 const avail_h = SCREEN_HEIGHT - 121;
+	*py = (avail_h - L.box.h) / 2;
+	if (*py < 0) *py = 0;
+}
+
+static INT32 InvOriginX(void) { INT32 x, y; InvOrigin(&x, &y); return x; }
+static INT32 InvOriginY(void) { INT32 x, y; InvOrigin(&x, &y); return y; }
+
 // inventory pool list
 std::vector<WORLDITEM> pInventoryPoolList;
 
@@ -90,9 +238,9 @@ static INT32 iLastInventoryPoolPage = 0;
 INT16 sObjectSourceGridNo = 0;
 
 // the inventory slots
-static MOUSE_REGION MapInventoryPoolSlots[MAP_INVENTORY_POOL_SLOT_COUNT];
+static MOUSE_REGION MapInventoryPoolSlots[MAP_INVENTORY_POOL_SLOT_COUNT_MAX];
 static MOUSE_REGION MapInventoryPoolMask;
-BOOLEAN fMapInventoryItemCompatable[ MAP_INVENTORY_POOL_SLOT_COUNT ];
+BOOLEAN fMapInventoryItemCompatable[ MAP_INVENTORY_POOL_SLOT_COUNT_MAX ];
 static BOOLEAN      fChangedInventorySlots = FALSE;
 
 // the unseen items list...have to save this
@@ -133,8 +281,8 @@ void MPrintCenteredInBox(int x, int y, ST::string const& text, SGPBox const& box
 // blit the background panel for the inventory
 void BlitInventoryPoolGraphic( void )
 {
-	const SGPBox* const box = &g_sector_inv_box;
-	BltVideoObject(guiSAVEBUFFER, guiMapInventoryPoolBackground, 0, STD_SCREEN_X + box->x, STD_SCREEN_Y + box->y);
+	BltVideoObject(guiSAVEBUFFER, guiMapInventoryPoolBackground, 0,
+		InvOriginX() + InvLayout().box.x, InvOriginY() + InvLayout().box.y);
 
 	// resize list
 	CheckAndUnDateSlotAllocation( );
@@ -188,20 +336,20 @@ static BOOLEAN RenderItemInPoolSlot(INT32 iCurrentSlot, INT32 iFirstSlotOnPage)
 	// check if anything there
 	if (item.o.ubNumberOfObjects == 0) return FALSE;
 
-	const SGPBox* const slot_box = &g_sector_inv_slot_box;
-	const INT32 dx = STD_SCREEN_X + slot_box->x + slot_box->w * (iCurrentSlot / MAP_INV_SLOT_ROWS);
-	const INT32 dy = STD_SCREEN_Y + slot_box->y + slot_box->h * (iCurrentSlot % MAP_INV_SLOT_ROWS);
+	const SGPBox* const slot_box = &InvLayout().slot_box;
+	const INT32 dx = InvOriginX() + slot_box->x + slot_box->w * (iCurrentSlot / MAP_INV_SLOT_ROWS);
+	const INT32 dy = InvOriginY() + slot_box->y + slot_box->h * (iCurrentSlot % MAP_INV_SLOT_ROWS);
 
 	SetFontDestBuffer(guiSAVEBUFFER);
-	const SGPBox* const item_box = &g_sector_inv_item_box;
+	const SGPBox* const item_box = &InvLayout().item_box;
 	const UINT16        outline  = fMapInventoryItemCompatable[iCurrentSlot] ? Get16BPPColor(FROMRGB(255, 255, 255)) : SGP_TRANSPARENT;
 	INVRenderItem(guiSAVEBUFFER, NULL, item.o, dx + item_box->x, dy + item_box->y, item_box->w, item_box->h, DIRTYLEVEL2, 0, outline);
 
 	// draw bar for condition
 	const UINT16 col0 = Get16BPPColor(DESC_STATUS_BAR);
 	const UINT16 col1 = Get16BPPColor(DESC_STATUS_BAR_SHADOW);
-	const SGPBox* const bar_box = &g_sector_inv_bar_box;
-	DrawItemUIBarEx(item.o, 0, dx + bar_box->x, dy + bar_box->y + bar_box->h - 1, bar_box->h, col0, col1, guiSAVEBUFFER);
+	auto const& bar_box = InvLayout().bar_box;
+	DrawItemUIBarEx(item.o, 0, dx + bar_box.x, dy + bar_box.y + bar_box.h - 1, bar_box.h, col0, col1, guiSAVEBUFFER);
 
 	// if the item is not reachable, or if the selected merc is not in the current sector
 	const SOLDIERTYPE* const s = GetSelectedInfoChar();
@@ -216,7 +364,7 @@ static BOOLEAN RenderItemInPoolSlot(INT32 iCurrentSlot, INT32 iFirstSlotOnPage)
 	}
 
 	// the name
-	const SGPBox* const name_box = &g_sector_inv_name_box;
+	const SGPBox* const name_box = &InvLayout().name_box;
 	auto sString = ReduceStringLength(GCM->getItem(item.o.usItem)->getShortName(), name_box->w, MAP_IVEN_FONT);
 
 	SetFontAttributes(MAP_IVEN_FONT, FONT_WHITE);
@@ -448,22 +596,22 @@ static void MapInvenPoolSlotsMove(MOUSE_REGION* pRegion, UINT32 iReason);
 static void CreateMapInventoryPoolSlots(void)
 {
 	{
-		const SGPBox* const inv_box = &g_sector_inv_box;
-		UINT16        const x       = STD_SCREEN_X + inv_box->x;
-		UINT16        const y       = STD_SCREEN_Y + inv_box->y;
+		const SGPBox* const inv_box = &InvLayout().box;
+		UINT16        const x       = InvOriginX() + inv_box->x;
+		UINT16        const y       = InvOriginY() + inv_box->y;
 		UINT16        const w       = inv_box->w;
 		UINT16        const h       = inv_box->h;
 		MSYS_DefineRegion(&MapInventoryPoolMask, x, y, x + w - 1, y + h - 1, MSYS_PRIORITY_HIGH, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, MouseCallbackPrimarySecondary(MSYS_NO_CALLBACK, MapInvenPoolScreenMaskCallbackSecondary, MapInvenPoolScreenMaskCallbackScroll));
 	}
 
-	const SGPBox* const slot_box = &g_sector_inv_slot_box;
-	const SGPBox* const reg_box  = &g_sector_inv_region_box;
-	for (UINT i = 0; i < MAP_INVENTORY_POOL_SLOT_COUNT; ++i)
+	const SGPBox* const slot_box = &InvLayout().slot_box;
+	const SGPBox* const reg_box  = &InvLayout().region_box;
+	for (INT32 i = 0; i < MAP_INVENTORY_POOL_SLOT_COUNT; ++i)
 	{
 		UINT16        const sx = i / MAP_INV_SLOT_ROWS;
 		UINT16        const sy = i % MAP_INV_SLOT_ROWS;
-		UINT16        const x  = reg_box->x + STD_SCREEN_X + slot_box->x + sx * slot_box->w;
-		UINT16        const y  = reg_box->y + STD_SCREEN_Y + slot_box->y + sy * slot_box->h;
+		UINT16        const x  = reg_box->x + InvOriginX() + slot_box->x + sx * slot_box->w;
+		UINT16        const y  = reg_box->y + InvOriginY() + slot_box->y + sy * slot_box->h;
 		UINT16        const w  = reg_box->w;
 		UINT16        const h  = reg_box->h;
 		MOUSE_REGION* const r  = &MapInventoryPoolSlots[i];
@@ -475,7 +623,11 @@ static void CreateMapInventoryPoolSlots(void)
 
 static void DestroyMapInventoryPoolSlots()
 {
-	FOR_EACH(MOUSE_REGION, i, MapInventoryPoolSlots) MSYS_RemoveRegion(&*i);
+	/* SECTORINV-GRID: chi go dung so vung da tao, khong quet ca mang _MAX */
+	for (INT32 i = 0; i < MAP_INVENTORY_POOL_SLOT_COUNT; ++i)
+	{
+		MSYS_RemoveRegion(&MapInventoryPoolSlots[i]);
+	}
 	MSYS_RemoveRegion(&MapInventoryPoolMask);
 }
 
@@ -624,8 +776,9 @@ static void MapInventoryPoolNextBtn(GUI_BUTTON* btn, UINT32 reason);
 
 static void CreateMapInventoryButtons(void)
 {
-	guiMapInvenButton[0] = QuickCreateButtonImg(INTERFACEDIR "/map_screen_bottom_arrows.sti", 10, 1, -1, 3, -1, STD_SCREEN_X + 559, STD_SCREEN_Y + 336, MSYS_PRIORITY_HIGHEST, MapInventoryPoolNextBtn);
-	guiMapInvenButton[1] = QuickCreateButtonImg(INTERFACEDIR "/map_screen_bottom_arrows.sti",  9, 0, -1, 2, -1, STD_SCREEN_X + 487, STD_SCREEN_Y + 336, MSYS_PRIORITY_HIGHEST, MapInventoryPoolPrevBtn);
+	SectorInvLayout const& L = InvLayout();
+	guiMapInvenButton[0] = QuickCreateButtonImg(INTERFACEDIR "/map_screen_bottom_arrows.sti", 10, 1, -1, 3, -1, InvOriginX() + L.next_x, InvOriginY() + L.next_y, MSYS_PRIORITY_HIGHEST, MapInventoryPoolNextBtn);
+	guiMapInvenButton[1] = QuickCreateButtonImg(INTERFACEDIR "/map_screen_bottom_arrows.sti",  9, 0, -1, 2, -1, InvOriginX() + L.prev_x, InvOriginY() + L.prev_y, MSYS_PRIORITY_HIGHEST, MapInventoryPoolPrevBtn);
 
 	//reset the current inventory page to be the first page
 	iCurrentInventoryPoolPage = 0;
@@ -963,9 +1116,9 @@ static void DisplayPagesForMapInventoryPool(void)
 	SetFontAttributes(COMPFONT, 183);
 	SetFontDestBuffer(guiSAVEBUFFER);
 
-	MPrintCenteredInBox(STD_SCREEN_X, STD_SCREEN_Y,
+	MPrintCenteredInBox(InvOriginX(), InvOriginY(),
 		ST::format("{} / {}", iCurrentInventoryPoolPage + 1, iLastInventoryPoolPage + 1),
-		g_sector_inv_page_box);
+		InvLayout().page_box);
 
 	SetFontDestBuffer(FRAME_BUFFER);
 }
@@ -1011,9 +1164,9 @@ static void DrawNumberOfInventoryPoolItems()
 	SetFontAttributes(COMPFONT, 183);
 	SetFontDestBuffer(guiSAVEBUFFER);
 
-	MPrintCenteredInBox(STD_SCREEN_X, STD_SCREEN_Y,
+	MPrintCenteredInBox(InvOriginX(), InvOriginY(),
 		ST::string::from_uint(GetTotalNumberOfItemsInSectorStash()),
-		g_sector_inv_count_box);
+		InvLayout().count_box);
 
 	SetFontDestBuffer(FRAME_BUFFER);
 }
@@ -1022,7 +1175,8 @@ static void DrawNumberOfInventoryPoolItems()
 static void CreateMapInventoryPoolDoneButton(void)
 {
 	// create done button
-	guiMapInvenButton[2] = QuickCreateButtonImg(INTERFACEDIR "/done_button.sti", 0, 1, STD_SCREEN_X + 587, STD_SCREEN_Y + 333, MSYS_PRIORITY_HIGHEST, MapInventoryPoolDoneBtn);
+	SectorInvLayout const& L = InvLayout();
+	guiMapInvenButton[2] = QuickCreateButtonImg(INTERFACEDIR "/done_button.sti", 0, 1, InvOriginX() + L.done_x, InvOriginY() + L.done_y, MSYS_PRIORITY_HIGHEST, MapInventoryPoolDoneBtn);
 }
 
 
@@ -1039,10 +1193,10 @@ static void DisplayCurrentSector(void)
 	SetFontAttributes(COMPFONT, 183);
 	SetFontDestBuffer(guiSAVEBUFFER);
 
-	MPrintCenteredInBox(STD_SCREEN_X, STD_SCREEN_Y,
+	MPrintCenteredInBox(InvOriginX(), InvOriginY(),
 		ST::format("{}{}{}", pMapVertIndex[ sSelMap.y ],
 			pMapHortIndex[ sSelMap.x ], pMapDepthIndex[ iCurrentMapSectorZ ]),
-		g_sector_inv_loc_box);
+		InvLayout().loc_box);
 
 	SetFontDestBuffer(FRAME_BUFFER);
 }
@@ -1073,18 +1227,19 @@ static void DrawTextOnMapInventoryBackground(void)
 
 	SetFontDestBuffer(guiSAVEBUFFER);
 
-	int xPos = STD_SCREEN_X + 268;
-	int yPos = STD_SCREEN_Y + 342;
+	SectorInvLayout const& L = InvLayout();
+	int xPos = InvOriginX() + L.label1_x;
+	int yPos = InvOriginY() + L.label1_y;
 
 	//Calculate the height of the string, as it needs to be vertically centered.
-	usStringHeight = DisplayWrappedString(xPos, yPos, 53, 1, MAP_IVEN_FONT, FONT_BEIGE, pMapInventoryStrings[0], FONT_BLACK, RIGHT_JUSTIFIED | DONT_DISPLAY_TEXT);
-	DisplayWrappedString(xPos, yPos - (usStringHeight / 2), 53, 1, MAP_IVEN_FONT, FONT_BEIGE, pMapInventoryStrings[0], FONT_BLACK, RIGHT_JUSTIFIED);
+	usStringHeight = DisplayWrappedString(xPos, yPos, L.label1_w, 1, MAP_IVEN_FONT, FONT_BEIGE, pMapInventoryStrings[0], FONT_BLACK, RIGHT_JUSTIFIED | DONT_DISPLAY_TEXT);
+	DisplayWrappedString(xPos, yPos - (usStringHeight / 2), L.label1_w, 1, MAP_IVEN_FONT, FONT_BEIGE, pMapInventoryStrings[0], FONT_BLACK, RIGHT_JUSTIFIED);
 
-	xPos = STD_SCREEN_X + 369;
+	xPos = InvOriginX() + L.label2_x;
 
 	//Calculate the height of the string, as it needs to be vertically centered.
-	usStringHeight = DisplayWrappedString(xPos, yPos, 65, 1, MAP_IVEN_FONT, FONT_BEIGE, pMapInventoryStrings[1], FONT_BLACK, RIGHT_JUSTIFIED | DONT_DISPLAY_TEXT);
-	DisplayWrappedString( xPos, yPos - (usStringHeight / 2), 65, 1, MAP_IVEN_FONT, FONT_BEIGE, pMapInventoryStrings[1], FONT_BLACK, RIGHT_JUSTIFIED);
+	usStringHeight = DisplayWrappedString(xPos, yPos, L.label2_w, 1, MAP_IVEN_FONT, FONT_BEIGE, pMapInventoryStrings[1], FONT_BLACK, RIGHT_JUSTIFIED | DONT_DISPLAY_TEXT);
+	DisplayWrappedString( xPos, yPos - (usStringHeight / 2), L.label2_w, 1, MAP_IVEN_FONT, FONT_BEIGE, pMapInventoryStrings[1], FONT_BLACK, RIGHT_JUSTIFIED);
 
 	DrawTextOnSectorInventory( );
 
@@ -1113,8 +1268,8 @@ static void DrawTextOnSectorInventory(void)
 	SetFontDestBuffer(guiSAVEBUFFER);
 	SetFontAttributes(FONT14ARIAL, FONT_WHITE);
 
-	MPrintCenteredInBox(STD_SCREEN_X, STD_SCREEN_Y,
-		zMarksMapScreenText[11], g_sector_inv_title_box);
+	MPrintCenteredInBox(InvOriginX(), InvOriginY(),
+		zMarksMapScreenText[11], InvLayout().title_box);
 
 	SetFontDestBuffer(FRAME_BUFFER);
 }

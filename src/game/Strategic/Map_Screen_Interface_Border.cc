@@ -169,8 +169,9 @@ void RenderMapBorder( void )
 {
 	if( fShowMapInventoryPool )
 	{
-		// render background, then leave
-		BlitInventoryPoolGraphic( );
+		/* SECTORINV-FIX: viec ve bang sector inventory da chuyen ra
+		 * RenderMapRegionBackground() de no van chay khi map full-size
+		 * bo qua khung vien nay. Dung ve bang o day nua, se bi hai lan. */
 		return;
 	}
 
