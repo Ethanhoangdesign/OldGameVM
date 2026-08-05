@@ -87,4 +87,9 @@ extern UINT16    gusMouseYPos;       // y position of the mouse on screen
 
 void HandleSingleClicksAndButtonRepeats();
 
+/* OGVM-PAD: cau noi cho module gamepad (GameController.cc). Tai dung state
+ * machine chuot co san thay vi ve lai. sdlButton = SDL_BUTTON_LEFT/RIGHT/... */
+void PadInjectMouseButton(UINT8 sdlButton, bool down);
+void PadInjectWheel(bool up);
+
 bool _KeyDown(SDL_Keycode);

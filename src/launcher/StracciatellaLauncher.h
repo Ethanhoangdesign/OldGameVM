@@ -14,6 +14,7 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Input.H>
 #include <FL/Fl_Choice.H>
+#include <FL/Fl_Scroll.H>
 #include <FL/Fl_Browser.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Box.H>
@@ -21,9 +22,11 @@
 #include <FL/Fl_Value_Input.H>
 #include <FL/Fl_Menu_Button.H>
 #include <FL/Fl_Check_Button.H>
+#include <FL/Fl_Slider.H>
+#include <FL/Fl_Value_Slider.H>
 #include <FL/Fl_Round_Button.H>   /* OGVM-RADIO */
 #include <FL/Fl_Progress.H>   /* OGVM-PROGRESS */
-
+#include "ControllerView.h"
 class StracciatellaLauncher {
 public:
   StracciatellaLauncher();
@@ -60,6 +63,26 @@ public:
   Fl_Choice *scalingModeChoice;
   Fl_Check_Button *fullscreenCheckbox;
   Fl_Check_Button *playSoundsCheckbox;
+  /* OGVM-CONTROLLER: pad center, kind/value around (x360ce-ish). */
+  static const int kPadBindCount = 14;
+  Fl_Check_Button *controllerEnableToggle;
+  Fl_Choice *controllerLayoutChoice;
+  Fl_Choice *leftStickModeChoice;
+  Fl_Choice *rightStickModeChoice;
+  ControllerView *controllerView;
+  Fl_Box *controllerStatusLabel;
+  Fl_Text_Display *controllerHelp;
+  Fl_Scroll *controllerBindScroll; /* unused (null); kept for ABI of generated layout */
+  Fl_Choice *padKindChoice[14];  /* empty / Keyboard / Mouse Button / Wheel / Motion */
+  Fl_Choice *padValueChoice[14]; /* specific key or button */
+  Fl_Box *padLabel[14];
+  Fl_Box *leftStickLabel;
+  Fl_Box *rightStickLabel;
+  Fl_Box *touchpadSensLabel; /* PS5 only */
+  Fl_Choice *touchpadModeChoice; /* Cursor | Button */
+  Fl_Value_Slider *touchpadSensSlider; /* Cursor mode */
+  Fl_Choice *touchpadKindChoice; /* Button mode: kind */
+  Fl_Choice *touchpadValueChoice; /* Button mode: value */
   Fl_Group *logsTab;
   Fl_Text_Display *logsDisplay;
   Fl_Output *ja2JsonPathOutput;

@@ -8,22 +8,23 @@
 #include "StracciatellaLauncher.h"
 
 StracciatellaLauncher::StracciatellaLauncher() {
-  { stracciatellaLauncher = new Fl_Double_Window(580, 560, "OldGameVM"); /* OGVM-FLUENT2-DARK */
+  /* OGVM-CONTROLLER: 780 wide so pad sits center with bind widgets around it. */
+  { stracciatellaLauncher = new Fl_Double_Window(780, 580, "OldGameVM"); /* OGVM-FLUENT2-DARK */
     stracciatellaLauncher->user_data((void*)(this));
-    { tabs = new Fl_Tabs(0, 0, 580, 520);
+    { tabs = new Fl_Tabs(0, 0, 780, 540);
       tabs->align(Fl_Align(FL_ALIGN_TOP_RIGHT));
-      { Fl_Group* o = new Fl_Group(0, 55, 580, 465, "   Play   ");
+      { Fl_Group* o = new Fl_Group(0, 55, 780, 485, "   Play   ");
         o->labelsize(16);
         o->labelcolor((Fl_Color)24);
-        { editorButton = new Fl_Button(180, 168, 220, 30, "Start Map Editor");
+        { editorButton = new Fl_Button(280, 168, 220, 30, "Start Map Editor");
           editorButton->box(FL_ROUNDED_BOX);
         } // Fl_Button* editorButton
-        { playButton = new Fl_Button(140, 205, 300, 64, "Play"); /* OGVM-FLUENT2-DARK */
+        { playButton = new Fl_Button(240, 205, 300, 64, "Play"); /* OGVM-FLUENT2-DARK */
           playButton->box(FL_ROUNDED_BOX); playButton->labelsize(16);
         } // Fl_Button* playButton
         o->end();
       } // Fl_Group* o
-      { Fl_Group* o = new Fl_Group(0, 55, 580, 465, "   Data   ");
+      { Fl_Group* o = new Fl_Group(0, 55, 780, 485, "   Data   ");
         o->labelcolor((Fl_Color)24);
         o->hide();
         /* OGVM-LAYOUTB --------------------------------------------------------
@@ -33,21 +34,21 @@ StracciatellaLauncher::StracciatellaLauncher() {
          *  3) exclusive panels (installer import XOR existing folder)
          *  4) language / saves / detect (always visible)
          */
-        { sourceStatusLabel = new Fl_Box(24, 70, 530, 26, /* OGVM-FLUENT2-DARK */ "Choose how you have the game data");
+        { sourceStatusLabel = new Fl_Box(24, 70, 730, 26, /* OGVM-FLUENT2-DARK */ "Choose how you have the game data");
           sourceStatusLabel->box(FL_NO_BOX);
           sourceStatusLabel->labelfont(FL_HELVETICA);   /* OGVM-READYSTYLE: 12pt, not bold */
           sourceStatusLabel->labelsize(12);
           sourceStatusLabel->labelcolor(fl_rgb_color(16,124,16)); /* OGVM-FLUENT2-DARK */
           sourceStatusLabel->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
         }
-        { sourceInstallerRadio = new Fl_Round_Button(24, 104, 530, 30,
+        { sourceInstallerRadio = new Fl_Round_Button(24, 104, 730, 30,
             "I have a GOG installer file (.exe) - import it here");
           sourceInstallerRadio->down_box(FL_ROUND_DOWN_BOX);
           sourceInstallerRadio->type(FL_RADIO_BUTTON);
           sourceInstallerRadio->labelsize(13);
           sourceInstallerRadio->tooltip("Import game data from a GOG or retail setup_*.exe without installing the original game.");
         }
-        { sourceFolderRadio = new Fl_Round_Button(24, 140, 530, 30,
+        { sourceFolderRadio = new Fl_Round_Button(24, 140, 730, 30,
             "I already have a game folder (Steam, or an installed copy)");
           sourceFolderRadio->down_box(FL_ROUND_DOWN_BOX);
           sourceFolderRadio->type(FL_RADIO_BUTTON);
@@ -56,12 +57,12 @@ StracciatellaLauncher::StracciatellaLauncher() {
           sourceFolderRadio->value(1);
         }
         { /* Installer-only panel (same slot as folder panel; only one shown) */
-          ogvmInstallerPanel = new Fl_Group(10, 178, 560, 82);
+          ogvmInstallerPanel = new Fl_Group(10, 178, 760, 82);
           ogvmInstallerPanel->box(FL_NO_BOX);
-          { importGameDataButton = new Fl_Button(24, 186, 530, 40, "Import from installer...");
+          { importGameDataButton = new Fl_Button(24, 186, 730, 40, "Import from installer...");
             importGameDataButton->tooltip("Extract game data straight from a GOG or retail installer.");
           }
-          { importProgress = new Fl_Progress(24, 232, 530, 20, "");
+          { importProgress = new Fl_Progress(24, 232, 730, 20, "");
             importProgress->minimum(0.0f);
             importProgress->maximum(100.0f);
             importProgress->value(0.0f);
@@ -73,34 +74,34 @@ StracciatellaLauncher::StracciatellaLauncher() {
           ogvmInstallerPanel->hide();   /* default: existing-folder path */
         }
         { /* Existing-folder panel */
-          ogvmFolderPanel = new Fl_Group(10, 178, 560, 82);
+          ogvmFolderPanel = new Fl_Group(10, 178, 760, 82);
           ogvmFolderPanel->box(FL_NO_BOX);
-          { gameDirectoryInput = new Fl_Input(24, 200, 490, 36, "JA2 game folder:");
+          { gameDirectoryInput = new Fl_Input(24, 200, 690, 36, "JA2 game folder:");
             gameDirectoryInput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(gameDirectoryInput);
           }
-          { browseJa2DirectoryButton = new Fl_Button(522, 200, 36, 36, "@fileopen");
+          { browseJa2DirectoryButton = new Fl_Button(722, 200, 36, 36, "@fileopen");
             browseJa2DirectoryButton->tooltip("Choose JA2 game directory.");
           }
           ogvmFolderPanel->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 270, 560, 58);
-          { gameVersionInput = new Fl_Choice(24, 294, 490, 36, "Data language:");
+        { Fl_Group* g = new Fl_Group(10, 270, 760, 58);
+          { gameVersionInput = new Fl_Choice(24, 294, 690, 36, "Data language:");
             gameVersionInput->down_box(FL_BORDER_BOX);
             gameVersionInput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(gameVersionInput);
           }
-          { guessVersionButton = new Fl_Button(522, 294, 36, 36, "@search");
+          { guessVersionButton = new Fl_Button(722, 294, 36, 36, "@search");
             guessVersionButton->tooltip("Guess Game Version");
           }
           g->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 340, 560, 58);
-          { saveGameDirectoryInput = new Fl_Input(24, 364, 490, 36, "Saved games folder (optional):");
+        { Fl_Group* g = new Fl_Group(10, 340, 760, 58);
+          { saveGameDirectoryInput = new Fl_Input(24, 364, 690, 36, "Saved games folder (optional):");
             saveGameDirectoryInput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(saveGameDirectoryInput);
           }
-          { browseSaveGameDirectoryButton = new Fl_Button(522, 364, 36, 36, "@fileopen");
+          { browseSaveGameDirectoryButton = new Fl_Button(722, 364, 36, 36, "@fileopen");
             browseSaveGameDirectoryButton->tooltip("Choose save game directory.");
           }
           g->end();
@@ -108,7 +109,7 @@ StracciatellaLauncher::StracciatellaLauncher() {
         { detectEditionButton = new Fl_Button(24, 412, 260, 34, "Detect Edition");
           detectEditionButton->tooltip("Show matched files and detection details for the current game folder.");
         }
-        { Fl_Group* g = new Fl_Group(10, 456, 560, 10, "resizable");
+        { Fl_Group* g = new Fl_Group(10, 456, 760, 10, "resizable");
           g->labeltype(FL_NO_LABEL);
           g->align(Fl_Align(FL_ALIGN_TOP|FL_ALIGN_INSIDE));
           g->end();
@@ -116,57 +117,57 @@ StracciatellaLauncher::StracciatellaLauncher() {
         }
         o->end();
       } // Fl_Group* Data
-      { Fl_Group* o = new Fl_Group(0, 55, 580, 465, "   Mods   ");
+      { Fl_Group* o = new Fl_Group(0, 55, 780, 485, "   Mods   ");
         o->labelcolor((Fl_Color)24);
         o->hide();
-        { Fl_Group* g = new Fl_Group(10, 80, 500, 165);
-          { enabledModsBrowser = new Fl_Browser(20, 95, 245, 190, "Enabled Mods:");
+        { Fl_Group* g = new Fl_Group(10, 80, 760, 165);
+          { enabledModsBrowser = new Fl_Browser(20, 95, 320, 190, "Enabled Mods:");
             enabledModsBrowser->type(3);
             enabledModsBrowser->align(Fl_Align(FL_ALIGN_TOP_LEFT));
           }
-          { enableModsButton = new Fl_Button(245, 95, 30, 30, "@<");
+          { enableModsButton = new Fl_Button(355, 95, 30, 30, "@<");
             enableModsButton->tooltip("Enable one or multiple mods.");
             enableModsButton->deactivate();
           }
-          { disableModsButton = new Fl_Button(245, 135, 30, 30, "@>");
+          { disableModsButton = new Fl_Button(355, 135, 30, 30, "@>");
             disableModsButton->tooltip("Disable one or multiple mods.");
             disableModsButton->deactivate();
           }
-          { moveUpModsButton = new Fl_Button(245, 175, 30, 30, "@2<");
+          { moveUpModsButton = new Fl_Button(355, 175, 30, 30, "@2<");
             moveUpModsButton->tooltip("Move mod up in the list and decrease mod priority.");
             moveUpModsButton->deactivate();
           }
-          { moveDownModsButton = new Fl_Button(245, 215, 30, 30, "@8<");
+          { moveDownModsButton = new Fl_Button(355, 215, 30, 30, "@8<");
             moveDownModsButton->tooltip("Move mod down in the list and increase mod priority.");
             moveDownModsButton->deactivate();
           }
-          { availableModsBrowser = new Fl_Browser(320, 95, 245, 190, "Disabled Mods:");
+          { availableModsBrowser = new Fl_Browser(400, 95, 360, 190, "Disabled Mods:");
             availableModsBrowser->type(3);
             availableModsBrowser->align(Fl_Align(FL_ALIGN_TOP_LEFT));
           }
           g->end();
         }
-        { modDetails = new Fl_Text_Display(20, 300, 540, 90);
+        { modDetails = new Fl_Text_Display(20, 300, 740, 90);
           modDetails->color((Fl_Color)55);
           modDetails->hide();
         }
-        { Fl_Box* b = new Fl_Box(17, 55, 480, 20, "Mods listed later in the \"Enabled Mods\" list have higher priority.");
+        { Fl_Box* b = new Fl_Box(17, 55, 740, 20, "Mods listed later in the \"Enabled Mods\" list have higher priority.");
           b->tooltip("Higher priority mods can overwrite changes from lower-priority ones or build on their features.");
           b->align(Fl_Align(133|FL_ALIGN_INSIDE));
         }
         o->end();
       }
-      { Fl_Group* o = new Fl_Group(0, 55, 580, 465, "  Settings  ");
+      { Fl_Group* o = new Fl_Group(0, 55, 780, 485, "  Settings  ");
         o->labelcolor((Fl_Color)24);
         o->hide();
-        { Fl_Group* g = new Fl_Group(10, 68, 560, 52);
-          { gameSettingsOutput = new Fl_Output(24, 84, 530, 34, "Game Settings:");
+        { Fl_Group* g = new Fl_Group(10, 68, 760, 52);
+          { gameSettingsOutput = new Fl_Output(24, 84, 730, 34, "Game Settings:");
             gameSettingsOutput->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(gameSettingsOutput);
           }
           g->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 132, 560, 58);
+        { Fl_Group* g = new Fl_Group(10, 132, 760, 58);
           g->tooltip("Specify the internal rendering resolution. Text and sprites become very small at high resolutions. The strategic map screen needs at least 768 pixels of height to show the full map, so 1366x768 or larger is recommended.");
           { resolutionXInput = new Fl_Value_Input(24, 150, 80, 34, "Internal Resolution:");
             resolutionXInput->minimum(640);
@@ -197,16 +198,16 @@ StracciatellaLauncher::StracciatellaLauncher() {
           }
           g->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 206, 560, 60);
+        { Fl_Group* g = new Fl_Group(10, 206, 760, 60);
           g->tooltip("Choose a scaling mode to stretch the game video to fit the screen.");
-          { scalingModeChoice = new Fl_Choice(24, 224, 530, 34, "Scaling Mode:");
+          { scalingModeChoice = new Fl_Choice(24, 224, 730, 34, "Scaling Mode:");
             scalingModeChoice->down_box(FL_BORDER_BOX);
             scalingModeChoice->align(Fl_Align(FL_ALIGN_TOP_LEFT));
             Fl_Group::current()->resizable(scalingModeChoice);
           }
           g->end();
         }
-        { Fl_Group* g = new Fl_Group(10, 280, 560, 74);
+        { Fl_Group* g = new Fl_Group(10, 280, 760, 74);
           { fullscreenCheckbox = new Fl_Check_Button(24, 288, 110, 34, "Fullscreen");
             fullscreenCheckbox->tooltip("Check to run in a borderless full-screen window");
             fullscreenCheckbox->down_box(FL_DOWN_BOX);
@@ -219,10 +220,136 @@ StracciatellaLauncher::StracciatellaLauncher() {
         }
         o->end();
       }
-      { logsTab = new Fl_Group(0, 55, 580, 465, "   Logs   ");
+      /* OGVM-CONTROLLER: pad center, kind/value widgets around (x360ce-ish). */
+      { Fl_Group* o = new Fl_Group(0, 55, 780, 485, "  Controller  ");
+        o->labelcolor((Fl_Color)24);
+        o->hide();
+        { controllerEnableToggle = new Fl_Check_Button(16, 62, 150, 24,
+            "Enable gamepad");
+          controllerEnableToggle->down_box(FL_DOWN_BOX);
+          controllerEnableToggle->tooltip("When on, plug pad and hit Play: left stick moves cursor, buttons act as mouse/keys.");
+        }
+        { controllerLayoutChoice = new Fl_Choice(172, 62, 72, 24, "");
+          controllerLayoutChoice->add("Xbox");
+          controllerLayoutChoice->add("PS5");
+          controllerLayoutChoice->value(0);
+          controllerLayoutChoice->tooltip("Button labels / diagram style. Does not change SDL binding tokens.");
+        }
+        { leftStickLabel = new Fl_Box(256, 62, 56, 24, "L stick");
+          leftStickLabel->box(FL_NO_BOX);
+          leftStickLabel->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
+          leftStickLabel->labelsize(11);
+        }
+        { leftStickModeChoice = new Fl_Choice(312, 62, 88, 24, "");
+          leftStickModeChoice->add("<empty>");
+          leftStickModeChoice->add("Cursor");
+          leftStickModeChoice->add("WASD");
+          leftStickModeChoice->add("Arrow");
+          leftStickModeChoice->value(1); /* Cursor default */
+          leftStickModeChoice->tooltip("What left analog stick does.");
+        }
+        { rightStickLabel = new Fl_Box(408, 62, 56, 24, "R stick");
+          rightStickLabel->box(FL_NO_BOX);
+          rightStickLabel->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
+          rightStickLabel->labelsize(11);
+        }
+        { rightStickModeChoice = new Fl_Choice(464, 62, 88, 24, "");
+          rightStickModeChoice->add("<empty>");
+          rightStickModeChoice->add("Cursor");
+          rightStickModeChoice->add("WASD");
+          rightStickModeChoice->add("Arrow");
+          rightStickModeChoice->value(0);
+          rightStickModeChoice->tooltip("What right analog stick does.");
+        }
+        { controllerStatusLabel = new Fl_Box(560, 62, 200, 24, "Off.");
+          controllerStatusLabel->box(FL_NO_BOX);
+          controllerStatusLabel->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
+          controllerStatusLabel->labelsize(11);
+        }
+        /* Pad image/sketch center. */
+        { controllerView = new ControllerView(250, 110, 280, 210);
+          controllerView->box(FL_FLAT_BOX);
+        }
+        /* No scroll table — 14 rows fixed around pad.
+         * Visual order (token index): left LT/LB/Back/Dpad, right RT/RB/Start/face.
+         * padTokens: 0a 1b 2x 3y 4LB 5RB 6LT 7RT 8U 9D 10L 11R 12start 13back */
+        controllerBindScroll = nullptr;
+        static const int kLeftOrder[7]  = { 6, 4, 13, 8, 10, 11, 9 };
+        static const int kRightOrder[7] = { 7, 5, 12, 3, 2, 1, 0 };
+        static const char* kPadLabels[14] = {
+          "A", "B", "X", "Y",
+          "LB", "RB", "LT", "RT",
+          "D-Up", "D-Down", "D-Left", "D-Right",
+          "Start", "Back"
+        };
+        for (int row = 0; row < 7; ++row) {
+          const int y = 118 + row * 34;
+          /* left column */
+          {
+            const int i = kLeftOrder[row];
+            padLabel[i] = new Fl_Box(8, y, 48, 22, kPadLabels[i]);
+            padLabel[i]->box(FL_NO_BOX);
+            padLabel[i]->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
+            padLabel[i]->labelsize(11);
+            padKindChoice[i] = new Fl_Choice(56, y, 96, 22, "");
+            padKindChoice[i]->tooltip("Input type: keyboard, mouse button, wheel, motion.");
+            padValueChoice[i] = new Fl_Choice(154, y, 86, 22, "");
+            padValueChoice[i]->tooltip("Specific key or mouse action.");
+          }
+          /* right column */
+          {
+            const int i = kRightOrder[row];
+            padLabel[i] = new Fl_Box(540, y, 48, 22, kPadLabels[i]);
+            padLabel[i]->box(FL_NO_BOX);
+            padLabel[i]->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
+            padLabel[i]->labelsize(11);
+            padKindChoice[i] = new Fl_Choice(588, y, 96, 22, "");
+            padKindChoice[i]->tooltip("Input type: keyboard, mouse button, wheel, motion.");
+            padValueChoice[i] = new Fl_Choice(686, y, 86, 22, "");
+            padValueChoice[i]->tooltip("Specific key or mouse action.");
+          }
+        }
+        /* PS5-only touchpad row: mode dropdown + sens slider OR kind/value. */
+        { touchpadSensLabel = new Fl_Box(16, 390, 80, 22, "Touchpad");
+          touchpadSensLabel->box(FL_NO_BOX);
+          touchpadSensLabel->align(Fl_Align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE));
+          touchpadSensLabel->labelsize(11);
+          touchpadSensLabel->hide();
+        }
+        { touchpadModeChoice = new Fl_Choice(100, 390, 110, 22, "");
+          touchpadModeChoice->add("Cursor");
+          touchpadModeChoice->add("Button");
+          touchpadModeChoice->value(0);
+          touchpadModeChoice->tooltip("Cursor: swipe moves mouse. Button: touchpad click maps to a key/mouse action.");
+          touchpadModeChoice->hide();
+        }
+        { touchpadSensSlider = new Fl_Value_Slider(220, 390, 544, 22, "");
+          touchpadSensSlider->type(FL_HOR_NICE_SLIDER);
+          touchpadSensSlider->bounds(200, 4000);
+          touchpadSensSlider->step(50);
+          touchpadSensSlider->value(1100);
+          touchpadSensSlider->precision(0);
+          touchpadSensSlider->tooltip("PS5 touchpad mouse speed. Full pad swipe ≈ this many in-game pixels.");
+          touchpadSensSlider->hide();
+        }
+        { touchpadKindChoice = new Fl_Choice(220, 390, 150, 22, "");
+          touchpadKindChoice->tooltip("Input type for touchpad click.");
+          touchpadKindChoice->hide();
+        }
+        { touchpadValueChoice = new Fl_Choice(378, 390, 150, 22, "");
+          touchpadValueChoice->tooltip("Specific key or mouse action for touchpad click.");
+          touchpadValueChoice->hide();
+        }
+        { controllerHelp = new Fl_Text_Display(16, 470, 748, 54);
+          controllerHelp->box(FL_DOWN_BOX);
+          controllerHelp->textsize(11);
+        }
+        o->end();
+      }
+      { logsTab = new Fl_Group(0, 55, 780, 485, "   Logs   ");
         logsTab->labelcolor((Fl_Color)24);
         logsTab->hide();
-        { logsDisplay = new Fl_Text_Display(20, 95, 540, 410, "You can view the logs of the latest JA2 Stracciatella execution here. If you want to report a bug, please include them in your bug report.");
+        { logsDisplay = new Fl_Text_Display(20, 95, 740, 430, "You can view the logs of the latest JA2 Stracciatella execution here. If you want to report a bug, please include them in your bug report.");
           logsDisplay->box(FL_DOWN_BOX);
           logsDisplay->align(Fl_Align(133));
           Fl_Group::current()->resizable(logsDisplay);
@@ -232,26 +359,26 @@ StracciatellaLauncher::StracciatellaLauncher() {
       tabs->end();
       Fl_Group::current()->resizable(tabs);
     } // Fl_Tabs* tabs
-    { Fl_Group* o = new Fl_Group(0, 520, 580, 40); /* OGVM-FLUENT2-DARK */
-      { ja2JsonPathOutput = new Fl_Output(0, 520, 472, 40);
+    { Fl_Group* o = new Fl_Group(0, 540, 780, 40); /* OGVM-FLUENT2-DARK */
+      { ja2JsonPathOutput = new Fl_Output(0, 540, 672, 40);
         ja2JsonPathOutput->tooltip("Path to stracciatella engine options");
         ja2JsonPathOutput->color(FL_BACKGROUND_COLOR);
         ja2JsonPathOutput->align(Fl_Align(FL_ALIGN_LEFT|FL_ALIGN_INSIDE));
         Fl_Group::current()->resizable(ja2JsonPathOutput);
       }
-      { ja2JsonReloadBtn = new Fl_Button(472, 520, 35, 40, "@reload");
+      { ja2JsonReloadBtn = new Fl_Button(672, 540, 35, 40, "@reload");
         ja2JsonReloadBtn->tooltip("Reload stracciatella engine options");
         ja2JsonReloadBtn->box(FL_THIN_UP_BOX);
         ja2JsonReloadBtn->labelcolor(FL_INACTIVE_COLOR);
       }
-      { ja2JsonSaveBtn = new Fl_Button(507, 520, 35, 40, "@filesave");
+      { ja2JsonSaveBtn = new Fl_Button(707, 540, 35, 40, "@filesave");
         ja2JsonSaveBtn->tooltip("Save stracciatella engine options");
         ja2JsonSaveBtn->box(FL_THIN_UP_BOX);
         ja2JsonSaveBtn->labelcolor(FL_INACTIVE_COLOR);
       }
       o->end();
     }
-    stracciatellaLauncher->size_range(580, 560);
+    stracciatellaLauncher->size_range(780, 580);
     stracciatellaLauncher->end();
   }
 }

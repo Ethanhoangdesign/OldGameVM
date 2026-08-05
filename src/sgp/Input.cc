@@ -272,6 +272,25 @@ void MouseWheelScroll(const SDL_MouseWheelEvent* WheelEv)
 	}
 }
 
+/* OGVM-PAD: cau noi cho module gamepad. Tai dung dung state machine chuot o
+ * tren (gLeftButtonState v.v.) nen hanh vi click/repeat giong het chuot that. */
+void PadInjectMouseButton(UINT8 sdlButton, bool down)
+{
+	gfIsUsingTouch = FALSE;
+	switch (sdlButton)
+	{
+		case SDL_BUTTON_LEFT:   down ? gLeftButtonState.handleDown()   : gLeftButtonState.handleUp();   break;
+		case SDL_BUTTON_RIGHT:  down ? gRightButtonState.handleDown()  : gRightButtonState.handleUp();  break;
+		case SDL_BUTTON_MIDDLE: down ? gMiddleButtonState.handleDown() : gMiddleButtonState.handleUp(); break;
+	}
+}
+
+void PadInjectWheel(bool up)
+{
+	gfIsUsingTouch = FALSE;
+	QueuePointerEvent(up ? MOUSE_WHEEL_UP : MOUSE_WHEEL_DOWN, 0);
+}
+
 void FingerMove(const SDL_TouchFingerEvent* event) {
 	#ifdef SDL_MOUSE_TOUCHID
 	if (event->touchId == SDL_MOUSE_TOUCHID) return;

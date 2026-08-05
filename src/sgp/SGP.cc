@@ -1,5 +1,6 @@
 #include "Button_System.h"
 #include "FPS.h"
+#include "GameController.h"   /* OGVM-CONTROLLER */
 #include "GameLoop.h"
 #include "GameSettings.h"
 #include "Input.h"
@@ -160,6 +161,14 @@ static void MainLoop()
 				case SDL_FINGERUP:     FingerUp(&event.tfinger); break;
 				case SDL_FINGERDOWN:   FingerDown(&event.tfinger); break;
 
+				/* OGVM-CONTROLLER: su kien tay cam */
+				case SDL_CONTROLLERDEVICEADDED:
+				case SDL_CONTROLLERDEVICEREMOVED:
+				case SDL_CONTROLLERBUTTONDOWN:
+				case SDL_CONTROLLERBUTTONUP:
+					GameController_HandleEvent(&event);
+					break;
+
 				case SDL_QUIT: deinitGameAndExit(); break;
 			}
 		}
@@ -167,6 +176,9 @@ static void MainLoop()
 		{
 			if (s_doGameCycles)
 			{
+				/* OGVM-CONTROLLER: di chuyen con tro theo analog moi frame */
+				GameController_Update();
+
 				// Aim to execute the game loop at a rate of 144Hz,
 				// once every ~6944 microseconds.
 				constexpr auto targetResolution = 1'000'000us / 144;
@@ -356,6 +368,9 @@ int main(int argc, char* argv[])
 		////////////////////////////////////////////////////////////
 
 		SDL_Init(SDL_INIT_VIDEO);
+
+		/* OGVM-CONTROLLER: khoi tao gamepad (doc co bat/tat tu controller.ini) */
+		GameController_Init();
 
 		// restore output to the console (on windows when built with MINGW)
 	#ifdef __MINGW32__

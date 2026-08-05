@@ -208,6 +208,15 @@ class StracciatellaLauncher {open
             }
           }
         }
+        Fl_Group {} {
+          label {@utility Controller } open
+          xywh {0 50 520 300} labelcolor 24 hide
+        } {
+          # OGVM-CONTROLLER: reference-only. Real widgets hand-built in .cc/.h.
+          # controllerEnableToggle, controllerExeOutput, controllerProfileOutput,
+          # controllerProfileBrowse, controllerEditButton, controllerStatusLabel,
+          # controllerHelp.
+        }
         Fl_Group logsTab {
           label {@square Logs} open
           xywh {0 50 520 300} labelcolor 24 hide

@@ -14,6 +14,7 @@
 #include <iterator>
 #include <set>
 #include <optional>
+#include <string>
 
 struct sortMods {
     bool operator() (ST::string a, ST::string b) const {
@@ -71,6 +72,46 @@ private:
 	static void moveDownMods(Fl_Widget* widget, void* userdata);
 	static void selectGameVersion(Fl_Widget* widget, void* userdata);
 	static void maintainSubProcessState(void*);
+	/* OGVM-CONTROLLER: pad -> kind + value (two columns) */
+	void loadControllerConfig();
+	void saveControllerConfig();
+	void refreshControllerStatus();
+	void setControllerFieldsEnabled(bool on);
+	void openControllerPad();
+	void closeControllerPad();
+	void refreshBindLabels();
+	void applyLayoutChoice();
+	void fillPadValueMenu(int padIndex, int kind);
+	void applyPadKind(int padIndex);
+	void applyPadValue(int padIndex);
+	void ensurePadMenusFilled();
+	void refreshTouchpadRow();
+	void fillTouchpadValueMenu(int kind);
+	void applyTouchpadKind();
+	void applyTouchpadValue();
+	static void controllerToggleCb(Fl_Widget* widget, void* userdata);
+	static void controllerLayoutCb(Fl_Widget* widget, void* userdata);
+	static void stickModeCb(Fl_Widget* widget, void* userdata);
+	static void padKindCb(Fl_Widget* widget, void* userdata);
+	static void padValueCb(Fl_Widget* widget, void* userdata);
+	static void touchpadSensCb(Fl_Widget* widget, void* userdata);
+	static void touchpadModeCb(Fl_Widget* widget, void* userdata);
+	static void touchpadKindCb(Fl_Widget* widget, void* userdata);
+	static void touchpadValueCb(Fl_Widget* widget, void* userdata);
+
+	// ponytail: first pad only; multi-pad later
+	void* padHandle = nullptr; // SDL_GameController*
+	int layoutIndex = 0; // 0 Xbox, 1 PS5
+	// stick mode: 0 empty, 1 cursor, 2 wasd, 3 arrow
+	int leftStickMode = 1;
+	int rightStickMode = 0;
+	float touchpadSens = 1100.f; // PS5 full-swipe logic px
+		int touchpadMode = 0; // 0 cursor, 1 button
+		std::string touchpadOutSpec = "none"; // button mode output
+	// pad token index 0..13 -> output spec ("mouse:left", "key:a", "none")
+	std::string padOutSpec[14];
+	bool padMenusFilled = false;
+	static const char* padTokens[14];
 };
 
 #endif //JA2_LAUNCHER_H_H
