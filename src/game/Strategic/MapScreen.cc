@@ -5058,6 +5058,130 @@ void RenderMapRegionBackground( void )
 			 * dai nut trong bo cuc 1024; tren man rong hon thi sau nut bam va
 			 * thanh chon tang da nam gon trong bang duoi, nen khung nay khong
 			 * con boc thu gi, chi la hai duong ke lo lung tren go. */
+
+			/* MAPFRAME: thick recessed leather picture-frame matching the
+			 * original Map Overview sample. Wraps the full b_map art well
+			 * (714x612 incl. 1-16 / A-P rails). Rails stay from b_map.sti;
+			 * we only darken them and draw the outer 4-side molding. */
+			{
+				/* Art well = where b_map.sti is blitted (see DrawMap). */
+				INT32 const ax = (INT32)g_ui.get_MAP_VIEW_START_X() + 1;
+				INT32 const ay = (INT32)g_ui.get_MAP_VIEW_START_Y() + 1;
+				INT32 const aw = 714 * MAPZOOM_NUM / 2;
+				INT32 const ah = 612 * MAPZOOM_NUM / 2;
+				INT32 const ox0 = ax;
+				INT32 const oy0 = ay;
+				INT32 const ox1 = ax + aw;
+				INT32 const oy1 = ay + ah;
+
+				/* Index rail thickness inside b_map art (terrain at 41,35). */
+				INT32 const railT = 35 * MAPZOOM_NUM / 2; // top numbers
+				INT32 const railL = 41 * MAPZOOM_NUM / 2; // left letters
+
+				/* Overview sample palette: near-black frame, warm ridge only */
+				UINT16 const ink  = Get16BPPColor(FROMRGB(  3,  2,  1));
+				UINT16 const deep = Get16BPPColor(FROMRGB( 10,  6,  3));
+				UINT16 const body = Get16BPPColor(FROMRGB( 22, 13,  7));
+				UINT16 const mid  = Get16BPPColor(FROMRGB( 36, 22, 11));
+				UINT16 const warm = Get16BPPColor(FROMRGB( 58, 38, 18));
+				UINT16 const hi   = Get16BPPColor(FROMRGB( 78, 52, 26));
+
+				auto bar = [&](INT32 x1, INT32 y1, INT32 x2, INT32 y2, UINT16 col) {
+					if (x2 > x1 && y2 > y1)
+						ColorFillVideoSurfaceArea(guiSAVEBUFFER, x1, y1, x2, y2, col);
+				};
+
+				/* ===== outer molding ~14px, all 4 sides (sample look) ===== */
+				/* ring 0: ink crack */
+				bar(ox0 - 14, oy0 - 14, ox1 + 14, oy0 - 13, ink);
+				bar(ox0 - 14, oy1 + 13, ox1 + 14, oy1 + 14, ink);
+				bar(ox0 - 14, oy0 - 14, ox0 - 13, oy1 + 14, ink);
+				bar(ox1 + 13, oy0 - 14, ox1 + 14, oy1 + 14, ink);
+
+				/* ring 1: deep shadow */
+				bar(ox0 - 13, oy0 - 13, ox1 + 13, oy0 - 9, deep);
+				bar(ox0 - 13, oy1 + 9,  ox1 + 13, oy1 + 13, deep);
+				bar(ox0 - 13, oy0 - 13, ox0 - 9,  oy1 + 13, deep);
+				bar(ox1 + 9,  oy0 - 13, ox1 + 13, oy1 + 13, deep);
+
+				/* ring 2: leather body */
+				bar(ox0 - 9, oy0 - 9, ox1 + 9, oy0 - 4, body);
+				bar(ox0 - 9, oy1 + 4, ox1 + 9, oy1 + 9, body);
+				bar(ox0 - 9, oy0 - 9, ox0 - 4, oy1 + 9, body);
+				bar(ox1 + 4, oy0 - 9, ox1 + 9, oy1 + 9, body);
+
+				/* ring 3: mid fill */
+				bar(ox0 - 4, oy0 - 4, ox1 + 4, oy0 - 2, mid);
+				bar(ox0 - 4, oy1 + 2, ox1 + 4, oy1 + 4, mid);
+				bar(ox0 - 4, oy0 - 4, ox0 - 2, oy1 + 4, mid);
+				bar(ox1 + 2, oy0 - 4, ox1 + 4, oy1 + 4, mid);
+
+				/* raised bevel: highlight top/left, shadow bottom/right */
+				bar(ox0 - 2, oy0 - 2, ox1 + 2, oy0 - 1, hi);
+				bar(ox0 - 2, oy0 - 2, ox0 - 1, oy1 + 2, warm);
+				bar(ox0 - 2, oy1 + 1, ox1 + 2, oy1 + 2, deep);
+				bar(ox1 + 1, oy0 - 2, ox1 + 2, oy1 + 2, ink);
+
+				/* inner hairline against the art */
+				bar(ox0 - 1, oy0 - 1, ox1 + 1, oy0,     ink);
+				bar(ox0 - 1, oy1,     ox1 + 1, oy1 + 1, warm);
+				bar(ox0 - 1, oy0 - 1, ox0,     oy1 + 1, ink);
+				bar(ox1,     oy0 - 1, ox1 + 1, oy1 + 1, warm);
+
+				/* ===== darken index rails + add matching bottom/right rails =====
+				 * Sample has near-black bars on ALL 4 sides; b_map only paints
+				 * top/left chrome, so bottom/right get a solid dark strip and
+				 * top/left get a multiply-darken so numbers stay visible. */
+				{
+					SGPVSurface::Lock l(guiSAVEBUFFER);
+					UINT16* const buf    = l.Buffer<UINT16>();
+					UINT32  const stride = l.Pitch() / 2;
+					INT32 const sw = (INT32)guiSAVEBUFFER->Width();
+					INT32 const sh = (INT32)guiSAVEBUFFER->Height();
+
+					auto darken = [&](INT32 x1, INT32 y1, INT32 x2, INT32 y2, INT32 pct) {
+						if (x1 < 0) x1 = 0;
+						if (y1 < 0) y1 = 0;
+						if (x2 > sw) x2 = sw;
+						if (y2 > sh) y2 = sh;
+						for (INT32 y = y1; y < y2; ++y)
+						{
+							UINT16* row = buf + (UINT32)y * stride;
+							for (INT32 x = x1; x < x2; ++x)
+							{
+								UINT32 const rgb = GetRGBColor(row[x]);
+								INT32 r = (SGPGetRValue(rgb) * pct) / 100;
+								INT32 g = (SGPGetGValue(rgb) * pct) / 100;
+								INT32 b = (SGPGetBValue(rgb) * pct) / 100;
+								/* bias toward warm black so it reads as leather */
+								r = (r * 90 + 8) / 100;
+								g = (g * 70 + 4) / 100;
+								b = (b * 50 + 2) / 100;
+								row[x] = Get16BPPColor((UINT8)r, (UINT8)g, (UINT8)b);
+							}
+						}
+					};
+
+					/* top number rail + left letter rail (keep glyph contrast) */
+					darken(ox0, oy0, ox1, oy0 + railT, 42);
+					darken(ox0, oy0 + railT, ox0 + railL, oy1, 42);
+
+					/* bottom + right "silent" rails so the well is even 4-sided */
+					INT32 const railB = railT;
+					INT32 const railR = railL;
+					/* fill solid dark first, then a touch of noise via darken path */
+					bar(ox0 + railL, oy1 - railB, ox1, oy1, deep);
+					bar(ox1 - railR, oy0 + railT, ox1, oy1 - railB, deep);
+					darken(ox0 + railL, oy1 - railB, ox1, oy1, 70);
+					darken(ox1 - railR, oy0 + railT, ox1, oy1 - railB, 70);
+
+					/* inner bevel on bottom/right silent rails */
+					bar(ox0 + railL, oy1 - railB, ox1, oy1 - railB + 1, ink);
+					bar(ox1 - railR, oy0 + railT, ox1 - railR + 1, oy1, ink);
+					bar(ox0 + railL, oy1 - 1, ox1, oy1, warm);
+					bar(ox1 - 1, oy0 + railT, ox1, oy1, warm);
+				}
+			}
 		}
 		if (!fShowMapInventoryPool)
 		{

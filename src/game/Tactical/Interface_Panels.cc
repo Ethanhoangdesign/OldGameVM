@@ -900,9 +900,56 @@ void DrawFillerOnSurface(SGPVSurface* vsSurface, SGPBox const &dest)
 {
 	auto vsFiller = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/overheadinterface.sti", 0);
 
-	// clip and blit the big panel from the overheadinterface graphics
-	SGPBox const src  = {80, 42, (UINT16) std::min(int(dest.w), 560), (UINT16) std::min(int(dest.h), 112)};
-	BltStretchVideoSurface(vsSurface, vsFiller.get(), &src, &dest);
+	/* LEATHER-TINT + TILE: Wildfire OverheadInterface.sti wood is cold grey and
+	 * stretching a 560x112 crop over full-screen margins makes giant red grain.
+	 * Tint toward dark book-leather (sample map overview ~dark brown, not red
+	 * mahogany) then TILE 1:1 so the grain stays fine like the original chrome. */
+	{
+		SGPVSurface::Lock l(vsFiller.get());
+		UINT16* const buf    = l.Buffer<UINT16>();
+		UINT32  const stride = l.Pitch() / 2;
+		UINT16  const w      = vsFiller->Width();
+		UINT16  const h      = vsFiller->Height();
+		for (UINT16 y = 0; y < h; ++y)
+		{
+			UINT16* row = buf + y * stride;
+			for (UINT16 x = 0; x < w; ++x)
+			{
+				UINT32 const rgb = GetRGBColor(row[x]);
+				INT32 r = SGPGetRValue(rgb);
+				INT32 g = SGPGetGValue(rgb);
+				INT32 b = SGPGetBValue(rgb);
+				if (r + g + b < 18) continue; // keep holes / pure black
+				/* dark chocolate leather: modest red, crush green/blue, keep dim */
+				r = std::min(255, (r * 110) / 100 + 6);
+				g = std::min(255, (g *  55) / 100 + 2);
+				b = std::min(255, (b *  35) / 100 + 1);
+				/* overall darken toward book-cover levels */
+				r = (r * 70) / 100;
+				g = (g * 70) / 100;
+				b = (b * 70) / 100;
+				row[x] = Get16BPPColor((UINT8)r, (UINT8)g, (UINT8)b);
+			}
+		}
+	}
+
+	/* Tile the filler crop 1:1 across dest (no stretch = no giant wood grain). */
+	UINT16 const tileW = (UINT16)std::min(560, (int)vsFiller->Width()  > 80 ? vsFiller->Width()  - 80 : vsFiller->Width());
+	UINT16 const tileH = (UINT16)std::min(112, (int)vsFiller->Height() > 42 ? vsFiller->Height() - 42 : vsFiller->Height());
+	if (tileW == 0 || tileH == 0 || dest.w == 0 || dest.h == 0) return;
+
+	for (UINT16 dy = 0; dy < dest.h; dy = (UINT16)(dy + tileH))
+	{
+		UINT16 const hPiece = (UINT16)std::min((int)tileH, (int)(dest.h - dy));
+		for (UINT16 dx = 0; dx < dest.w; dx = (UINT16)(dx + tileW))
+		{
+			UINT16 const wPiece = (UINT16)std::min((int)tileW, (int)(dest.w - dx));
+			SGPBox const src  = {80, 42, wPiece, hPiece};
+			/* BltVideoSurface uses dest x/y + optional src rect */
+			SGPBox const piece = {src.x, src.y, wPiece, hPiece};
+			BltVideoSurface(vsSurface, vsFiller.get(), dest.x + dx, dest.y + dy, &piece);
+		}
+	}
 }
 
 static void MakeRegionForAttributeHelpText(Attributes attr, uint16_t tlx, uint16_t tly, uint16_t brx, uint16_t bry)
