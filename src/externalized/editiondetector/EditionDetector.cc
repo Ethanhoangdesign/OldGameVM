@@ -113,11 +113,17 @@ DetectionResult detectEdition(const std::string& gameDir,
 	if (!std::filesystem::exists(root, ec) ||
 	    !std::filesystem::is_directory(root, ec))
 	{
-		best.reasons.push_back("Game directory does not exist: " + gameDir);
+		/* OGVM-SHORTERR: one short line, no full path dump */
+		best.reasons.push_back("Game folder not found.");
 		return best;
 	}
 
 	size_t bestScore = 0;
+	/* Closest failed signature (most required hits) for short Unknown reason. */
+	size_t nearReqHit = 0;
+	std::string nearName;
+	std::vector<std::string> nearMissing;
+
 	for (const auto& sig : signatures)
 	{
 		std::vector<std::string> found;
@@ -146,6 +152,7 @@ DetectionResult detectEdition(const std::string& gameDir,
 		}
 
 		const bool allRequired = missing.empty() && !sig.requiredFiles.empty();
+		const size_t reqHit = sig.requiredFiles.size() - missing.size();
 		const size_t score = sig.requiredFiles.size() * 10 + optionalFound;
 
 		if (allRequired && score > bestScore)
@@ -158,13 +165,42 @@ DetectionResult detectEdition(const std::string& gameDir,
 				? DetectionConfidence::Exact
 				: DetectionConfidence::Probable;
 			best.reasons.clear();
-			best.reasons.push_back("Matched signature: " + sig.displayName);
+			/* OGVM-SHORTERR */
+			best.reasons.push_back(sig.displayName);
+		}
+		else if (!allRequired && reqHit >= nearReqHit && !missing.empty())
+		{
+			if (reqHit > nearReqHit ||
+			    (reqHit == nearReqHit &&
+			     (nearMissing.empty() || missing.size() < nearMissing.size())))
+			{
+				nearReqHit = reqHit;
+				nearName = sig.displayName;
+				nearMissing = missing;
+			}
 		}
 	}
 
 	if (best.edition == EditionId::Unknown)
 	{
-		best.reasons.push_back("No signature matched all required files.");
+		/* OGVM-SHORTERR: 1–2 short lines, not a wall of paths */
+		if (!nearName.empty() && !nearMissing.empty())
+		{
+			std::string miss;
+			const size_t n = nearMissing.size() < 3 ? nearMissing.size() : 3;
+			for (size_t i = 0; i < n; ++i)
+			{
+				if (i) miss += ", ";
+				miss += nearMissing[i];
+			}
+			if (nearMissing.size() > 3) miss += ", …";
+			best.missingFiles = nearMissing;
+			best.reasons.push_back("Near " + nearName + " — missing " + miss);
+		}
+		else
+		{
+			best.reasons.push_back("No known JA2 edition in this folder.");
+		}
 	}
 
 	return best;

@@ -44,29 +44,47 @@ int main()
 	const fs::path base = fs::temp_directory_path() / "ja2_detector_test";
 	fs::remove_all(base);
 
-	// Fixture 1: looks like JA2 Gold (Data + Ja2set.dat.xml + JA2.exe)
+	// Fixture 1: JA2 Gold (JA2.exe + Data/Data.slf + optional BinaryData)
 	const fs::path gold = base / "gold";
-	makeFile(gold / "Data" / "Ja2set.dat.xml");
+	makeFile(gold / "Data" / "Data.slf");
 	makeFile(gold / "JA2.exe");
+	makeFile(gold / "Data" / "BinaryData.slf");
 	{
 		DetectionResult r = detectEdition(gold.string());
 		check(r.edition == EditionId::Gold, "Gold edition detected");
 		check(r.confidence == DetectionConfidence::Exact, "Gold confidence Exact");
+		check(!r.reasons.empty() && r.reasons.front().size() < 80,
+		      "OGVM-SHORTERR: Gold reason short");
 	}
 
-	// Fixture 2: empty folder -> Unknown
+	// Fixture 2: empty folder -> Unknown, short reason
 	const fs::path empty = base / "empty";
 	fs::create_directories(empty);
 	{
 		DetectionResult r = detectEdition(empty.string());
 		check(r.edition == EditionId::Unknown, "Empty folder -> Unknown");
+		check(!r.reasons.empty() && r.reasons.front().size() < 120,
+		      "OGVM-SHORTERR: empty reason short");
 	}
 
-	// Fixture 3: non-existent path -> Unknown with reason
+	// Fixture 3: non-existent path -> Unknown with short reason
 	{
 		DetectionResult r = detectEdition((base / "nope").string());
 		check(r.edition == EditionId::Unknown, "Missing path -> Unknown");
 		check(!r.reasons.empty(), "Missing path has a reason");
+		check(r.reasons.front().find('/') == std::string::npos,
+		      "OGVM-SHORTERR: no path dump in reason");
+	}
+
+	// Fixture 4: near-Gold (JA2.exe only — Data.slf missing). Data.slf alone
+	// would match Vanilla; JA2.exe alone is a true near-miss.
+	const fs::path near = base / "near";
+	makeFile(near / "JA2.exe");
+	{
+		DetectionResult r = detectEdition(near.string());
+		check(r.edition == EditionId::Unknown, "Near-Gold still Unknown");
+		check(!r.reasons.empty() && r.reasons.front().find("missing") != std::string::npos,
+		      "OGVM-SHORTERR: near miss names missing files");
 	}
 
 	fs::remove_all(base);
