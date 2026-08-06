@@ -1,11 +1,15 @@
 #!/bin/sh
 #
+# CPACK_BUNDLE_NAME = OldGameVM → MacOS/OldGameVM + Resources/*
 
-BUNDLE="`echo "$0" | sed -e 's/\/Contents\/MacOS\/JA2 Stracciatella//'`"
+BUNDLE="$(cd "$(dirname "$0")/../.." && pwd)"
 RESOURCES="$BUNDLE/Contents/Resources"
 
-echo "running $0"
-echo "BUNDLE: $BUNDLE"
-echo "RESOURCES: $RESOURCES"
+# Prefer Frameworks/ (codesign-friendly); fall back to Resources/ if older package.
+if [ -d "$BUNDLE/Contents/Frameworks/SDL2.framework" ]; then
+	export DYLD_FRAMEWORK_PATH="$BUNDLE/Contents/Frameworks${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}"
+elif [ -d "$RESOURCES/SDL2.framework" ]; then
+	export DYLD_FRAMEWORK_PATH="$RESOURCES${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}"
+fi
 
 exec "$RESOURCES/ja2-launcher"
