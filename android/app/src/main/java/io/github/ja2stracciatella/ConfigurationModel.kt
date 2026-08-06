@@ -46,8 +46,27 @@ class Resolution(
     val width: UInt,
     val height: UInt
 ) {
+    fun label(): String = "${width}x${height}"
+
     companion object {
-        val DEFAULT = Resolution(640u, 480u)
+        /** Base for Detect math (menu/map layout reference). */
+        val VANILLA = Resolution(640u, 480u)
+        // OGVM desktop default (Launcher.cc defaultResolution)
+        val DEFAULT = Resolution(1024u, 768u)
+
+        /**
+         * Mobile presets. Desktop RESLIST-LOCK stays 1024+1366 only.
+         * 1664x768: ultra-wide mobile — engine UILayout expands sides
+         * (STD_SCREEN_X center, map wood grow, bottom pin-right). Height 768.
+         * Freeform WxH still allowed via edit fields.
+         */
+        val PRESETS = listOf(
+            Resolution(1024u, 768u),
+            Resolution(1360u, 768u),
+            Resolution(1366u, 768u),
+            Resolution(1664u, 768u), // mobile-only ultra-wide
+            Resolution(640u, 480u) // smoke / original layout compare
+        )
     }
 }
 
@@ -105,6 +124,10 @@ class ConfigurationModel : ViewModel() {
     val resolution = MutableLiveData(Resolution.DEFAULT)
     val scalingQuality = MutableLiveData(ScalingQuality.DEFAULT)
     val debug = MutableLiveData(false)
+    // OGVM-CONTROLLER — stored in controller.ini, not ja2.json
+    val controllerEnabled = MutableLiveData(false)
+    val leftStickMode = MutableLiveData("cursor")
+    val rightStickMode = MutableLiveData("none")
 
     fun setVanillaGameDir(vanillaGameDirSet: String?) {
         vanillaGameDir.value = vanillaGameDirSet
@@ -128,5 +151,17 @@ class ConfigurationModel : ViewModel() {
 
     fun setDebug(enabled: Boolean) {
         debug.value = enabled
+    }
+
+    fun setControllerEnabled(enabled: Boolean) {
+        controllerEnabled.value = enabled
+    }
+
+    fun setLeftStickMode(mode: String) {
+        leftStickMode.value = mode
+    }
+
+    fun setRightStickMode(mode: String) {
+        rightStickMode.value = mode
     }
 }

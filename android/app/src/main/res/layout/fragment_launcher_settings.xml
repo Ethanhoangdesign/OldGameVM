@@ -75,6 +75,20 @@
                         android:layout_weight="0"
                         android:text="@string/resolution_auto_button" />
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/resolutionPresetLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="6dp"
+                    android:text="@string/resolution_preset_label" />
+
+                <Spinner
+                    android:id="@+id/resolutionPresetSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/resolution_preset_label" />
             </LinearLayout>
 
             <LinearLayout
@@ -136,6 +150,65 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/debug_mode_label" />
+            </LinearLayout>
+
+            <!-- OGVM-CONTROLLER: enable + stick modes (full remap = desktop) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="20dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/controllerInfoTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:text="@string/controller_info_title_text"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
+
+                <TextView
+                    android:id="@+id/controllerInfoText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:text="@string/controller_info_text" />
+
+                <CheckBox
+                    android:id="@+id/controllerEnableChip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:text="@string/controller_enable_label" />
+
+                <TextView
+                    android:id="@+id/leftStickLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:text="@string/controller_left_stick_label" />
+
+                <Spinner
+                    android:id="@+id/leftStickSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:contentDescription="@string/controller_left_stick_label" />
+
+                <TextView
+                    android:id="@+id/rightStickLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:text="@string/controller_right_stick_label" />
+
+                <Spinner
+                    android:id="@+id/rightStickSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/controller_right_stick_label" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
