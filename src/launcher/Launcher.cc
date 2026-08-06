@@ -2052,24 +2052,16 @@ void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
         return;
     }
 
-    Fl_Native_File_Chooser parentChooser;
-    parentChooser.title("Select the folder that should hold the imported game data");
-    parentChooser.type(Fl_Native_File_Chooser::BROWSE_DIRECTORY);
-    if (parentChooser.show() != 0) return;
-
-    // On macOS a directory chooser can hand back a selected file, so fall back
-    // to its parent directory rather than writing into a file path.
-    std::filesystem::path parent(parentChooser.filename());
-    if (!std::filesystem::is_directory(parent, ec)) {
-        parent = parent.parent_path();
-    }
-    if (!std::filesystem::is_directory(parent, ec)) {
-        fl_alert("Could not use the chosen location.\n\nPlease pick an existing folder.");
+    /* OGVM-IMPHOME: always unpack under ~/.ja2/imported/<installer-stem>.
+     * User only picks the .exe (keep the companion .bin next to it).
+     * Avoids Documents/Desktop TCC "Operation not permitted" on macOS
+     * and skips the destination-folder chooser entirely. */
+    RustPointer<char> homeP(findPathFromStracciatellaHome(window->engineOptions.get(), nullptr, false, false));
+    if (!homeP) {
+        fl_alert("Could not find the OldGameVM home folder (~/.ja2).");
         return;
     }
-
-    // Always import into a dedicated sub-folder, so that an existing directory
-    // is never polluted and the destination is unambiguous.
+    const std::filesystem::path parent = std::filesystem::path(homeP.get()) / "imported";
     const std::filesystem::path destination = parent / installer.stem();
     std::filesystem::create_directories(destination, ec);
     if (!std::filesystem::is_directory(destination, ec)) {
@@ -2097,7 +2089,7 @@ void Launcher::importGameDataCb(Fl_Widget* btn, void* userdata) {
     	}
     }
 
-    if (fl_choice("Import game data from:\n%s\n\ninto:\n%s\n\nThis takes a few minutes and needs roughly 1 GB of free space.",
+    if (fl_choice("Import game data from:\n%s\n\ninto:\n%s\n\nKeep the companion .bin file next to the .exe (same folder, original name).\nThis takes a few minutes and needs roughly 1 GB of free space.",
             "Cancel", "Import", nullptr, installerPath.c_str(), destinationPath.c_str()) != 1) {
         return;
     }

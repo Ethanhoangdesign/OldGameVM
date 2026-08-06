@@ -962,9 +962,14 @@ void InitializeSMPanel()
 	// Assemble the SMPanel from graphic objects.
 	// For visual consistency, the SMPanel should fill up the same width as the TEAMPanel, that the buttons and
 	// minimap are in the bottom-right corner.
-	SGPVObject* voSMPanel = AddVideoObjectFromFile(INTERFACEDIR "/inventory_bottom_panel.sti");
-	UINT16 const artWidth     = voSMPanel->SubregionProperties(0).usWidth;
+	/* Load via surface so we can crop source rects. Wildfire ships this art
+	 * 1024px wide: inventory chrome on the left, radar/button bay on the far
+	 * right. A plain left-aligned blit only shows x0..639 and loses the bay. */
+	auto vsSMArt = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/inventory_bottom_panel.sti", 0);
+	UINT16 const artWidth     = vsSMArt->Width();
+	UINT16 const artHeight    = vsSMArt->Height();
 	UINT16 const smPanelWidth = GetSMPanelWidth();
+	UINT16 const blitH        = std::min(artHeight, (UINT16)INV_INTERFACE_HEIGHT);
 
 	/* OGVM-UILAYOUT: never tune offsets against this panel without reading these
 	 * four numbers first. artWidth is what the art actually is, smPanelWidth is
@@ -982,23 +987,46 @@ void InitializeSMPanel()
 		panelClip.set(0, 0, smPanelWidth, INV_INTERFACE_HEIGHT);
 		SGPRect const oldClip = SetClippingRect(panelClip);
 
-		if (artWidth < smPanelWidth)
+		if (artWidth > smPanelWidth)
+		{
+			/* OGVM-SMPANEL: WF 1024 art — inventory chrome ends at
+			 * SM_INVINTERFACE_WIDTH (532); radar/clock bay is the far-right
+			 * strip of the art (strong edge ~x916). Taking left =
+			 * smPanelWidth-142 cut the last pocket column and glued in a
+			 * dark spacer from the middle of the art (the gap in screenshots).
+			 * Keep full inventory width, then take only the remaining bay
+			 * pixels from the art's right edge. */
+			UINT16 const leftW = std::min((UINT16)SM_INVINTERFACE_WIDTH, smPanelWidth);
+			UINT16 const boxW  = static_cast<UINT16>(smPanelWidth - leftW);
+			SGPBox const leftSrc  = {0, 0, leftW, blitH};
+			SGPBox const rightSrc = {static_cast<UINT16>(artWidth - boxW), 0, boxW, blitH};
+			BltVideoSurface(guiSMPanel, vsSMArt.get(), 0, 0, &leftSrc);
+			if (boxW > 0)
+			{
+				BltVideoSurface(guiSMPanel, vsSMArt.get(), leftW, 0, &rightSrc);
+			}
+		}
+		else if (artWidth < smPanelWidth)
 		{
 			// The panel is longer than the art (more than 6 merc slots):
 			// need a second blit, and we will start from the right so that the
 			// buttons box ends up flush with the right edge of the panel.
-			BltVideoObject(guiSMPanel, voSMPanel, 0, smPanelWidth - artWidth, 0);
+			BltVideoSurface(guiSMPanel, vsSMArt.get(), smPanelWidth - artWidth, 0, NULL);
+			BltVideoSurface(guiSMPanel, vsSMArt.get(), 0, 0, NULL);
 		}
-		// draw the basic Single-Merc panel
-		BltVideoObject(guiSMPanel, voSMPanel, 0, 0, 0);
+		else
+		{
+			// Vanilla 640 art: one-to-one blit.
+			BltVideoSurface(guiSMPanel, vsSMArt.get(), 0, 0, NULL);
+		}
 
 		SetClippingRect(oldClip);
 	}
-	DeleteVideoObject(voSMPanel);
 
 	/* Cover the seam between the two blits above with the textured space
 	 * filler. When the art is exactly as wide as the panel (the common
-	 * 6-slot case) there is no seam and nothing to fill. */
+	 * 6-slot case) or we already composed left+right from WF art, there is
+	 * nothing to fill. */
 	INT16 const sFillerWidth = static_cast<INT16>(smPanelWidth) - static_cast<INT16>(artWidth);
 	if (sFillerWidth > 0)
 	{

@@ -60,7 +60,7 @@ StracciatellaLauncher::StracciatellaLauncher() {
           ogvmInstallerPanel = new Fl_Group(10, 178, 760, 82);
           ogvmInstallerPanel->box(FL_NO_BOX);
           { importGameDataButton = new Fl_Button(24, 186, 730, 40, "Import from installer...");
-            importGameDataButton->tooltip("Extract game data straight from a GOG or retail installer.");
+            importGameDataButton->tooltip("Pick setup_*.exe only. Keep the matching .bin next to it. Data unpacks under ~/.ja2/imported/.");
           }
           { importProgress = new Fl_Progress(24, 232, 730, 20, "");
             importProgress->minimum(0.0f);
