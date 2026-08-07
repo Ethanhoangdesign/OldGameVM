@@ -1046,7 +1046,36 @@ static void DrawQuickButton(const GUI_BUTTON* b)
 		}
 	}
 
-	BltVideoObject(ButtonDestBuffer, pics->vobj, UseImage, b->X(), b->Y());
+	#ifdef __ANDROID__
+	// When hit area was enlarged (e.g. MessageBox YES/NO 2×), stretch art to fill it
+	// so label (centered in W/H) lines up with the button graphic.
+	{
+		UINT16 const aw = static_cast<UINT16>(pics->max.w);
+		UINT16 const ah = static_cast<UINT16>(pics->max.h);
+		INT32  const dx = b->X();
+		INT32  const dy = b->Y();
+		INT32  const dw = b->W();
+		INT32  const dh = b->H();
+		if (aw > 0 && ah > 0 && dw > aw && dh > ah &&
+		    dx >= 0 && dy >= 0 &&
+		    dx + dw <= ButtonDestBuffer->Width() &&
+		    dy + dh <= ButtonDestBuffer->Height())
+		{
+			SGPVSurface tmp(aw, ah, 16);
+			tmp.Fill(0);
+			tmp.SetTransparency(0);
+			BltVideoObject(&tmp, pics->vobj, static_cast<UINT16>(UseImage), 0, 0);
+			SGPBox src;
+			src.set(0, 0, aw, ah);
+			SGPBox dst;
+			dst.set(static_cast<UINT16>(dx), static_cast<UINT16>(dy),
+				static_cast<UINT16>(dw), static_cast<UINT16>(dh));
+			BltStretchVideoSurface(ButtonDestBuffer, &tmp, &src, &dst);
+			return;
+		}
+	}
+#endif
+	BltVideoObject(ButtonDestBuffer, pics->vobj, static_cast<UINT16>(UseImage), b->X(), b->Y());
 }
 
 
@@ -1134,7 +1163,38 @@ static void DrawCheckBoxButton(const GUI_BUTTON *b)
 		}
 	}
 
-	BltVideoObject(ButtonDestBuffer, pics->vobj, UseImage, b->X(), b->Y());
+#ifdef __ANDROID__
+	// Checkbox STI is tiny; stretch 2x for mobile. BltStretchVideoSurface has no clip —
+	// only stretch when the full dest rect fits the dest buffer (else normal 1x blit).
+	if (b->uiFlags & BUTTON_CHECKBOX)
+	{
+		UINT16 const w = static_cast<UINT16>(pics->max.w);
+		UINT16 const h = static_cast<UINT16>(pics->max.h);
+		INT32  const dx = b->X();
+		INT32  const dy = b->Y();
+		INT32  const dw = static_cast<INT32>(w) * 2;
+		INT32  const dh = static_cast<INT32>(h) * 2;
+		if (w > 0 && h > 0 && dx >= 0 && dy >= 0 &&
+		    dx + dw <= ButtonDestBuffer->Width() &&
+		    dy + dh <= ButtonDestBuffer->Height())
+		{
+			SGPVSurface tmp(w, h, 16);
+			tmp.Fill(0);
+			tmp.SetTransparency(0);
+			BltVideoObject(&tmp, pics->vobj, static_cast<UINT16>(UseImage), 0, 0);
+
+			SGPBox src;
+			src.set(0, 0, w, h);
+			SGPBox dst;
+			dst.set(static_cast<UINT16>(dx), static_cast<UINT16>(dy),
+				static_cast<UINT16>(dw), static_cast<UINT16>(dh));
+			BltStretchVideoSurface(ButtonDestBuffer, &tmp, &src, &dst);
+			return;
+		}
+	}
+#endif
+
+	BltVideoObject(ButtonDestBuffer, pics->vobj, static_cast<UINT16>(UseImage), b->X(), b->Y());
 }
 
 

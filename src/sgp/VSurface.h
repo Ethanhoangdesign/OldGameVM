@@ -145,6 +145,9 @@ static inline void DeleteVideoSurface(SGPVSurface* const vs)
 
 void BltVideoSurfaceOnce(SGPVSurface* dst, const char* filename, INT32 x, INT32 y);
 
+/** Stretch src rect into dst rect. Both surfaces must be 16bpp. */
+void BltStretchVideoSurface(SGPVSurface* dst, SGPVSurface const* src, SGPBox const* src_rect, SGPBox const* dst_rect);
+
 /** Draw image on the video surface stretching the image if necessary. */
 void BltVideoSurfaceOnceWithStretch(SGPVSurface* const dst, const char* const filename);
 

@@ -402,6 +402,7 @@ AndroidManifest.xml                   uses-feature gamepad optional
 6. Smoke multi-edition detector tren Android neu can.
 7. Emulator GL spam `emuglGLESv2_enc GL error 0x501` — thuong khong fatal; bo qua neu game chay.
 8. Smoke controller: bat Enable → Play → BT/USB pad (emu: virtual gamepad).
+9. Optional: stretch tương tự `Options_Screen.cc` nếu letterbox; GIO đã fix (mục 15).
 
 ---
 
@@ -521,3 +522,35 @@ adb uninstall io.github.ja2stracciatella
 - Khong commit `local.properties`, APK, keystore, `*.sti`, game `Data/`.
 - AGP 7.4: chi base platform ≤33.
 - `abiFilters` arm64-only: du cho A16 + Apple Silicon emu; CI full ABI neu release store.
+
+---
+
+## 15. SESSION 06/08 — GIO bg stretch (phone rebuild)
+
+Chi tiết: `docs/HANDOFF-06-08-2026-gio-bg-stretch.md`.
+
+| | |
+|---|---|
+| Vấn đề | Initial Game Settings: art cây 640 letterbox trên res wide |
+| Fix | `RenderGIOScreen`: stretch `optionsscreenbackground.sti` full `SCREEN_W×H` qua temp surface + `BltStretchVideoSurface` |
+| File | `src/game/GameInitOptionsScreen.cc` (+ include `HImage.h` / `VObject.h`) |
+| Build | `./tools/build-android-debug.sh` → APK ~49MB |
+| Install | `adb -s R5GL31H83QX install -r …/app-debug.apk` **Success** |
+| UI | Checkbox/OK vẫn center `STD_SCREEN_*` |
+| Commit | gộp session 07/08 (mục 16) |
+
+---
+
+## 16. SESSION 07/08 — Mobile GIO 2× + MessageBox 2× + dim
+
+Chi tiết: `docs/HANDOFF-07-08-2026-mobile-gio-msgbox.md`.
+
+| | |
+|---|---|
+| GIO | Scale 2× từ tâm màn (`GIO_SCALE_X/Y`), huge font + fallback, gap/offset lớn, OK Y clamp, bg stretch full |
+| Crash fix | Scale 3.1/2.8 → OK tràn 768p; hạ 2× + clamp + stretch OOB guard |
+| MessageBox | `MSGBOX_UI_SCALE 2`, full-screen savebuf, `ShadowRect` ×5, stretch box, full `InvalidateRegion` |
+| YES/NO | Hit 2× + `DrawQuickButton` stretch art → label căn graphic |
+| Font | Android load `hugefont.sti` try/catch → null OK |
+| Tool | `tools/ogvm-emu-install.sh` one-shot AVD+clean+build+install+start |
+| Scope | `#ifdef __ANDROID__` only |

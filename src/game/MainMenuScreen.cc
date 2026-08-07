@@ -385,16 +385,28 @@ static void RenderMainMenu(void)
 		: (SCREEN_WIDTH > 640)
 			? guiMainMenuBackGroundImage1024
 			: guiMainMenuBackGroundImage;
-	ETRLEObject const& bgProps = GetVObject(bgKey)->SubregionProperties(0);
-	INT32 bg_x = STD_SCREEN_X;
-	INT32 bg_y = STD_SCREEN_Y;
-	if (bgProps.usWidth > 640 || bgProps.usHeight > 480)
+
+	// Stretch background art to fill the entire screen (no letterbox)
 	{
-		// Clamp to 0 so image crops instead of crashing when wider than screen
-		bg_x = std::max(0, ((INT32)SCREEN_WIDTH  - bgProps.usWidth)  / 2);
-		bg_y = std::max(0, ((INT32)SCREEN_HEIGHT - bgProps.usHeight) / 2);
+		SGPVObject const* const vo = GetVObject(bgKey);
+		ETRLEObject const& bgProps = vo->SubregionProperties(0);
+		if (bgProps.usWidth == SCREEN_WIDTH && bgProps.usHeight == SCREEN_HEIGHT)
+		{
+			BltVideoObject(FRAME_BUFFER, bgKey, 0, 0, 0);
+		}
+		else
+		{
+			// VO is 8bpp; stretch path needs 16bpp temp surface
+			SGPVSurface tmp(bgProps.usWidth, bgProps.usHeight, 16);
+			BltVideoObject(&tmp, vo, 0, 0, 0);
+			SGPBox src;
+			src.set(0, 0, bgProps.usWidth, bgProps.usHeight);
+			SGPBox dst;
+			dst.set(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+			BltStretchVideoSurface(FRAME_BUFFER, &tmp, &src, &dst);
+		}
 	}
-	BltVideoObject(FRAME_BUFFER, bgKey, 0, bg_x, bg_y);
+
 	BltVideoObject(FRAME_BUFFER, guiJa2LogoImage,            0, STD_SCREEN_X + 188, STD_SCREEN_Y + 15);
 }
 

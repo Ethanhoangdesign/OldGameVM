@@ -21,6 +21,8 @@
 #include "SysUtil.h"
 #include "Text.h"
 #include "Types.h"
+#include "HImage.h"
+#include "VObject.h"
 #include "VSurface.h"
 #include "Video.h"
 #include "WordWrap.h"
@@ -29,34 +31,56 @@
 #include <string_theory/string>
 
 
+#ifdef __ANDROID__
+// ~2x from screen center. Higher (e.g. 2.8) pushes OK/Cancel past SCREEN_HEIGHT on 768p → crash.
+#define GIO_SCALE_X(x) ((INT16)((INT32)(SCREEN_WIDTH  / 2) + (INT32)(((INT32)(x) - (INT32)(STD_SCREEN_X + 320)) * 2)))
+#define GIO_SCALE_Y(y) ((INT16)((INT32)(SCREEN_HEIGHT / 2) + (INT32)(((INT32)(y) - (INT32)(STD_SCREEN_Y + 240)) * 2)))
+// hugefont may be missing on some data packs; never pass null into button/text draw.
+#define GIO_TITLE_FONT			((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL)
+#define GIO_TITLE_COLOR		FONT_MCOLOR_WHITE
+#define GIO_TOGGLE_TEXT_FONT		((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL)
+#define GIO_TOGGLE_TEXT_COLOR		FONT_MCOLOR_WHITE
+#define GIO_GAP_BN_SETTINGS		70
+#define GIO_OFFSET_TO_TEXT		40
+#define GIO_OFFSET_TO_TOGGLE_BOX	310
+#define GIO_OFFSET_TO_TOGGLE_BOX_Y	18
+#else
+#define GIO_SCALE_X(x) (x)
+#define GIO_SCALE_Y(y) (y)
 #define GIO_TITLE_FONT			FONT16ARIAL//FONT14ARIAL
 #define GIO_TITLE_COLOR		FONT_MCOLOR_WHITE
-
 #define GIO_TOGGLE_TEXT_FONT		FONT16ARIAL//FONT14ARIAL
 #define GIO_TOGGLE_TEXT_COLOR		FONT_MCOLOR_WHITE
-
-//buttons
-#define GIO_BTN_OK_X			(STD_SCREEN_X + 141)
-#define GIO_BTN_OK_Y			(STD_SCREEN_Y + 418)
-#define GIO_CANCEL_X			(STD_SCREEN_X + 379)
-
-//main title
-#define GIO_MAIN_TITLE_X		(STD_SCREEN_X + 0)
-#define GIO_MAIN_TITLE_Y		(STD_SCREEN_Y + 68)
-#define GIO_MAIN_TITLE_WIDTH		640
-
-//radio box locations
 #define GIO_GAP_BN_SETTINGS		35
 #define GIO_OFFSET_TO_TEXT		20//30
 #define GIO_OFFSET_TO_TOGGLE_BOX	155//200
 #define GIO_OFFSET_TO_TOGGLE_BOX_Y	9
+#endif
 
-#define GIO_DIF_SETTINGS_X		(STD_SCREEN_X + 80)
-#define GIO_DIF_SETTINGS_Y		(STD_SCREEN_Y + 150)
-#define GIO_DIF_SETTINGS_WIDTH		GIO_OFFSET_TO_TOGGLE_BOX - GIO_OFFSET_TO_TEXT //230
+//buttons
+#define GIO_BTN_OK_X			GIO_SCALE_X(STD_SCREEN_X + 141)
+// Keep OK/Cancel fully on-screen (prefs button art ~40px tall; 768p overflow crashed).
+#ifdef __ANDROID__
+#define GIO_BTN_OK_Y			((GIO_SCALE_Y(STD_SCREEN_Y + 418) > (INT16)(SCREEN_HEIGHT - 48)) \
+					? (INT16)(SCREEN_HEIGHT - 48) \
+					: GIO_SCALE_Y(STD_SCREEN_Y + 418))
+#else
+#define GIO_BTN_OK_Y			GIO_SCALE_Y(STD_SCREEN_Y + 418)
+#endif
+#define GIO_CANCEL_X			GIO_SCALE_X(STD_SCREEN_X + 379)
 
-#define GIO_GAME_SETTINGS_X		(STD_SCREEN_X + 350)
-#define GIO_GAME_SETTINGS_Y		(STD_SCREEN_Y + 300)
+//main title
+#define GIO_MAIN_TITLE_X		GIO_SCALE_X(STD_SCREEN_X + 0)
+#define GIO_MAIN_TITLE_Y		GIO_SCALE_Y(STD_SCREEN_Y + 68)
+#define GIO_MAIN_TITLE_WIDTH		(640 * 2)
+
+//radio box locations
+#define GIO_DIF_SETTINGS_X		GIO_SCALE_X(STD_SCREEN_X + 80)
+#define GIO_DIF_SETTINGS_Y		GIO_SCALE_Y(STD_SCREEN_Y + 150)
+#define GIO_DIF_SETTINGS_WIDTH		(GIO_OFFSET_TO_TOGGLE_BOX - GIO_OFFSET_TO_TEXT) //230
+
+#define GIO_GAME_SETTINGS_X		GIO_SCALE_X(STD_SCREEN_X + 350)
+#define GIO_GAME_SETTINGS_Y		GIO_SCALE_Y(STD_SCREEN_Y + 300)
 #define GIO_GAME_SETTINGS_WIDTH	GIO_DIF_SETTINGS_WIDTH
 
 #define GIO_GUN_SETTINGS_X		GIO_GAME_SETTINGS_X
@@ -239,7 +263,12 @@ template<> ScreenID HandleScreen<GAME_INIT_OPTIONS_SCREEN>()
 
 static GUIButtonRef MakeButton(BUTTON_PICS* img, const ST::string& text, INT16 x, GUI_CALLBACK click)
 {
+#ifdef __ANDROID__
+	SGPFont const font = (gpHugeFont != nullptr) ? gpHugeFont : OPT_BUTTON_FONT;
+	GUIButtonRef const btn = CreateIconAndTextButton(img, text, font, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, GIO_BTN_OK_Y, MSYS_PRIORITY_HIGH, click);
+#else
 	GUIButtonRef const btn = CreateIconAndTextButton(img, text, OPT_BUTTON_FONT, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, GIO_BTN_OK_Y, MSYS_PRIORITY_HIGH, click);
+#endif
 	SpecifyButtonSoundScheme(btn, BUTTON_SOUND_SCHEME_BIGSWITCH3);
 	return btn;
 }
@@ -252,6 +281,12 @@ static void MakeCheckBoxes(GUIButtonRef* const btns, size_t const n, INT16 const
 		GUIButtonRef const b = CreateCheckBoxButton(x, y, INTERFACEDIR "/optionscheck.sti", MSYS_PRIORITY_HIGH + 10, click);
 		btns[i] = b;
 		b->SetUserData(i);
+#ifdef __ANDROID__
+		// Set button width/height to twice its default size (pics->max.w / pics->max.h is normally 34x29)
+		// We can resize its mouse region area so that clicking/touching is highly responsive!
+		b->Area.RegionBottomRightX = b->Area.RegionTopLeftX + 68;
+		b->Area.RegionBottomRightY = b->Area.RegionTopLeftY + 58;
+#endif
 	}
 	btns[def]->uiFlags |= BUTTON_CLICKED_ON;
 }
@@ -315,7 +350,7 @@ static void EnterGIOScreen()
 	// Render the screen once, so we can blt to the save buffer
 	RenderGIOScreen();
 
-	BlitBufferToBuffer(FRAME_BUFFER, guiSAVEBUFFER, STD_SCREEN_X, STD_SCREEN_Y, 640, 439);
+	BltVideoSurface(guiSAVEBUFFER, FRAME_BUFFER, 0, 0, NULL);
 
 	gfGIOButtonsAllocated = TRUE;
 }
@@ -414,10 +449,34 @@ static void RenderGIOScreen(void)
 {
 	UINT16		usPosY;
 
-	BltVideoObject(FRAME_BUFFER, guiGIOMainBackGroundImage, 0, STD_SCREEN_X, STD_SCREEN_Y);
+	// 640x480 options art: always stretch full FRAME_BUFFER (no letterbox trees)
+	{
+		SGPVObject const* const vo = GetVObject(guiGIOMainBackGroundImage);
+		ETRLEObject const& bg = vo->SubregionProperties(0);
+		if (bg.usWidth == SCREEN_WIDTH && bg.usHeight == SCREEN_HEIGHT)
+		{
+			BltVideoObject(FRAME_BUFFER, guiGIOMainBackGroundImage, 0, 0, 0);
+		}
+		else
+		{
+			// VO is 8bpp; stretch path needs 16bpp temp surface
+			SGPVSurface tmp(bg.usWidth, bg.usHeight, 16);
+			BltVideoObject(&tmp, vo, 0, 0, 0);
+			SGPBox src;
+			src.set(0, 0, bg.usWidth, bg.usHeight);
+			SGPBox dst;
+			dst.set(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+			BltStretchVideoSurface(FRAME_BUFFER, &tmp, &src, &dst);
+		}
+	}
+	InvalidateScreen();
 
 	//Shade the background
+#ifdef __ANDROID__
+	FRAME_BUFFER->ShadowRect(GIO_SCALE_X(STD_SCREEN_X + 48), GIO_SCALE_Y(STD_SCREEN_Y + 55), GIO_SCALE_X(STD_SCREEN_X + 592), GIO_SCALE_Y(STD_SCREEN_Y + 408));
+#else
 	FRAME_BUFFER->ShadowRect(STD_SCREEN_X + 48, STD_SCREEN_Y + 55, STD_SCREEN_X + 592, STD_SCREEN_Y + 408); //358
+#endif
 
 
 	//Display the title
@@ -479,11 +538,19 @@ static void RenderGIOScreen(void)
 	usPosY += GIO_GAP_BN_SETTINGS;
 
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY, GIO_DIF_SETTINGS_WIDTH, 2, GIO_TOGGLE_TEXT_FONT, GIO_TOGGLE_TEXT_COLOR, gzGIOScreenText[GIO_IRON_MAN_TEXT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#ifdef __ANDROID__
+	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+50, 440, 2, FONT16ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#else
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#endif
 	usPosY += GIO_GAP_BN_SETTINGS;
 
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY, GIO_DIF_SETTINGS_WIDTH, 2, GIO_TOGGLE_TEXT_FONT, GIO_TOGGLE_TEXT_COLOR, gzGIOScreenText[GIO_DEAD_IS_DEAD_TEXT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#ifdef __ANDROID__
+	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+50, 440, 2, FONT16ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#else
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#endif
 }
 
 
@@ -666,7 +733,7 @@ static void RestoreGIOButtonBackGrounds(void)
 	usPosY = GIO_DIF_SETTINGS_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
 	for (cnt = 0; cnt < NUM_DIF_LEVELS; cnt++)
 	{
-		RestoreExternBackgroundRect(GIO_DIF_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
+		RestoreExternBackgroundRect(GIO_DIF_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
 		usPosY += GIO_GAP_BN_SETTINGS;
 	}
 
@@ -674,7 +741,7 @@ static void RestoreGIOButtonBackGrounds(void)
 	usPosY = GIO_GAME_SETTINGS_Y-GIO_OFFSET_TO_TOGGLE_BOX_Y;
 	for (cnt = 0; cnt < NUM_GAME_STYLES; cnt++)
 	{
-		RestoreExternBackgroundRect(GIO_GAME_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
+		RestoreExternBackgroundRect(GIO_GAME_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
 		usPosY += GIO_GAP_BN_SETTINGS;
 	}
 
@@ -682,7 +749,7 @@ static void RestoreGIOButtonBackGrounds(void)
 	usPosY = GIO_GUN_SETTINGS_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
 	for (cnt = 0; cnt < NUM_GUN_OPTIONS; cnt++)
 	{
-		RestoreExternBackgroundRect(GIO_GUN_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
+		RestoreExternBackgroundRect(GIO_GUN_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
 		usPosY += GIO_GAP_BN_SETTINGS;
 	}
 
@@ -691,7 +758,7 @@ static void RestoreGIOButtonBackGrounds(void)
 	usPosY = GIO_TIMED_TURN_SETTING_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
 	for (cnt = 0; cnt < GIO_NUM_TIMED_TURN_OPTIONS; cnt++)
 	{
-		RestoreExternBackgroundRect(GIO_TIMED_TURN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
+		RestoreExternBackgroundRect(GIO_TIMED_TURN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
 		usPosY += GIO_GAP_BN_SETTINGS;
 	}
 #endif
@@ -700,7 +767,7 @@ static void RestoreGIOButtonBackGrounds(void)
 	usPosY = GIO_IRON_MAN_SETTING_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
 	for (cnt = 0; cnt < NUM_SAVE_OPTIONS; cnt++)
 	{
-		RestoreExternBackgroundRect(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
+		RestoreExternBackgroundRect(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
 		usPosY += GIO_GAP_BN_SETTINGS;
 	}
 }
