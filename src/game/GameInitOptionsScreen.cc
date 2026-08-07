@@ -59,7 +59,7 @@
 
 //buttons
 #define GIO_BTN_OK_X			GIO_SCALE_X(STD_SCREEN_X + 141)
-// Keep OK/Cancel fully on-screen (prefs button art ~40px tall; 768p overflow crashed).
+// Keep OK/Cancel fully on-screen (prefs button art ~40px tall; short heights clip).
 #ifdef __ANDROID__
 #define GIO_BTN_OK_Y			((GIO_SCALE_Y(STD_SCREEN_Y + 418) > (INT16)(SCREEN_HEIGHT - 48)) \
 					? (INT16)(SCREEN_HEIGHT - 48) \
@@ -152,6 +152,8 @@ static BOOLEAN gfGIOScreenEntry      = TRUE;
 static BOOLEAN gfGIOScreenExit       = FALSE;
 static BOOLEAN gfReRenderGIOScreen   = TRUE;
 static BOOLEAN gfGIOButtonsAllocated = FALSE;
+static BOOLEAN gfGIOExitOptionsSaved = FALSE;
+static GAME_OPTIONS gGIOExitOptions;
 
 static UINT8 gubGameOptionScreenHandler = GIO_NOTHING;
 
@@ -200,6 +202,7 @@ static void HandleGIOScreen(void);
 static void RenderGIOScreen(void);
 static void GetGIOScreenUserInput(void);
 static void RestoreGIOButtonBackGrounds(void);
+static void SaveGIOExitOptions(void);
 static void DoneFadeOutForExitGameInitOptionScreen(void);
 static void DisplayMessageToUserAboutGameDifficulty(void);
 static void DisplayMessageToUserAboutDeadIsDeadSaveScreen(const ST::string& zString, MSGBOX_CALLBACK ReturnCallback);
@@ -335,7 +338,7 @@ static void EnterGIOScreen()
 		MakeCheckBoxes(guiGunOptionToggles, lengthof(guiGunOptionToggles), x, y, BtnGunOptionsTogglesCallback, def);
 	}
 
-#if 0 // JA2 Gold: no more timed turns
+#if 0 // JA2Gold: no more timed turns
 	{ // Check box to toggle the timed turn option
 		INT16  const x   = GIO_TIMED_TURN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX;
 		INT16  const y   = GIO_TIMED_TURN_SETTING_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
@@ -417,6 +420,7 @@ static void HandleGIOScreen(void)
 				{
 					//Disable the ok button
 					DisableButton(guiGIODoneButton);
+					SaveGIOExitOptions();
 					gFadeOutDoneCallback = DoneFadeOutForExitGameInitOptionScreen;
 					FadeOutNextFrame();
 				}
@@ -698,7 +702,7 @@ static UINT8 GetCurrentGunButtonSetting(void)
 }
 
 
-#if 0// JA2 Gold: no timed turns
+#if 0// JA2 Gold: no more timed turns
 static UINT8 GetCurrentTimedTurnsButtonSetting(void)
 {
 	UINT8	cnt;
@@ -726,64 +730,29 @@ static UINT8 GetCurrentGameSaveButtonSetting(void)
 
 static void RestoreGIOButtonBackGrounds(void)
 {
-	UINT8	cnt;
-	UINT16 usPosY;
+	// GIO always renders full background.
+	// Skip per-checkbox restore: Android 2x layout can place rect past screen edge.
+}
 
-	// Check box to toggle Difficulty settings
-	usPosY = GIO_DIF_SETTINGS_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < NUM_DIF_LEVELS; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_DIF_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
 
-	// Check box to toggle Game settings ( realistic, sci fi )
-	usPosY = GIO_GAME_SETTINGS_Y-GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < NUM_GAME_STYLES; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_GAME_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
-
-	// Check box to toggle Gun options
-	usPosY = GIO_GUN_SETTINGS_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < NUM_GUN_OPTIONS; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_GUN_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
-
+static void SaveGIOExitOptions(void)
+{
+	gGIOExitOptions = gGameOptions;
+	gGIOExitOptions.fGunNut = GetCurrentGunButtonSetting();
+	gGIOExitOptions.fSciFi = GetCurrentGameStyleButtonSetting();
+	gGIOExitOptions.ubDifficultyLevel = GetCurrentDifficultyButtonSetting() + 1;
 #if 0 // JA2Gold: no more timed turns setting
-	// Check box to toggle timed turns options
-	usPosY = GIO_TIMED_TURN_SETTING_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < GIO_NUM_TIMED_TURN_OPTIONS; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_TIMED_TURN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
+	gGIOExitOptions.fTurnTimeLimit = GetCurrentTimedTurnsButtonSetting();
 #endif
-
-	// Check box to toggle iron man options
-	usPosY = GIO_IRON_MAN_SETTING_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < NUM_SAVE_OPTIONS; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 68, 58);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
+	gGIOExitOptions.ubGameSaveMode = GetCurrentGameSaveButtonSetting();
+	gfGIOExitOptionsSaved = TRUE;
 }
 
 
 static void DoneFadeOutForExitGameInitOptionScreen(void)
 {
-	// loop through and get the status of all the buttons
-	gGameOptions.fGunNut = GetCurrentGunButtonSetting();
-	gGameOptions.fSciFi = GetCurrentGameStyleButtonSetting();
-	gGameOptions.ubDifficultyLevel = GetCurrentDifficultyButtonSetting() + 1;
-#if 0 // JA2Gold: no more timed turns setting
-	gGameOptions.fTurnTimeLimit = GetCurrentTimedTurnsButtonSetting();
-#endif
-	// JA2Gold: iron man
-	gGameOptions.ubGameSaveMode = GetCurrentGameSaveButtonSetting();
+	if (!gfGIOExitOptionsSaved) SaveGIOExitOptions();
+	gGameOptions = gGIOExitOptions;
 
 	if (gGameOptions.ubGameSaveMode == GIO_DEAD_IS_DEAD)
 	{

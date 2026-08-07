@@ -4,6 +4,9 @@
 #include "Timer.h"
 #include "Video.h"
 #include "UILayout.h"
+#ifdef __ANDROID__
+#include "Laptop.h"
+#endif
 
 #include <string_theory/string>
 
@@ -125,6 +128,12 @@ static void QueueKeyEvent(UINT16 ubInputEvent, SDL_Keycode Key, SDL_Keymod Mod, 
 }
 
 void SetSafeMousePosition(int x, int y) {
+#ifdef __ANDROID__
+	if (AndroidLaptopScaleActive())
+	{
+		AndroidLaptopMapScreenToLogical(&x, &y);
+	}
+#endif
 	if (x < 0) x = 0;
 	if (y < 0) y = 0;
 	if (x > SCREEN_WIDTH) x = SCREEN_WIDTH;

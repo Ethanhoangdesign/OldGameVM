@@ -16,6 +16,9 @@
 #include "VSurface.h"
 #include "Video.h"
 #include "UILayout.h"
+#ifdef __ANDROID__
+#include "Laptop.h"
+#endif
 #include "Icon.h"
 #include <algorithm>
 #include <chrono>
@@ -522,6 +525,7 @@ void RefreshScreen(void)
 		gfIgnoreScrollDueToCenterAdjust = FALSE;
 	}
 
+	// Cursor stays in logical FB coords; laptop present scales whole src rect (incl. cursor).
 	auto const cursorPos{ GetCursorPos() };
 	SDL_Rect src;
 	src.x = 0;
@@ -543,6 +547,18 @@ void RefreshScreen(void)
 
 	SDL_RenderClear(GameRenderer);
 
+#ifdef __ANDROID__
+	// One nearest scale: natural laptop rect → fit dst. Avoids soft software stretch + LINEAR.
+	int nx, ny, nw, nh, dx, dy, dw, dh;
+	if (AndroidLaptopGetPresentRects(&nx, &ny, &nw, &nh, &dx, &dy, &dw, &dh))
+	{
+		SDL_SetTextureScaleMode(ScreenTexture, SDL_ScaleModeNearest);
+		SDL_Rect srcR = { nx, ny, nw, nh };
+		SDL_Rect dstR = { dx, dy, dw, dh };
+		SDL_RenderCopy(GameRenderer, ScreenTexture, &srcR, &dstR);
+	}
+	else
+#endif
 	if (ScaleQuality == VideoScaleQuality::NEAR_PERFECT) {
 		SDL_SetRenderTarget(GameRenderer, ScaledScreenTexture);
 		SDL_RenderCopy(GameRenderer, ScreenTexture, nullptr, nullptr);
@@ -551,6 +567,11 @@ void RefreshScreen(void)
 		SDL_RenderCopy(GameRenderer, ScaledScreenTexture, nullptr, nullptr);
 	}
 	else {
+#ifdef __ANDROID__
+		// Restore filter after laptop nearest override.
+		SDL_SetTextureScaleMode(ScreenTexture,
+			ScaleQuality == VideoScaleQuality::LINEAR ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+#endif
 		SDL_RenderCopy(GameRenderer, ScreenTexture, NULL, NULL);
 	}
 
