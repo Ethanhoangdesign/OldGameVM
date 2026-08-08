@@ -274,12 +274,22 @@ void UpdateSaveBuffer(void)
 
 void RestoreExternBackgroundRect(const INT16 sLeft, const INT16 sTop, const INT16 sWidth, const INT16 sHeight)
 {
-	Assert(0 <= sLeft && sLeft + sWidth <= SCREEN_WIDTH && 0 <= sTop && sTop + sHeight <= SCREEN_HEIGHT);
+	// Clamp instead of Assert: Android 2× GIO/msgbox + short screens can
+	// request rects past SCREEN_* and abort on ENABLE_ASSERTS (Debug APK).
+	INT32 left = sLeft;
+	INT32 top  = sTop;
+	INT32 right  = (INT32)sLeft + (INT32)sWidth;
+	INT32 bottom = (INT32)sTop  + (INT32)sHeight;
+	if (left < 0) left = 0;
+	if (top  < 0) top  = 0;
+	if (right  > SCREEN_WIDTH)  right  = SCREEN_WIDTH;
+	if (bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
+	if (right <= left || bottom <= top) return;
 
-	BlitBufferToBuffer(guiSAVEBUFFER, FRAME_BUFFER, sLeft, sTop, sWidth, sHeight);
-
-	// Add rect to frame buffer queue
-	InvalidateRegionEx(sLeft, sTop, sLeft + sWidth, sTop + sHeight);
+	INT16 const w = (INT16)(right - left);
+	INT16 const h = (INT16)(bottom - top);
+	BlitBufferToBuffer(guiSAVEBUFFER, FRAME_BUFFER, (INT16)left, (INT16)top, w, h);
+	InvalidateRegionEx((INT16)left, (INT16)top, (INT16)right, (INT16)bottom);
 }
 
 

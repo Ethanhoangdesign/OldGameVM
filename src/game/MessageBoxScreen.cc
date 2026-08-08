@@ -126,24 +126,36 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 	gMsgBoxNaturalW = usTextBoxWidth;
 	gMsgBoxNaturalH = usTextBoxHeight;
 #endif
-	UINT16 const usDispW = static_cast<UINT16>(usTextBoxWidth  * MSGBOX_UI_SCALE);
-	UINT16 const usDispH = static_cast<UINT16>(usTextBoxHeight * MSGBOX_UI_SCALE);
+	// Fit 2× box on short screens (UINT16 wrap if usDispH > SCREEN_HEIGHT).
+	UINT16 usDispW = static_cast<UINT16>(usTextBoxWidth  * MSGBOX_UI_SCALE);
+	UINT16 usDispH = static_cast<UINT16>(usTextBoxHeight * MSGBOX_UI_SCALE);
+	if (usDispW > SCREEN_WIDTH)  usDispW = SCREEN_WIDTH;
+	if (usDispH > SCREEN_HEIGHT) usDispH = SCREEN_HEIGHT;
 
 	// Save height,width (display size used for layout / restore rect on desktop)
 	gMsgBox.usWidth  = usDispW;
 	gMsgBox.usHeight = usDispH;
 
-	// Determine position (centered in rect)
+	// Determine position (centered in rect); signed math avoids UINT16 underflow.
 	if (centering_rect)
 	{
-		gMsgBox.uX = centering_rect->x + (centering_rect->w  - usDispW)  / 2;
-		gMsgBox.uY = centering_rect->y + (centering_rect->h  - usDispH) / 2;
+		INT32 const x = (INT32)centering_rect->x + ((INT32)centering_rect->w - (INT32)usDispW) / 2;
+		INT32 const y = (INT32)centering_rect->y + ((INT32)centering_rect->h - (INT32)usDispH) / 2;
+		gMsgBox.uX = (UINT16)(x < 0 ? 0 : x);
+		gMsgBox.uY = (UINT16)(y < 0 ? 0 : y);
 	}
 	else
 	{
-		gMsgBox.uX = (SCREEN_WIDTH  - usDispW)  / 2;
-		gMsgBox.uY = (SCREEN_HEIGHT - usDispH) / 2;
+		INT32 const x = ((INT32)SCREEN_WIDTH  - (INT32)usDispW) / 2;
+		INT32 const y = ((INT32)SCREEN_HEIGHT - (INT32)usDispH) / 2;
+		gMsgBox.uX = (UINT16)(x < 0 ? 0 : x);
+		gMsgBox.uY = (UINT16)(y < 0 ? 0 : y);
 	}
+	// Keep box fully on-screen after clamp.
+	if ((INT32)gMsgBox.uX + (INT32)usDispW > SCREEN_WIDTH)
+		gMsgBox.uX = (UINT16)(SCREEN_WIDTH - usDispW);
+	if ((INT32)gMsgBox.uY + (INT32)usDispH > SCREEN_HEIGHT)
+		gMsgBox.uY = (UINT16)(SCREEN_HEIGHT - usDispH);
 
 	if (guiCurrentScreen == GAME_SCREEN)
 	{

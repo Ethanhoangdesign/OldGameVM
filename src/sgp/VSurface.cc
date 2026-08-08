@@ -280,18 +280,38 @@ void BltVideoSurface(SGPVSurface* const dst, SGPVSurface* const src, INT32 const
 
 void BltStretchVideoSurface(SGPVSurface* const dst, SGPVSurface const* const src, SGPBox const* const src_rect, SGPBox const* const dst_rect)
 {
+	if (!dst || !src || !src_rect || !dst_rect) return;
 	if (dst->BPP() != 16 || src->BPP() != 16) return;
+	if (src_rect->w == 0 || src_rect->h == 0 || dst_rect->w == 0 || dst_rect->h == 0) return;
 
 	SDL_Surface const* const ssurface = src->surface_.get();
 	SDL_Surface*       const dsurface = dst->surface_.get();
+	if (!ssurface || !dsurface || !ssurface->pixels || !dsurface->pixels) return;
+
+	// Clamp destination into dst surface — unclamped write SEGV on Android 2× UI.
+	INT32 dx0 = dst_rect->x;
+	INT32 dy0 = dst_rect->y;
+	INT32 dx1 = dx0 + (INT32)dst_rect->w;
+	INT32 dy1 = dy0 + (INT32)dst_rect->h;
+	if (dx0 < 0) dx0 = 0;
+	if (dy0 < 0) dy0 = 0;
+	if (dx1 > dsurface->w) dx1 = dsurface->w;
+	if (dy1 > dsurface->h) dy1 = dsurface->h;
+	if (dx1 <= dx0 || dy1 <= dy0) return;
+
+	// Source must fit in src surface.
+	if ((INT32)src_rect->x < 0 || (INT32)src_rect->y < 0) return;
+	if ((INT32)src_rect->x + (INT32)src_rect->w > ssurface->w) return;
+	if ((INT32)src_rect->y + (INT32)src_rect->h > ssurface->h) return;
 
 	const UINT32  s_pitch = ssurface->pitch >> 1;
 	const UINT32  d_pitch = dsurface->pitch >> 1;
 	UINT16 const* os      = (const UINT16*)ssurface->pixels + s_pitch * src_rect->y + src_rect->x;
-	UINT16*       d       =       (UINT16*)dsurface->pixels + d_pitch * dst_rect->y + dst_rect->x;
+	UINT16*       d       =       (UINT16*)dsurface->pixels + d_pitch * dy0 + dx0;
 
-	UINT const width  = dst_rect->w;
-	UINT const height = dst_rect->h;
+	// If we clamped dst origin, still stretch into remaining box (simple: use clamped size).
+	UINT const width  = (UINT)(dx1 - dx0);
+	UINT const height = (UINT)(dy1 - dy0);
 	UINT const dx     = src_rect->w;
 	UINT const dy     = src_rect->h;
 	UINT py = 0;

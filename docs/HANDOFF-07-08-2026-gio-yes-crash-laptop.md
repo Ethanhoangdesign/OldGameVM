@@ -16,11 +16,12 @@ Launcher: `io.github.ja2stracciatella/.LauncherActivity`
 | Laptop fit-scale (aspect, letterbox đen OK) | DONE — FB 1× + SDL nearest present |
 | Touch map laptop scaled | DONE — `Input.cc` → `AndroidLaptopMapScreenToLogical` |
 | GIO 2× + MessageBox 2× + dim | DONE — handoff `docs/HANDOFF-07-08-2026-mobile-gio-msgbox.md` |
-| GIO YES (Novice confirm) exit path | PATCHED — chờ smoke lại sau **full native rebuild** |
+| GIO YES (Novice confirm) exit path | DONE — see `docs/HANDOFF-08-08-2026-gio-crash-help-text.md` |
+| Laptop help body text + checkbox size | DONE — same handoff 08/08 |
 | Font laptop nét mọi tỷ lệ | PARTIAL — nearest giúp; bitmap stretch vẫn soft nếu fractional |
 | Desktop/Mac GIO restore checkbox | THAY ĐỔI — `RestoreGIOButtonBackGrounds` empty **mọi platform** (xem §3) |
 
-**Chưa xác nhận:** user cài APK xong vẫn “bấm vào thoát” / YES exit. Logcat chưa lấy được (`adb wait-for-device` kẹt khi emulator die). Cần rebuild native + logcat khi repro.
+**Superseded 08/08:** full write-up + help fixes → `docs/HANDOFF-08-08-2026-gio-crash-help-text.md`.
 
 ---
 
@@ -160,12 +161,11 @@ Nếu emulator die (`Netsim Wifi ... CANCELLED`) → restart AVD rồi `adb wait
 
 ## 6. NEXT SESSION
 
-1. **Xác nhận YES path còn quit không** sau clean native rebuild + logcat.  
-2. Nếu còn: stacktrace — có thể intro/Smk, `ExitGIOScreen` music, hoặc path khác.  
-3. Cân nhắc snapshot ngay trong `ConfirmGioDifSettingMessageBoxCallBack` (YES) thay vì chỉ lúc fade.  
+1. **Rebuild native + smoke YES** (`./tools/ogvm-emu-install.sh`).  
+2. Nếu còn SEGV: logcat offset mới trong `RefreshScreen`; check intro/Smk.  
+3. Snapshot YES đã có trong `ConfirmGioDifSettingMessageBoxCallBack`.  
 4. Desktop: restore GIO checkbox chỉ non-Android nếu regress.  
-5. Font laptop nét hơn: integer scale khi đủ chỗ, hoặc font native (lớn hơn scope).  
-6. Xóa leftover `clean_gio.py` ở root nếu còn (script dọn rác session — không commit).
+5. Font laptop nét hơn: integer scale khi đủ chỗ (scope riêng).
 
 ---
 

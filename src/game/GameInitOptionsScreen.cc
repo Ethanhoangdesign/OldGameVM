@@ -788,6 +788,8 @@ static void ConfirmGioDifSettingMessageBoxCallBack(MessageBoxReturnValue const b
 {
 	if (bExitValue == MSG_BOX_RETURN_YES)
 	{
+		// Snapshot while GIO buttons still alive (before fade teardown).
+		SaveGIOExitOptions();
 		if (GetCurrentGameSaveButtonSetting() == GIO_DEAD_IS_DEAD)
 		{
 			gubGameOptionScreenHandler = GIO_DEAD_IS_DEAD_SAVE;

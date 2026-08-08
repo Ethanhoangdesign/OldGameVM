@@ -412,6 +412,15 @@ void HelpScreenHandler()
 	//handle the help screen
 	HandleHelpScreen();
 
+#ifdef __ANDROID__
+	// Fit-scale laptop redraws FB under help every frame. Dirty-once then
+	// leaves chrome/buttons only — body text never re-blitted.
+	if (gHelpScreen.bCurrentHelpScreen == HELP_SCREEN_LAPTOP && AndroidLaptopScaleActive())
+	{
+		gHelpScreen.ubHelpScreenDirty = HLP_SCRN_DRTY_LVL_REFRESH_ALL;
+	}
+#endif
+
 	//if the help screen is dirty, re-render it
 	if( gHelpScreen.ubHelpScreenDirty != HLP_SCRN_DRTY_LVL_NOT_DIRTY )
 	{

@@ -12,6 +12,9 @@
 #include "WCheck.h"
 #include "WordWrap.h"
 #include "Font_Control.h"
+#ifdef __ANDROID__
+#include "Laptop.h"
+#endif
 
 #include <string_theory/string>
 
@@ -1164,9 +1167,9 @@ static void DrawCheckBoxButton(const GUI_BUTTON *b)
 	}
 
 #ifdef __ANDROID__
-	// Checkbox STI is tiny; stretch 2x for mobile. BltStretchVideoSurface has no clip —
-	// only stretch when the full dest rect fits the dest buffer (else normal 1x blit).
-	if (b->uiFlags & BUTTON_CHECKBOX)
+	// Checkbox STI tiny → 2x for mobile full-screen UI (Options/GIO).
+	// Skip in laptop fit-scale: help/chrome already natural in FB, present scales.
+	if ((b->uiFlags & BUTTON_CHECKBOX) && !AndroidLaptopScaleActive())
 	{
 		UINT16 const w = static_cast<UINT16>(pics->max.w);
 		UINT16 const h = static_cast<UINT16>(pics->max.h);
