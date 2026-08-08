@@ -125,6 +125,7 @@ class ConfigurationModel : ViewModel() {
     val scalingQuality = MutableLiveData(ScalingQuality.DEFAULT)
     val debug = MutableLiveData(false)
     // OGVM-CONTROLLER — stored in controller.ini, not ja2.json
+    val controllerConfig = MutableLiveData(ControllerIni.Config())
     val controllerEnabled = MutableLiveData(false)
     val leftStickMode = MutableLiveData("cursor")
     val rightStickMode = MutableLiveData("none")
@@ -153,15 +154,29 @@ class ConfigurationModel : ViewModel() {
         debug.value = enabled
     }
 
+    fun setControllerConfig(config: ControllerIni.Config) {
+        controllerConfig.value = config
+        controllerEnabled.value = config.enabled
+        leftStickMode.value = config.leftStick
+        rightStickMode.value = config.rightStick
+    }
+
+    fun updateController(config: ControllerIni.Config) {
+        setControllerConfig(config)
+    }
+
     fun setControllerEnabled(enabled: Boolean) {
         controllerEnabled.value = enabled
+        controllerConfig.value = (controllerConfig.value ?: ControllerIni.Config()).copy(enabled = enabled)
     }
 
     fun setLeftStickMode(mode: String) {
         leftStickMode.value = mode
+        controllerConfig.value = (controllerConfig.value ?: ControllerIni.Config()).copy(leftStick = ControllerIni.sanitizeStick(mode))
     }
 
     fun setRightStickMode(mode: String) {
         rightStickMode.value = mode
+        controllerConfig.value = (controllerConfig.value ?: ControllerIni.Config()).copy(rightStick = ControllerIni.sanitizeStick(mode))
     }
 }

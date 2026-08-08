@@ -205,10 +205,7 @@ class LauncherActivity : AppCompatActivity() {
     }
 
     private fun loadControllerIni() {
-        val files = applicationContext.filesDir
-        configurationModel.setControllerEnabled(ControllerIni.loadEnabled(files))
-        configurationModel.setLeftStickMode(ControllerIni.loadLeftStick(files))
-        configurationModel.setRightStickMode(ControllerIni.loadRightStick(files))
+        configurationModel.setControllerConfig(ControllerIni.load(applicationContext.filesDir))
     }
 
     private fun saveJA2Json() {
@@ -228,9 +225,11 @@ class LauncherActivity : AppCompatActivity() {
         // Same home as ja2.json: filesDir/.ja2/controller.ini
         ControllerIni.save(
             applicationContext.filesDir,
-            configurationModel.controllerEnabled.value == true,
-            configurationModel.leftStickMode.value ?: "cursor",
-            configurationModel.rightStickMode.value ?: "none"
+            configurationModel.controllerConfig.value ?: ControllerIni.Config(
+                enabled = configurationModel.controllerEnabled.value == true,
+                leftStick = configurationModel.leftStickMode.value ?: "cursor",
+                rightStick = configurationModel.rightStickMode.value ?: "none"
+            )
         )
     }
 }

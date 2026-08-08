@@ -40,6 +40,20 @@
                     android:layout_marginBottom="10dp"
                     android:text="@string/resolution_info_text" />
 
+                <TextView
+                    android:id="@+id/resolutionPresetLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="6dp"
+                    android:text="@string/resolution_preset_label" />
+
+                <Spinner
+                    android:id="@+id/resolutionPresetSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:contentDescription="@string/resolution_preset_label" />
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
@@ -75,20 +89,6 @@
                         android:layout_weight="0"
                         android:text="@string/resolution_auto_button" />
                 </LinearLayout>
-
-                <TextView
-                    android:id="@+id/resolutionPresetLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:layout_marginBottom="6dp"
-                    android:text="@string/resolution_preset_label" />
-
-                <Spinner
-                    android:id="@+id/resolutionPresetSpinner"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:contentDescription="@string/resolution_preset_label" />
             </LinearLayout>
 
             <LinearLayout
@@ -122,36 +122,6 @@
                     android:contentDescription="@string/game_version_empty_text" />
             </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="20dp"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/debugModeInfoTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:text="@string/debug_mode_info_title_text"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
-
-                <TextView
-                    android:id="@+id/debugModeInfoText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:text="@string/debug_mode_info_text" />
-
-                <CheckBox
-                    android:id="@+id/debugModeChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/debug_mode_label" />
-            </LinearLayout>
-
             <!-- OGVM-CONTROLLER: enable + stick modes (full remap = desktop) -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -173,8 +143,16 @@
                     android:id="@+id/controllerInfoText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
+                    android:layout_marginBottom="6dp"
                     android:text="@string/controller_info_text" />
+
+                <TextView
+                    android:id="@+id/controllerStatusText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:text="@string/controller_status_none"
+                    android:textColor="@color/colorAccent" />
 
                 <CheckBox
                     android:id="@+id/controllerEnableChip"
@@ -182,6 +160,20 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="10dp"
                     android:text="@string/controller_enable_label" />
+
+                <TextView
+                    android:id="@+id/controllerLayoutLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:text="@string/controller_layout_label" />
+
+                <Spinner
+                    android:id="@+id/controllerLayoutSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:contentDescription="@string/controller_layout_label" />
 
                 <TextView
                     android:id="@+id/leftStickLabel"
@@ -209,6 +201,83 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:contentDescription="@string/controller_right_stick_label" />
+
+                <LinearLayout
+                    android:id="@+id/touchpadSettingsGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/controller_touchpad_label" />
+
+                    <Spinner
+                        android:id="@+id/touchpadModeSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:id="@+id/touchpadSensitivityLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp" />
+
+                    <SeekBar
+                        android:id="@+id/touchpadSensitivityBar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:max="3800" />
+
+                    <Spinner
+                        android:id="@+id/touchpadOutputSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/controllerBindingsTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/controller_bindings_label"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
+
+                <LinearLayout
+                    android:id="@+id/controllerBindingsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/debugModeInfoTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="@string/debug_mode_info_title_text"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
+
+                    <TextView
+                        android:id="@+id/debugModeInfoText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="@string/debug_mode_info_text" />
+
+                    <CheckBox
+                        android:id="@+id/debugModeChip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/debug_mode_label" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
