@@ -220,14 +220,19 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 		int const x, MessageBoxReturnValue const returnValue)
 	{
 #ifdef __ANDROID__
-		SGPFont const btnFont = FONT16ARIAL;
+		// Bold-ish + white (match Options/SaveLoad popup chrome).
+		SGPFont const btnFont = FONT14HUMANIST;
+		INT16  const fore     = FONT_MCOLOR_WHITE;
+		INT16  const shadow   = DEFAULT_SHADOW;
 #else
 		SGPFont const btnFont = FONT12ARIAL;
+		INT16  const fore     = style.font_colour;
+		INT16  const shadow   = style.shadow_colour;
 #endif
 		auto const btn{ CreateIconAndTextButton(
 			gMsgBox.iButtonImages, text, btnFont,
-			style.font_colour, style.shadow_colour,
-			style.font_colour, style.shadow_colour,
+			fore, shadow,
+			fore, shadow,
 			static_cast<INT16>(x), static_cast<INT16>(y),
 			MSYS_PRIORITY_HIGHEST,
 			[returnValue](GUI_BUTTON *, UINT32 const reason)

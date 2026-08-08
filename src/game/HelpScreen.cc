@@ -50,10 +50,16 @@ extern void PrintBalance( void );
 
 #define HELP_SCREEN_BTN_OFFSET_X				11
 #define HELP_SCREEN_BTN_OFFSET_Y				12//50
+#ifdef __ANDROID__
+// Help side tabs: white + true bold STI; 10pt fits narrow chrome (14 wraps).
+#define HELP_SCREEN_BTN_FONT_ON_COLOR				FONT_MCOLOR_WHITE
+#define HELP_SCREEN_BTN_FONT_OFF_COLOR				FONT_MCOLOR_WHITE
+#define HELP_SCREEN_BTN_FONT					FONT10ARIALBOLD
+#else
 #define HELP_SCREEN_BTN_FONT_ON_COLOR				73
 #define HELP_SCREEN_BTN_FONT_OFF_COLOR				FONT_MCOLOR_WHITE
-
 #define HELP_SCREEN_BTN_FONT					FONT10ARIAL
+#endif
 
 #define HELP_SCREEN_BTN_HEIGHT					22
 #define HELP_SCREEN_GAP_BN_BTNS				8

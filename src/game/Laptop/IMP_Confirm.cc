@@ -7,6 +7,7 @@
 #include "Font.h"
 #include "IMPVideoObjects.h"
 #include "Merc_Hiring.h"
+#include "Overhead.h"
 #include "Text.h"
 #include "Cursors.h"
 #include "Laptop.h"
@@ -165,7 +166,8 @@ static void DestroyConfirmButtons(void)
 static void GiveItemsToPC(UINT8 ubProfileId);
 
 
-static BOOLEAN AddCharacterToPlayersTeam(void)
+// HireMerc returns INT8 (-1/0/1). Never treat as BOOLEAN — -1 is truthy.
+static INT8 AddCharacterToPlayersTeam(void)
 {
 	MERC_HIRE_STRUCT HireMercStruct{};
 
@@ -197,10 +199,21 @@ static BOOLEAN AddCharacterToPlayersTeam(void)
 	HireMercStruct.ubInsertionCode	= INSERTION_CODE_ARRIVING_GAME;
 	HireMercStruct.uiTimeTillMercArrives = GetMercArrivalTimeOfDay( );
 
-	const FacePosInfo* const fi = GetImpFacePosInfo(iPortraitNumber);
-	SetProfileFaceData(HireMercStruct.ubProfileID, 200 + iPortraitNumber, fi->eye_x, fi->eye_y, fi->mouth_x, fi->mouth_y);
+	// Clamp portrait — Wildfire/vanilla table is 0..15; OOB was UB.
+	INT32 const faceIdx = (iPortraitNumber >= 0 && iPortraitNumber < (INT32)lengthof(g_face_info))
+		? iPortraitNumber : 0;
+	const FacePosInfo* const fi = GetImpFacePosInfo(static_cast<UINT8>(faceIdx));
+	SetProfileFaceData(HireMercStruct.ubProfileID, 200 + faceIdx, fi->eye_x, fi->eye_y, fi->mouth_x, fi->mouth_y);
 
-	//if we succesfully hired the merc
+	// Ensure hire gate accepts this profile (CreateACharacter sets 0; recover if stale).
+	MERCPROFILESTRUCT& prof = GetProfile(HireMercStruct.ubProfileID);
+	if (prof.bMercStatus != 0 &&
+	    prof.bMercStatus != MERC_ANNOYED_BUT_CAN_STILL_CONTACT &&
+	    prof.bMercStatus != MERC_HIRED_BUT_NOT_ARRIVED_YET)
+	{
+		prof.bMercStatus = 0;
+	}
+
 	return HireMerc(HireMercStruct);
 }
 
@@ -210,22 +223,43 @@ static void BtnIMPConfirmYes(GUI_BUTTON *btn, UINT32 reason)
 	{
 		if (LaptopSaveInfo.fIMPCompletedFlag)
 		{
-			// already here, leave
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[6], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 			return;
 		}
 
 		if (LaptopSaveInfo.iCurrentBalance < COST_OF_PROFILE)
 		{
-			// not enough
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[3], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+			return;
+		}
+
+		if (NumberOfMercsOnPlayerTeam() >= 18)
+		{
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[5], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 			return;
 		}
 
 		// line moved by CJC Nov 28 2002 to AFTER the check for money
-		LaptopSaveInfo.fIMPCompletedFlag = AddCharacterToPlayersTeam();
-		if (!LaptopSaveInfo.fIMPCompletedFlag) return; // only if merc hiring failed: no charge, give it another go
+		INT8 const hire = AddCharacterToPlayersTeam();
+		if (hire != MERC_HIRE_OK)
+		{
+			// Hire failed: no charge. Surface why instead of silent no-op.
+			ST::string const& msg = (hire == MERC_HIRE_OVER_20_MERCS_HIRED)
+				? pImpPopUpStrings[5]
+				: pImpPopUpStrings[4];
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, msg, LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+			return;
+		}
 
 		SOLDIERTYPE* const pSoldier = FindSoldierByProfileID(PLAYER_GENERATED_CHARACTER_ID + LaptopSaveInfo.iVoiceId);
-		if (!pSoldier) return;
+		if (!pSoldier)
+		{
+			// Hire reported OK but soldier missing — do not sticky-complete.
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[4], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+			return;
+		}
+
+		LaptopSaveInfo.fIMPCompletedFlag = TRUE;
 
 		if (fLoadingCharacterForPreviousImpProfile && gamepolicy(imp_load_keep_inventory))
 		{

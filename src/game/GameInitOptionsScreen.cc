@@ -266,12 +266,8 @@ template<> ScreenID HandleScreen<GAME_INIT_OPTIONS_SCREEN>()
 
 static GUIButtonRef MakeButton(BUTTON_PICS* img, const ST::string& text, INT16 x, GUI_CALLBACK click)
 {
-#ifdef __ANDROID__
-	SGPFont const font = (gpHugeFont != nullptr) ? gpHugeFont : OPT_BUTTON_FONT;
-	GUIButtonRef const btn = CreateIconAndTextButton(img, text, font, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, GIO_BTN_OK_Y, MSYS_PRIORITY_HIGH, click);
-#else
+// OPT_BUTTON_* = humanist + white (shared popup chrome).
 	GUIButtonRef const btn = CreateIconAndTextButton(img, text, OPT_BUTTON_FONT, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, GIO_BTN_OK_Y, MSYS_PRIORITY_HIGH, click);
-#endif
 	SpecifyButtonSoundScheme(btn, BUTTON_SOUND_SCHEME_BIGSWITCH3);
 	return btn;
 }
