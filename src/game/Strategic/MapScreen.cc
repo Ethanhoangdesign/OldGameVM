@@ -6882,24 +6882,28 @@ static void CheckForAndRenderNewMailOverlay(void)
 {
 	if( fNewMailFlag )
 	{
+		// Anchor the icon to the Laptop button; full-size moves that button
+		// right (+554 vs +456), so the hardcoded +464 floated over finance box.
+		INT32 const lapX = (g_ui.isMapFullSize() ? 554 : 456) + g_ui.get_MAP_BOTTOM_BASE_X();
+		INT32 const lapY = 410 + g_ui.get_MAP_BOTTOM_BASE_Y();
 		if( GetJA2Clock() % 1000 < 667 )
 		{
 			if (guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]->Clicked())
 			{ //button is down, so offset the icon
-				BltVideoObject(FRAME_BUFFER, guiNewMailIcons, 1, g_ui.get_MAP_BOTTOM_BASE_X() + 465, g_ui.get_MAP_BOTTOM_BASE_Y() + 418);
-				InvalidateRegion( g_ui.get_MAP_BOTTOM_BASE_X() + 465, g_ui.get_MAP_BOTTOM_BASE_Y() + 418, g_ui.get_MAP_BOTTOM_BASE_X() + 480, g_ui.get_MAP_BOTTOM_BASE_Y() + 428 );
+				BltVideoObject(FRAME_BUFFER, guiNewMailIcons, 1, lapX + 9, lapY + 8);
+				InvalidateRegion( lapX + 9, lapY + 8, lapX + 24, lapY + 18 );
 			}
 			else
 			{ //button is up, so draw the icon normally
-				BltVideoObject(FRAME_BUFFER, guiNewMailIcons, 0, g_ui.get_MAP_BOTTOM_BASE_X() + 464, g_ui.get_MAP_BOTTOM_BASE_Y() + 417);
+				BltVideoObject(FRAME_BUFFER, guiNewMailIcons, 0, lapX + 8, lapY + 7);
 				if (!guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]->Enabled())
 				{
-					SGPRect area = { (UINT16)(g_ui.get_MAP_BOTTOM_BASE_X() + 463), (UINT16)(g_ui.get_MAP_BOTTOM_BASE_Y() + 417), (UINT16)(g_ui.get_MAP_BOTTOM_BASE_X() + 477), (UINT16)(g_ui.get_MAP_BOTTOM_BASE_Y() + 425) };
+					SGPRect area = { (UINT16)(lapX + 7), (UINT16)(lapY + 7), (UINT16)(lapX + 21), (UINT16)(lapY + 15) };
 
 					SGPVSurface::Lock l(FRAME_BUFFER);
 					Blt16BPPBufferHatchRect(l.Buffer<UINT16>(), l.Pitch(), &area);
 				}
-				InvalidateRegion( g_ui.get_MAP_BOTTOM_BASE_X() + 463, g_ui.get_MAP_BOTTOM_BASE_Y() + 417, g_ui.get_MAP_BOTTOM_BASE_X() + 481, g_ui.get_MAP_BOTTOM_BASE_Y() + 430 );
+				InvalidateRegion( lapX + 7, lapY + 7, lapX + 25, lapY + 20 );
 
 			}
 		}

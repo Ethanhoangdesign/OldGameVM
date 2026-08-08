@@ -1341,6 +1341,9 @@ static void DrawButtonSelection(GUI_BUTTON const* const btn, bool const selected
 
 static void DisplaySelectLights()
 {
+	if (!giContractLengthButton[0] || !giContractLengthButton[1] || !giContractLengthButton[2] ||
+			!giBuyEquipmentButton[0] || !giBuyEquipmentButton[1]) return;
+
 	{ // First draw the select light for the contract length buttons.
 		size_t selected = gubContractLength;
 		FOR_EACH(GUIButtonRef, i, giContractLengthButton)
