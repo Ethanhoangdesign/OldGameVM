@@ -110,7 +110,7 @@ extern void PrintBalance( void );
 #define HLP_SCRN__HEIGHT_OF_SCROLL_AREA			182
 #define HLP_SCRN__WIDTH_OF_SCROLL_AREA				20
 #define HLP_SCRN__SCROLL_POSX					292
-#define HLP_SCRN__SCROLL_POSY					( gHelpScreen.usScreenLocY + 63 )
+#define HLP_SCRN__SCROLL_POSY					( HelpDrawOriginY() + 63 )
 
 #define HLP_SCRN__SCROLL_UP_ARROW_X				292
 #define HLP_SCRN__SCROLL_UP_ARROW_Y				43
@@ -270,6 +270,60 @@ static BOOLEAN gfHaveRenderedFirstFrameToSaveBuffer = FALSE;
 //It does this cause that region loses it focus so it draws the button again.
 static UINT8 gubRenderHelpScreenTwiceInaRow = 0;
 
+// Map/tactical help Android: natural STI+text → 2× stretch (MessageBox pattern).
+// Laptop help uses fit-scale present — no extra scale. Desktop always scale 1.
+// Natural size = STI panel only (no pad) so footer/checkbox sit on chrome.
+static UINT16 gHelpNaturalW = 0;
+static UINT16 gHelpNaturalH = 0;
+#ifdef __ANDROID__
+#define HELP_UI_SCALE 2
+static SGPVSurface* guiHelpComposeSurface = NULL;
+
+static bool HelpUiScaleActive(void)
+{
+	return gHelpScreen.bCurrentHelpScreen != HELP_SCREEN_LAPTOP
+		&& gHelpScreen.bCurrentHelpScreen != HELP_SCREEN_NONE
+		&& gHelpScreen.bCurrentHelpScreen != HELP_SCREEN_OPTIONS
+		&& gHelpScreen.bCurrentHelpScreen != HELP_SCREEN_LOAD_GAME;
+}
+
+static int HelpScale(void)
+{
+	return HelpUiScaleActive() ? HELP_UI_SCALE : 1;
+}
+
+static UINT16 HelpDrawOriginX(void)
+{
+	return HelpUiScaleActive() ? 0 : gHelpScreen.usScreenLocX;
+}
+
+static UINT16 HelpDrawOriginY(void)
+{
+	return HelpUiScaleActive() ? 0 : gHelpScreen.usScreenLocY;
+}
+
+static SGPVSurface* HelpDrawDest(void)
+{
+	return HelpUiScaleActive() ? guiHelpComposeSurface : FRAME_BUFFER;
+}
+
+static void HelpEnlargeButtonHit(GUI_BUTTON* b, int scale)
+{
+	if (!b || scale <= 1) return;
+	INT16 const w = static_cast<INT16>(b->W());
+	INT16 const h = static_cast<INT16>(b->H());
+	b->Area.RegionBottomRightX = b->Area.RegionTopLeftX + w * scale;
+	b->Area.RegionBottomRightY = b->Area.RegionTopLeftY + h * scale;
+}
+#else
+static bool HelpUiScaleActive(void) { return false; }
+static int  HelpScale(void) { return 1; }
+static UINT16 HelpDrawOriginX(void) { return gHelpScreen.usScreenLocX; }
+static UINT16 HelpDrawOriginY(void) { return gHelpScreen.usScreenLocY; }
+static SGPVSurface* HelpDrawDest(void) { return FRAME_BUFFER; }
+static void HelpEnlargeButtonHit(GUI_BUTTON*, int) {}
+#endif
+
 
 // region to mask the background
 static MOUSE_REGION gHelpScreenFullScreenMask;
@@ -419,6 +473,11 @@ void HelpScreenHandler()
 	{
 		gHelpScreen.ubHelpScreenDirty = HLP_SCRN_DRTY_LVL_REFRESH_ALL;
 	}
+	// Map/tactical 2×: re-compose + stretch each frame so panel survives map redraw.
+	if (HelpUiScaleActive())
+	{
+		gHelpScreen.ubHelpScreenDirty = HLP_SCRN_DRTY_LVL_REFRESH_ALL;
+	}
 #endif
 
 	//if the help screen is dirty, re-render it
@@ -484,16 +543,70 @@ static void EnterHelpScreen(void)
 	//Determine the help screen size, based off the help screen
 	SetSizeAndPropertiesOfHelpScreen();
 
+	// load the help screen background graphic and add it
+	guiHelpScreenBackGround = AddVideoObjectFromFile(INTERFACEDIR "/helpscreen.sti");
+
+#ifdef __ANDROID__
+	// Compose size must match STI (defines are 292; art often 300) or Blt8 OOB SEGV.
+	// Load STI + size compose BEFORE creating buttons so hit areas use final display rect.
+	if (HelpUiScaleActive() && guiHelpScreenBackGround)
+	{
+		ETRLEObject const& main = guiHelpScreenBackGround->SubregionProperties(HLP_SCRN_DEFAULT_TYPE);
+		UINT16 natW = main.usWidth;
+		UINT16 natH = main.usHeight;
+		if (gHelpScreen.bNumberOfButtons != 0)
+		{
+			ETRLEObject const& border = guiHelpScreenBackGround->SubregionProperties(HLP_SCRN_BUTTON_BORDER);
+			natW = static_cast<UINT16>(border.usWidth + main.usWidth);
+			if (border.usHeight > natH) natH = border.usHeight;
+		}
+		// Keep at least define size (layout constants assume it); never pad past STI
+		// or footer/checkbox fall below gold chrome after stretch.
+		if (natW < gHelpNaturalW) natW = gHelpNaturalW;
+		if (natH < gHelpNaturalH) natH = gHelpNaturalH;
+		gHelpNaturalW = natW;
+		gHelpNaturalH = natH;
+
+		if (guiHelpComposeSurface)
+		{
+			DeleteVideoSurface(guiHelpComposeSurface);
+			guiHelpComposeSurface = NULL;
+		}
+		guiHelpComposeSurface = AddVideoSurface(gHelpNaturalW, gHelpNaturalH, PIXEL_DEPTH);
+		if (guiHelpComposeSurface)
+			guiHelpComposeSurface->SetTransparency(0);
+
+		// Recompute display rect from true natural size.
+		UINT16 dispW = static_cast<UINT16>(gHelpNaturalW * HELP_UI_SCALE);
+		UINT16 dispH = static_cast<UINT16>(gHelpNaturalH * HELP_UI_SCALE);
+		if (dispW > SCREEN_WIDTH)  dispW = SCREEN_WIDTH;
+		if (dispH > SCREEN_HEIGHT) dispH = SCREEN_HEIGHT;
+		gHelpScreen.usScreenWidth  = dispW;
+		gHelpScreen.usScreenHeight = dispH;
+		gHelpScreen.usScreenLocX = (SCREEN_WIDTH - dispW) / 2;
+		if (gsVIEWPORT_END_Y > 0)
+			gHelpScreen.usScreenLocY = (gsVIEWPORT_END_Y - dispH) / 2;
+		else
+			gHelpScreen.usScreenLocY = (SCREEN_HEIGHT - dispH) / 2;
+		if ((INT32)gHelpScreen.usScreenLocY + dispH > SCREEN_HEIGHT)
+			gHelpScreen.usScreenLocY = SCREEN_HEIGHT - dispH;
+		if ((INT32)gHelpScreen.usScreenLocY < 0)
+			gHelpScreen.usScreenLocY = 0;
+	}
+#endif
+
+	int const sc = HelpScale();
+
 	//Create a mouse region 'mask' the entrire screen
 	MSYS_DefineRegion(&gHelpScreenFullScreenMask, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, MSYS_PRIORITY_HIGHEST, gHelpScreen.usCursor, MSYS_NO_CALLBACK, MSYS_NO_CALLBACK);
 
-	//Create the exit button
+	//Create the exit button (display coords; hit enlarged when scaled)
 	if( gHelpScreen.bNumberOfButtons != 0 )
-		usPosX = gHelpScreen.usScreenLocX + HELP_SCREEN_EXIT_BTN_OFFSET_X + HELP_SCREEN_BUTTON_BORDER_WIDTH;
+		usPosX = gHelpScreen.usScreenLocX + (HELP_SCREEN_EXIT_BTN_OFFSET_X + HELP_SCREEN_BUTTON_BORDER_WIDTH) * sc;
 	else
-		usPosX = gHelpScreen.usScreenLocX + HELP_SCREEN_EXIT_BTN_OFFSET_X;
+		usPosX = gHelpScreen.usScreenLocX + HELP_SCREEN_EXIT_BTN_OFFSET_X * sc;
 
-	usPosY = gHelpScreen.usScreenLocY + HELP_SCREEN_EXIT_BTN_LOC_Y;
+	usPosY = gHelpScreen.usScreenLocY + HELP_SCREEN_EXIT_BTN_LOC_Y * sc;
 
 	//Create the exit buttons
 	giExitBtnImage = LoadButtonImage(INTERFACEDIR "/helpscreen.sti", -1, 0, 4, 2, 6);
@@ -501,6 +614,7 @@ static void EnterHelpScreen(void)
 	guiHelpScreenExitBtn = QuickCreateButton(giExitBtnImage, usPosX, usPosY, MSYS_PRIORITY_HIGHEST, BtnHelpScreenExitCallback);
 	guiHelpScreenExitBtn->SetFastHelpText(gzHelpScreenText);
 	guiHelpScreenExitBtn->SetCursor(gHelpScreen.usCursor);
+	HelpEnlargeButtonHit(guiHelpScreenExitBtn, sc);
 
 
 
@@ -508,21 +622,29 @@ static void EnterHelpScreen(void)
 	CreateHelpScreenButtons();
 
 
-	//if there are buttons
+	// Footer checkbox: natural offset from panel top-left, then *sc to display.
+	// Must match footer text (drawn in compose at same natural Y) after stretch.
+	// Do NOT use usScreenHeight bottom — pad/clamp made that drift below STI chrome.
 	if( gHelpScreen.bNumberOfButtons != 0 )
-		usPosX = gHelpScreen.usScreenLocX + HELP_SCREEN_SHOW_HELP_AGAIN_REGION_OFFSET_X + HELP_SCREEN_BUTTON_BORDER_WIDTH;
+		usPosX = gHelpScreen.usScreenLocX + (HELP_SCREEN_SHOW_HELP_AGAIN_REGION_OFFSET_X + HELP_SCREEN_BUTTON_BORDER_WIDTH) * sc;
 	else
-		usPosX = gHelpScreen.usScreenLocX + HELP_SCREEN_SHOW_HELP_AGAIN_REGION_OFFSET_X;
+		usPosX = gHelpScreen.usScreenLocX + HELP_SCREEN_SHOW_HELP_AGAIN_REGION_OFFSET_X * sc;
 
-	usPosY = gHelpScreen.usScreenLocY + gHelpScreen.usScreenHeight - HELP_SCREEN_SHOW_HELP_AGAIN_REGION_OFFSET_Y;
+	{
+		UINT16 const natH = (HelpUiScaleActive() && gHelpNaturalH > 0)
+			? gHelpNaturalH : gHelpScreen.usScreenHeight;
+		usPosY = gHelpScreen.usScreenLocY
+			+ (natH - HELP_SCREEN_SHOW_HELP_AGAIN_REGION_OFFSET_Y) * sc;
+	}
 
 	if( !gHelpScreen.fForceHelpScreenToComeUp)
 	{
-		gHelpScreenDontShowHelpAgainToggle = CreateCheckBoxButton( usPosX, (UINT16)(usPosY-3),
+		gHelpScreenDontShowHelpAgainToggle = CreateCheckBoxButton( usPosX, (UINT16)(usPosY - 3 * sc),
 																		INTERFACEDIR "/optionscheckboxes.sti", MSYS_PRIORITY_HIGHEST,
 																		BtnHelpScreenDontShowHelpAgainCallback );
 
 		gHelpScreenDontShowHelpAgainToggle->SetCursor(gHelpScreen.usCursor);
+		HelpEnlargeButtonHit(gHelpScreenDontShowHelpAgainToggle, sc);
 
 		// Set the state of the chec box
 		if( gGameSettings.fHideHelpInAllScreens )
@@ -530,9 +652,6 @@ static void EnterHelpScreen(void)
 		else
 			gHelpScreenDontShowHelpAgainToggle->uiFlags &= ~BUTTON_CLICKED_ON;
 	}
-
-	// load the help screen background graphic and add it
-	guiHelpScreenBackGround = AddVideoObjectFromFile(INTERFACEDIR "/helpscreen.sti");
 
 	//create the text buffer
 	CreateHelpScreenTextBuffer();
@@ -631,6 +750,28 @@ static void RenderHelpScreen(void)
 	}
 
 
+	//render the text buffer to the screen
+	if( gHelpScreen.ubHelpScreenDirty >= HLP_SCRN_DRTY_LVL_REFRESH_TEXT )
+	{
+		RenderTextBufferToScreen();
+	}
+
+#ifdef __ANDROID__
+	// Natural compose → 2× display stretch (map/tactical help).
+	if (HelpUiScaleActive() && guiHelpComposeSurface)
+	{
+		SGPBox src;
+		src.set(0, 0, gHelpNaturalW, gHelpNaturalH);
+		SGPBox dst;
+		dst.set(gHelpScreen.usScreenLocX, gHelpScreen.usScreenLocY,
+			gHelpScreen.usScreenWidth, gHelpScreen.usScreenHeight);
+		BltStretchVideoSurface(FRAME_BUFFER, guiHelpComposeSurface, &src, &dst);
+		InvalidateRegion(gHelpScreen.usScreenLocX, gHelpScreen.usScreenLocY,
+			gHelpScreen.usScreenLocX + gHelpScreen.usScreenWidth,
+			gHelpScreen.usScreenLocY + gHelpScreen.usScreenHeight);
+	}
+#endif
+
 	if( !gfHaveRenderedFirstFrameToSaveBuffer )
 	{
 		gfHaveRenderedFirstFrameToSaveBuffer = TRUE;
@@ -639,13 +780,6 @@ static void RenderHelpScreen(void)
 		BlitBufferToBuffer(FRAME_BUFFER, guiSAVEBUFFER, gHelpScreen.usScreenLocX, gHelpScreen.usScreenLocY, gHelpScreen.usScreenWidth, gHelpScreen.usScreenHeight);
 
 		UnmarkButtonsDirty( );
-	}
-
-
-	//render the text buffer to the screen
-	if( gHelpScreen.ubHelpScreenDirty >= HLP_SCRN_DRTY_LVL_REFRESH_TEXT )
-	{
-		RenderTextBufferToScreen();
 	}
 }
 
@@ -686,6 +820,14 @@ static void ExitHelpScreen(void)
 	//remove the hepl graphic
 	DeleteVideoObject(guiHelpScreenBackGround);
 
+#ifdef __ANDROID__
+	if (guiHelpComposeSurface)
+	{
+		DeleteVideoSurface(guiHelpComposeSurface);
+		guiHelpComposeSurface = NULL;
+	}
+#endif
+
 	//remove the exit button
 	RemoveButton( guiHelpScreenExitBtn );
 
@@ -725,20 +867,24 @@ static void ExitHelpScreen(void)
 
 static void DrawHelpScreenBackGround(void)
 {
-	UINT16 usPosX;
-
-	usPosX = gHelpScreen.usScreenLocX;
+	UINT16 usPosX = HelpDrawOriginX();
+	UINT16 usPosY = HelpDrawOriginY();
+	SGPVSurface* const dest = HelpDrawDest();
+	if (!dest || !guiHelpScreenBackGround) return;
 
 	//if there are buttons, blit the button border
 	if( gHelpScreen.bNumberOfButtons != 0 )
 	{
-		BltVideoObject(FRAME_BUFFER, guiHelpScreenBackGround, HLP_SCRN_BUTTON_BORDER, usPosX, gHelpScreen.usScreenLocY);
+		BltVideoObject(dest, guiHelpScreenBackGround, HLP_SCRN_BUTTON_BORDER, usPosX, usPosY);
 		usPosX += HELP_SCREEN_BUTTON_BORDER_WIDTH;
 	}
 
-	BltVideoObject(FRAME_BUFFER, guiHelpScreenBackGround, HLP_SCRN_DEFAULT_TYPE, usPosX, gHelpScreen.usScreenLocY);
+	BltVideoObject(dest, guiHelpScreenBackGround, HLP_SCRN_DEFAULT_TYPE, usPosX, usPosY);
 
-	InvalidateRegion( gHelpScreen.usScreenLocX, gHelpScreen.usScreenLocY, gHelpScreen.usScreenLocX+gHelpScreen.usScreenWidth, gHelpScreen.usScreenLocY + gHelpScreen.usScreenHeight );
+	if (!HelpUiScaleActive())
+	{
+		InvalidateRegion( gHelpScreen.usScreenLocX, gHelpScreen.usScreenLocY, gHelpScreen.usScreenLocX+gHelpScreen.usScreenWidth, gHelpScreen.usScreenLocY + gHelpScreen.usScreenHeight );
+	}
 }
 
 
@@ -813,11 +959,36 @@ static void SetSizeAndPropertiesOfHelpScreen(void)
 			break;
 	}
 
+#ifdef __ANDROID__
+	// Natural panel size for compose surface; display size = natural × scale.
+	gHelpNaturalW = gHelpScreen.usScreenWidth;
+	gHelpNaturalH = gHelpScreen.usScreenHeight;
+	if (HelpUiScaleActive())
+	{
+		UINT16 dispW = static_cast<UINT16>(gHelpNaturalW * HELP_UI_SCALE);
+		UINT16 dispH = static_cast<UINT16>(gHelpNaturalH * HELP_UI_SCALE);
+		if (dispW > SCREEN_WIDTH)  dispW = SCREEN_WIDTH;
+		if (dispH > SCREEN_HEIGHT) dispH = SCREEN_HEIGHT;
+		gHelpScreen.usScreenWidth  = dispW;
+		gHelpScreen.usScreenHeight = dispH;
+		gHelpScreen.usScreenLocX = (SCREEN_WIDTH  - dispW) / 2;
+		// Prefer map/tactical viewport center when available.
+		if (gsVIEWPORT_END_Y > 0)
+			gHelpScreen.usScreenLocY = (gsVIEWPORT_END_Y - dispH) / 2;
+		else
+			gHelpScreen.usScreenLocY = (SCREEN_HEIGHT - dispH) / 2;
+		if ((INT32)gHelpScreen.usScreenLocY + dispH > SCREEN_HEIGHT)
+			gHelpScreen.usScreenLocY = SCREEN_HEIGHT - dispH;
+	}
+#endif
+
 	//if there are buttons
+	// When scaled: left margin is relative to compose origin (0,0), not display loc.
+	UINT16 const drawX = HelpDrawOriginX();
 	if( gHelpScreen.bNumberOfButtons != 0 )
-		gHelpScreen.usLeftMarginPosX  = gHelpScreen.usScreenLocX + HELP_SCREEN_TEXT_LEFT_MARGIN_WITH_BTN;
+		gHelpScreen.usLeftMarginPosX  = drawX + HELP_SCREEN_TEXT_LEFT_MARGIN_WITH_BTN;
 	else
-		gHelpScreen.usLeftMarginPosX  = gHelpScreen.usScreenLocX + HELP_SCREEN_TEXT_LEFT_MARGIN;
+		gHelpScreen.usLeftMarginPosX  = drawX + HELP_SCREEN_TEXT_LEFT_MARGIN;
 }
 
 
@@ -828,13 +999,14 @@ static void CreateHelpScreenButtons(void)
 {
 	UINT16 usPosX, usPosY;
 	INT32	i;
+	int const sc = HelpScale();
 
 	//if there are buttons to create
 	if( gHelpScreen.bNumberOfButtons != 0 )
 	{
 
-		usPosX = gHelpScreen.usScreenLocX + HELP_SCREEN_BTN_OFFSET_X;
-		usPosY = HELP_SCREEN_BTN_OFFSET_Y + gHelpScreen.usScreenLocY;
+		usPosX = gHelpScreen.usScreenLocX + HELP_SCREEN_BTN_OFFSET_X * sc;
+		usPosY = HELP_SCREEN_BTN_OFFSET_Y * sc + gHelpScreen.usScreenLocY;
 
 		EDTFile helpFile{ EDTFile::HELP };
 		auto const& buttonNumbers{ gHelpScreenBtnTextRecordNum[gHelpScreen.bCurrentHelpScreen] };
@@ -855,8 +1027,9 @@ static void CreateHelpScreenButtons(void)
 
 			guiHelpScreenBtns[i]->SetCursor(gHelpScreen.usCursor);
 			guiHelpScreenBtns[i]->SetUserData(i);
+			HelpEnlargeButtonHit(guiHelpScreenBtns[i], sc);
 
-			usPosY += HELP_SCREEN_BTN_HEIGHT + HELP_SCREEN_GAP_BN_BTNS;
+			usPosY += (HELP_SCREEN_BTN_HEIGHT + HELP_SCREEN_GAP_BN_BTNS) * sc;
 		}
 
 		guiHelpScreenBtns[0]->uiFlags |= BUTTON_CLICKED_ON;
@@ -1102,12 +1275,19 @@ static void DisplayCurrentScreenTitleAndFooter(void)
 
 //	GetHelpScreenTextPositions( NULL, NULL, &usWidth );
 
+	// Width uses natural panel size when scaled (compose surface coords).
+	UINT16 const panelW = HelpUiScaleActive() ? gHelpNaturalW : gHelpScreen.usScreenWidth;
 	if( gHelpScreen.bNumberOfButtons != 0 )
-		usWidth = gHelpScreen.usScreenWidth - HELP_SCREEN_TEXT_LEFT_MARGIN_WITH_BTN - HELP_SCREEN_TEXT_RIGHT_MARGIN_SPACE;
+		usWidth = panelW - HELP_SCREEN_TEXT_LEFT_MARGIN_WITH_BTN - HELP_SCREEN_TEXT_RIGHT_MARGIN_SPACE;
 	else
-		usWidth = gHelpScreen.usScreenWidth - HELP_SCREEN_TEXT_LEFT_MARGIN - HELP_SCREEN_TEXT_RIGHT_MARGIN_SPACE;
+		usWidth = panelW - HELP_SCREEN_TEXT_LEFT_MARGIN - HELP_SCREEN_TEXT_RIGHT_MARGIN_SPACE;
 
 	EDTFile helpFile{ EDTFile::HELP };
+
+	UINT16 const drawY = HelpDrawOriginY();
+	UINT16 const panelH = HelpUiScaleActive() ? gHelpNaturalH : gHelpScreen.usScreenHeight;
+
+	SetFontDestBuffer(HelpDrawDest());
 
 	//if this screen has a valid title
 	if( iStartLoc != -1 )
@@ -1119,7 +1299,7 @@ static void DisplayCurrentScreenTitleAndFooter(void)
 		usPosX = gHelpScreen.usLeftMarginPosX;
 
 		//Display the Title
-		IanDisplayWrappedString(usPosX, gHelpScreen.usScreenLocY + HELP_SCREEN_TITLE_OFFSET_Y, usWidth, HELP_SCREEN_GAP_BTN_LINES, HELP_SCREEN_TITLE_BODY_FONT, HELP_SCREEN_TITLE_BODY_COLOR, zText, HELP_SCREEN_TEXT_BACKGROUND, 0);
+		IanDisplayWrappedString(usPosX, drawY + HELP_SCREEN_TITLE_OFFSET_Y, usWidth, HELP_SCREEN_GAP_BTN_LINES, HELP_SCREEN_TITLE_BODY_FONT, HELP_SCREEN_TITLE_BODY_COLOR, zText, HELP_SCREEN_TEXT_BACKGROUND, 0);
 	}
 
 	//Display the '( press H to get help... )'
@@ -1127,24 +1307,26 @@ static void DisplayCurrentScreenTitleAndFooter(void)
 
 	usPosX = gHelpScreen.usLeftMarginPosX;
 
-	usPosY = gHelpScreen.usScreenLocY+HELP_SCREEN_HELP_REMINDER_Y;
+	usPosY = drawY + HELP_SCREEN_HELP_REMINDER_Y;
 
 	IanDisplayWrappedString(usPosX, usPosY, usWidth, HELP_SCREEN_GAP_BTN_LINES, HELP_SCREEN_TITLE_BODY_FONT, HELP_SCREEN_TITLE_BODY_COLOR, zText, HELP_SCREEN_TEXT_BACKGROUND, 0);
 
 	if( !gHelpScreen.fForceHelpScreenToComeUp )
 	{
 		//calc location for the ' [ x ] Dont display again...'
+		// Same natural Y as checkbox (OFFSET_Y from bottom of STI panel).
 		auto const zText{ helpFile.at(HLP_TXT_CONSTANT_FOOTER) };
 
 		usPosX = gHelpScreen.usLeftMarginPosX + HELP_SCREEN_SHOW_HELP_AGAIN_REGION_TEXT_OFFSET_X;
 
-		usPosY = gHelpScreen.usScreenLocY + gHelpScreen.usScreenHeight - HELP_SCREEN_SHOW_HELP_AGAIN_REGION_TEXT_OFFSET_Y + 2;
+		usPosY = drawY + panelH - HELP_SCREEN_SHOW_HELP_AGAIN_REGION_TEXT_OFFSET_Y + 2;
 
 		//Display the ' [ x ] Dont display again...'
 		IanDisplayWrappedString(usPosX, usPosY, usWidth, HELP_SCREEN_GAP_BTN_LINES, HELP_SCREEN_TEXT_BODY_FONT, HELP_SCREEN_TITLE_BODY_COLOR, zText, HELP_SCREEN_TEXT_BACKGROUND, 0);
 	}
 
 	SetFontShadow( DEFAULT_SHADOW );
+	SetFontDestBuffer(FRAME_BUFFER);
 }
 
 
@@ -1839,7 +2021,7 @@ static void RenderTextBufferToScreen(void)
 		HLP_SCRN__WIDTH_OF_TEXT_BUFFER,
 		HLP_SCRN__HEIGHT_OF_TEXT_AREA - 2 * 8
 	};
-	BltVideoSurface(FRAME_BUFFER, guiHelpScreenTextBufferSurface, gHelpScreen.usLeftMarginPosX, gHelpScreen.usScreenLocY + HELP_SCREEN_TEXT_OFFSET_Y, &SrcRect);
+	BltVideoSurface(HelpDrawDest(), guiHelpScreenTextBufferSurface, gHelpScreen.usLeftMarginPosX, HelpDrawOriginY() + HELP_SCREEN_TEXT_OFFSET_Y, &SrcRect);
 	DisplayHelpScreenTextBufferScrollBox();
 }
 
@@ -1890,14 +2072,16 @@ static void DisplayHelpScreenTextBufferScrollBox(void)
 	INT32	iSizeOfBox;
 	INT32	iTopPosScrollBox=0;
 	UINT16 usPosX;
+	SGPVSurface* const dest = HelpDrawDest();
+	UINT16 const baseX = HelpDrawOriginX();
 
 	if( gHelpScreen.bNumberOfButtons != 0 )
 	{
-		usPosX = gHelpScreen.usScreenLocX + HLP_SCRN__SCROLL_POSX + HELP_SCREEN_BUTTON_BORDER_WIDTH;
+		usPosX = baseX + HLP_SCRN__SCROLL_POSX + HELP_SCREEN_BUTTON_BORDER_WIDTH;
 	}
 	else
 	{
-		usPosX = gHelpScreen.usScreenLocX + HLP_SCRN__SCROLL_POSX;
+		usPosX = baseX + HLP_SCRN__SCROLL_POSX;
 	}
 
 	//
@@ -1913,13 +2097,15 @@ static void DisplayHelpScreenTextBufferScrollBox(void)
 	//if there ARE scroll bars, draw the
 	if( !( gHelpScreen.usTotalNumberOfLinesInBuffer <= HLP_SCRN__MAX_NUMBER_DISPLAYED_LINES_IN_BUFFER ) )
 	{
-		ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, iTopPosScrollBox, usPosX+HLP_SCRN__WIDTH_OF_SCROLL_AREA,	iTopPosScrollBox+iSizeOfBox-1, Get16BPPColor( FROMRGB( 227, 198, 88 ) ) );
+		ColorFillVideoSurfaceArea( dest, usPosX, iTopPosScrollBox, usPosX+HLP_SCRN__WIDTH_OF_SCROLL_AREA,	iTopPosScrollBox+iSizeOfBox-1, Get16BPPColor( FROMRGB( 227, 198, 88 ) ) );
 
 		//display the line
-		SGPVSurface::Lock l(FRAME_BUFFER);
+		SGPVSurface::Lock l(dest);
 		UINT16* const pDestBuf         = l.Buffer<UINT16>();
 		UINT32  const uiDestPitchBYTES = l.Pitch();
-		SetClippingRegionAndImageWidth(uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		UINT16 const clipW = HelpUiScaleActive() ? gHelpNaturalW : SCREEN_WIDTH;
+		UINT16 const clipH = HelpUiScaleActive() ? gHelpNaturalH : SCREEN_HEIGHT;
+		SetClippingRegionAndImageWidth(uiDestPitchBYTES, 0, 0, clipW, clipH);
 
 		// draw the gold highlite line on the top and left
 		LineDraw(FALSE, usPosX, iTopPosScrollBox, usPosX+HLP_SCRN__WIDTH_OF_SCROLL_AREA, iTopPosScrollBox, Get16BPPColor( FROMRGB( 235, 222, 171 ) ), pDestBuf);
@@ -1941,46 +2127,55 @@ static void CreateScrollAreaButtons(void)
 {
 	UINT16 usPosX, usWidth, usPosY;
 	INT32	iPosY, iHeight;
+	int const sc = HelpScale();
 
 	if( gHelpScreen.bNumberOfButtons != 0 )
 	{
-		usPosX = gHelpScreen.usScreenLocX + HLP_SCRN__SCROLL_POSX + HELP_SCREEN_BUTTON_BORDER_WIDTH;
+		usPosX = gHelpScreen.usScreenLocX + (HLP_SCRN__SCROLL_POSX + HELP_SCREEN_BUTTON_BORDER_WIDTH) * sc;
 	}
 	else
 	{
-		usPosX = gHelpScreen.usScreenLocX + HLP_SCRN__SCROLL_POSX;
+		usPosX = gHelpScreen.usScreenLocX + HLP_SCRN__SCROLL_POSX * sc;
 	}
 
-	usWidth = HLP_SCRN__WIDTH_OF_SCROLL_AREA;
+	usWidth = HLP_SCRN__WIDTH_OF_SCROLL_AREA * sc;
 
-	//Get the height and position of the scroll box
+	//Get the height and position of the scroll box (natural Y when scaled → map to display)
 	CalculateHeightAndPositionForHelpScreenScrollBox( &iHeight, &iPosY );
+	if (sc > 1)
+	{
+		// Scroll metrics are natural-relative to compose origin; map to display.
+		iPosY = gHelpScreen.usScreenLocY + (iPosY - (INT32)HelpDrawOriginY()) * sc;
+		iHeight *= sc;
+	}
 
 		//Create a mouse region 'mask' the entrire screen
-	MSYS_DefineRegion( &gHelpScreenScrollArea, usPosX, (UINT16)iPosY, (UINT16)(usPosX+usWidth), (UINT16)(iPosY+HLP_SCRN__HEIGHT_OF_SCROLL_AREA), MSYS_PRIORITY_HIGHEST,
+	MSYS_DefineRegion( &gHelpScreenScrollArea, usPosX, (UINT16)iPosY, (UINT16)(usPosX+usWidth), (UINT16)(iPosY + HLP_SCRN__HEIGHT_OF_SCROLL_AREA * sc), MSYS_PRIORITY_HIGHEST,
 				gHelpScreen.usCursor, SelectHelpScrollAreaMovementCallBack, SelectHelpScrollAreaCallBack );
 
 	guiHelpScreenScrollArrowImage[0] = LoadButtonImage(INTERFACEDIR "/helpscreen.sti", 14, 10, 11, 12, 13);
 	guiHelpScreenScrollArrowImage[ 1 ] = UseLoadedButtonImage( guiHelpScreenScrollArrowImage[ 0 ] ,19,15,16,17,18 );
 
 	if( gHelpScreen.bNumberOfButtons != 0 )
-		usPosX = gHelpScreen.usScreenLocX + HLP_SCRN__SCROLL_UP_ARROW_X + HELP_SCREEN_BUTTON_BORDER_WIDTH;
+		usPosX = gHelpScreen.usScreenLocX + (HLP_SCRN__SCROLL_UP_ARROW_X + HELP_SCREEN_BUTTON_BORDER_WIDTH) * sc;
 	else
-		usPosX = gHelpScreen.usScreenLocX + HLP_SCRN__SCROLL_UP_ARROW_X;
+		usPosX = gHelpScreen.usScreenLocX + HLP_SCRN__SCROLL_UP_ARROW_X * sc;
 
-	usPosY = gHelpScreen.usScreenLocY + HLP_SCRN__SCROLL_UP_ARROW_Y;
+	usPosY = gHelpScreen.usScreenLocY + HLP_SCRN__SCROLL_UP_ARROW_Y * sc;
 
 	//Create the scroll arrows
 	giHelpScreenScrollArrows[0] = QuickCreateButton(guiHelpScreenScrollArrowImage[0], usPosX, usPosY, MSYS_PRIORITY_HIGHEST, BtnHelpScreenScrollArrowsCallback);
 	giHelpScreenScrollArrows[0]->SetUserData(0);
 	giHelpScreenScrollArrows[0]->SetCursor(gHelpScreen.usCursor);
+	HelpEnlargeButtonHit(giHelpScreenScrollArrows[0], sc);
 
-	usPosY = gHelpScreen.usScreenLocY + HLP_SCRN__SCROLL_DWN_ARROW_Y;
+	usPosY = gHelpScreen.usScreenLocY + HLP_SCRN__SCROLL_DWN_ARROW_Y * sc;
 
 	//Create the scroll arrows
 	giHelpScreenScrollArrows[1] = QuickCreateButton(guiHelpScreenScrollArrowImage[1], usPosX, usPosY, MSYS_PRIORITY_HIGHEST, BtnHelpScreenScrollArrowsCallback);
 	giHelpScreenScrollArrows[1]->SetUserData(1);
 	giHelpScreenScrollArrows[1]->SetCursor(gHelpScreen.usCursor);
+	HelpEnlargeButtonHit(giHelpScreenScrollArrows[1], sc);
 }
 
 
@@ -2075,6 +2270,14 @@ static void HelpScreenMouseMoveScrollBox(INT32 const mouse_y)
 	INT32 bar_y;
 	CalculateHeightAndPositionForHelpScreenScrollBox(&bar_h, &bar_y);
 
+	// Mouse is display-space; bar metrics are natural/compose-space.
+	INT32 my = mouse_y;
+	int const sc = HelpScale();
+	if (sc > 1)
+	{
+		my = (mouse_y - (INT32)gHelpScreen.usScreenLocY) / sc + (INT32)HelpDrawOriginY();
+	}
+
 	INT32 const max_h = HLP_SCRN__HEIGHT_OF_SCROLL_AREA - bar_h;
 	if (max_h == 0) return;
 
@@ -2082,13 +2285,13 @@ static void HelpScreenMouseMoveScrollBox(INT32 const mouse_y)
 	if (hlp.iLastMouseClickY == -1)
 	{
 		hlp.iLastMouseClickY =
-			bar_y <= mouse_y && mouse_y < bar_y + bar_h ? mouse_y - bar_y :
+			bar_y <= my && my < bar_y + bar_h ? my - bar_y :
 			bar_h / 2;
 	}
 
 	INT32 const min_y = HLP_SCRN__SCROLL_POSY + hlp.iLastMouseClickY;
 	INT32 const txt_h = hlp.usTotalNumberOfLinesInBuffer - HLP_SCRN__MAX_NUMBER_DISPLAYED_LINES_IN_BUFFER;
-	INT32 const pos   = txt_h * (mouse_y - min_y) / max_h;
+	INT32 const pos   = txt_h * (my - min_y) / max_h;
 	INT32 const delta = pos - hlp.uiLineAtTopOfTextBuffer;
 	ChangeTopLineInTextBufferByAmount(delta);
 }
