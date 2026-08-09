@@ -822,3 +822,95 @@ Changes committed on `feature/multi-edition-detector`. Working tree clean.
 - Native multi-controller support.
 - Reset-to-default button.
 - Samsung native button/stick smoke evidence.
+
+---
+
+## 22. CURRENT SESSION HANDOFF — 09/08/2026 LAPTOP CURSOR + IMMEDIATE SAVE
+
+### User-reported defects
+
+- Left-stick Cursor mode drifts away from laptop buttons.
+- Controller mappings disappear after leaving the game/app and require remapping.
+
+### Findings
+
+- Controller movement already uses logical game coordinates. `SetSafeMousePosition()` applied Android laptop screen-to-logical conversion a second time while laptop scale was active. `SimulateMouseMovement()` also warped a physical pointer for controller-generated movement.
+- Android only wrote `controller.ini` from `LauncherActivity.saveJA2Json()` when Start Game ran. Mapping changes were not immediately persisted when leaving app/game through another lifecycle path. USB install is not cause.
+
+### Changes made, pending verification
+
+- Added `SetSafeMousePositionLogical()` in `src/sgp/Input.h` / `src/sgp/Input.cc`.
+- Controller cursor, nudge, and touchpad movement now update logical position directly and refresh mouse regions without physical pointer warp in `src/sgp/GameController.cc`.
+- `ControllerFragment.updateConfig()` now writes `controller.ini` after every user configuration change and logs save failures.
+- Each dynamic mapping row ignores Spinner callbacks while `syncControllerUi()` loads its persisted Kind and Value. Readiness is deferred through the UI queue and versioned per synchronization, preventing delayed adapter/setSelection callbacks from saving the first Value of a Kind over distinct persisted Values during Controller tab recreation.
+
+### Verification state
+
+- `git diff --check`: passed.
+- Android tests/APK rebuild after latest changes: pending; Bash execution was blocked by temporary safety-classifier unavailability.
+- USB Samsung runtime verification: pending.
+- Do not mark cursor fix or persistence fix complete until APK/native build and Samsung laptop button-targeting plus restart persistence pass.
+
+### Next commands
+
+```bash
+cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android"
+./gradlew app:testDebugUnitTest app:assembleDebug --no-daemon --console=plain
+adb -d install -r app/build/outputs/apk/debug/app-debug.apk
+adb -d shell am force-stop io.github.ja2stracciatella
+adb -d shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+Then verify laptop left-stick Cursor targeting, remap one button, leave app, relaunch, and confirm mapping remains.
+
+---
+
+## 23. CURRENT SESSION HANDOFF — 09/08/2026 DISTINCT VALUE RESTORE FIX
+
+### User-reported defect
+
+Mappings persisted, but after returning to Controller tab, rows sharing same Kind restored same first Value. Example: two `Mouse Button` rows with different Values became same default Value.
+
+### Root cause
+
+Dynamic Spinner adapter replacement and `setSelection()` emit delayed `onItemSelected()` callbacks. Readiness became active before all programmatic callbacks finished; callback then wrote `outputsForKind(kind)[0]` over persisted Value.
+
+### Fix
+
+`ControllerFragment.kt` now:
+
+- Resets each row readiness during every `syncControllerUi()`.
+- Version-tags each synchronization.
+- Applies persisted Kind and exact persisted Value before enabling row callbacks.
+- Defers readiness until next UI queue turn.
+- Ignores stale callbacks from older synchronization versions.
+- Keeps immediate `ControllerIni.save()` after real user changes.
+
+### Verification
+
+- `git diff --check`: passed.
+- User confirmed distinct Values remain distinct after leaving and reopening game/app.
+- Cursor movement reaches laptop buttons correctly.
+- Android test/APK rebuild after final fix: pending; run command below.
+- Native Samsung smoke logs remain pending.
+
+### Commit
+
+Planned commit:
+
+```text
+OGVM-ANDROID: preserve distinct controller mapping values
+```
+
+### Build and install
+
+```bash
+cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android" && ./gradlew app:testDebugUnitTest app:assembleDebug --no-daemon --console=plain && adb -d install -r app/build/outputs/apk/debug/app-debug.apk && adb -d shell am force-stop io.github.ja2stracciatella && adb -d shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+### Remaining backlog
+
+- Live button-listening remap.
+- Native multi-controller support.
+- Reset-to-default button.
+- Full Samsung native button/stick evidence.

@@ -3,6 +3,7 @@ package io.github.ja2stracciatella.ui.main
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Gravity
 import android.view.InputDevice
 import android.view.LayoutInflater
@@ -45,7 +46,9 @@ class ControllerFragment : Fragment() {
         val kind: Spinner,
         val value: Spinner,
         val kindField: TextInputLayout,
-        val valueField: TextInputLayout
+        val valueField: TextInputLayout,
+        var ready: Boolean = false,
+        var syncVersion: Int = 0
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -162,9 +165,10 @@ class ControllerFragment : Fragment() {
             kindField.layoutParams = kindField.layoutParams.apply { (this as LinearLayout.LayoutParams).marginEnd = dp(4) }
             valueField.layoutParams = valueField.layoutParams.apply { (this as LinearLayout.LayoutParams).marginStart = dp(4) }
             binding.controllerBindingsContainer.addView(row, rowParams)
-            bindingRows += BindingRow(token, kind, value, kindField, valueField)
+            val bindingRow = BindingRow(token, kind, value, kindField, valueField)
+            bindingRows += bindingRow
             kind.onItemSelectedListener = selectionListener { kindIndex ->
-                if (suppressControllerCallback) return@selectionListener
+                if (suppressControllerCallback || !bindingRow.ready) return@selectionListener
                 val outputs = outputsForKind(kindIndex)
                 suppressControllerCallback = true
                 kind.tag = kindIndex
@@ -175,7 +179,7 @@ class ControllerFragment : Fragment() {
                 suppressControllerCallback = false
             }
             value.onItemSelectedListener = selectionListener { valueIndex ->
-                if (suppressControllerCallback) return@selectionListener
+                if (suppressControllerCallback || !bindingRow.ready) return@selectionListener
                 val kindIndex = (kind.tag as? Int) ?: kind.selectedItemPosition
                 outputsForKind(kindIndex).getOrNull(valueIndex)?.let { output ->
                     suppressControllerCallback = true
@@ -204,6 +208,8 @@ class ControllerFragment : Fragment() {
         binding.touchpadSensitivityLabel.visibility = binding.touchpadSensitivityBar.visibility
         binding.controllerBindingsContainer.alpha = 1f
         bindingRows.forEach { row ->
+            row.ready = false
+            val syncVersion = ++row.syncVersion
             val output = ControllerIni.OUTPUTS.firstOrNull { it.spec == config.binding(row.token) } ?: ControllerIni.OUTPUTS.first()
             val kind = kindIndex(output.kind)
             val options = outputsForKind(kind)
@@ -215,6 +221,9 @@ class ControllerFragment : Fragment() {
             setSpinnerEnabled(row.value, config.enabled && kind != 0)
             guardSpinner(row.kind)
             guardSpinner(row.value)
+            row.value.post {
+                if (row.syncVersion == syncVersion) row.ready = true
+            }
         }
         setSpinnerEnabled(binding.controllerLayoutSpinner, config.enabled)
         setSpinnerEnabled(binding.leftStickSpinner, config.enabled)
@@ -227,7 +236,13 @@ class ControllerFragment : Fragment() {
 
     private fun updateConfig(change: (ControllerIni.Config) -> ControllerIni.Config) {
         val current = configurationModel.controllerConfig.value ?: ControllerIni.Config()
-        configurationModel.setControllerConfig(change(current))
+        val next = change(current)
+        configurationModel.setControllerConfig(next)
+        try {
+            ControllerIni.save(requireContext().filesDir, next)
+        } catch (error: java.io.IOException) {
+            Log.e("ControllerFragment", "Could not save controller.ini", error)
+        }
     }
 
     private fun setSpinnerEnabled(spinner: Spinner, enabled: Boolean) {

@@ -75,6 +75,8 @@ extern BOOLEAN DequeueSpecificEvent(InputAtom *Event, UINT32 uiMaskFlags );
 extern void					RestrictMouseToXYXY(UINT16 usX1, UINT16 usY1, UINT16 usX2, UINT16 usY2);
 void RestrictMouseCursor(const SGPRect* pRectangle);
 extern void					SetSafeMousePosition(int x, int y);
+// Set controller-generated logical coordinates without Android screen-to-logical remapping.
+void SetSafeMousePositionLogical(int x, int y);
 extern void					FreeMouseCursor(void);
 extern BOOLEAN			IsCursorRestricted( void );
 extern void					GetRestrictedClipCursor( SGPRect *pRectangle );

@@ -127,13 +127,7 @@ static void QueueKeyEvent(UINT16 ubInputEvent, SDL_Keycode Key, SDL_Keymod Mod, 
 	gusTailIndex = (gusTailIndex + 1) % lengthof(gEventQueue);
 }
 
-void SetSafeMousePosition(int x, int y) {
-#ifdef __ANDROID__
-	if (AndroidLaptopScaleActive())
-	{
-		AndroidLaptopMapScreenToLogical(&x, &y);
-	}
-#endif
+static void SetMousePositionClamped(int x, int y) {
 	if (x < 0) x = 0;
 	if (y < 0) y = 0;
 	if (x > SCREEN_WIDTH) x = SCREEN_WIDTH;
@@ -141,6 +135,20 @@ void SetSafeMousePosition(int x, int y) {
 
 	gusMouseXPos = x;
 	gusMouseYPos = y;
+}
+
+void SetSafeMousePosition(int x, int y) {
+#ifdef __ANDROID__
+	if (AndroidLaptopScaleActive())
+	{
+		AndroidLaptopMapScreenToLogical(&x, &y);
+	}
+#endif
+	SetMousePositionClamped(x, y);
+}
+
+void SetSafeMousePositionLogical(int x, int y) {
+	SetMousePositionClamped(x, y);
 }
 
 void HandleSingleClicksAndButtonRepeats();

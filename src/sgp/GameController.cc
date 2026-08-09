@@ -387,8 +387,7 @@ void TouchpadRelMove(float x, float y, bool down)
 	if (dx == 0 && dy == 0) return;
 	const int nx = (int)gusMouseXPos + dx;
 	const int ny = (int)gusMouseYPos + dy;
-	SetSafeMousePosition(nx, ny);
-	SimulateMouseMovement(gusMouseXPos, gusMouseYPos);
+	SetSafeMousePositionLogical(nx, ny);
 	RefreshMouseRegions();
 }
 
@@ -436,8 +435,7 @@ void FireOut(const PadOut& o, bool down)
 				else if (o.param == 3) dx = NUDGE_PX;
 				int nx = (int)gusMouseXPos + dx;
 				int ny = (int)gusMouseYPos + dy;
-				SetSafeMousePosition(nx, ny);
-				SimulateMouseMovement(gusMouseXPos, gusMouseYPos);
+				SetSafeMousePositionLogical(nx, ny);
 				RefreshMouseRegions();
 			}
 			break;
@@ -560,8 +558,7 @@ void GameController_Update(void)
 		int nxPos = (int)gusMouseXPos + dx;
 		int nyPos = (int)gusMouseYPos + dy;
 		SetUsingTouch(false);
-		SetSafeMousePosition(nxPos, nyPos);
-		SimulateMouseMovement(gusMouseXPos, gusMouseYPos);
+		SetSafeMousePositionLogical(nxPos, nyPos);
 		RefreshMouseRegions();
 	};
 
