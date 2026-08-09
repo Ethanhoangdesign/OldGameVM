@@ -47,6 +47,7 @@
                         android:id="@+id/gameDirValueText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:background="@drawable/launcher_directory_border"
                         android:layout_weight="1"
                         android:text="@string/game_dir_empty_text" />
 
@@ -83,12 +84,15 @@
                     android:layout_marginBottom="10dp"
                     android:text="@string/game_version_info_text" />
 
-                <Spinner
-                    android:id="@+id/gameVersionSpinner"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:contentDescription="@string/game_version_empty_text" />
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/LauncherOutlinedSpinner"
+                    android:hint="@string/game_version_field_label">
+                    <Spinner
+                        android:id="@+id/gameVersionSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="@string/game_version_empty_text" />
+                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <LinearLayout
@@ -123,6 +127,7 @@
                         android:id="@+id/saveGameDirValueText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:background="@drawable/launcher_directory_border"
                         android:layout_weight="1"
                         android:text="@string/save_game_dir_empty_text" />
 

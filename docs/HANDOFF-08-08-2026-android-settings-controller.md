@@ -443,3 +443,255 @@ https://github.com/Ethanhoangdesign/OldGameVM/tree/feature/multi-edition-detecto
 4. Capture native controller logs and button/stick evidence.
 5. Keep live button-listening remap and native multi-controller support in backlog.
 6. Keep commit/push status in Git history after build result.
+
+---
+
+## 12. CURRENT SESSION HANDOFF — 09/08/2026 LAUNCHER UI ONLY
+
+### User request
+
+Only change Android launcher UI:
+
+- Remove header area containing `JA2 Stracciatella`.
+- Keep tabs as sole header content.
+- Reduce header height so page content moves upward.
+- Change select controls to outlined fields with visible line and floating label, matching supplied reference image.
+- Preserve all existing behavior and configuration logic.
+- Do not commit unless explicitly requested.
+
+### UI changes made
+
+- Removed launcher title `TextView` with id `title` from `activity_launcher.xml`.
+- Kept `TabLayout`, `ViewPager2`, and FAB unchanged.
+- Added reusable `LauncherOutlinedSpinner` style based on `Widget.MaterialComponents.TextInputLayout.OutlinedBox`.
+- Wrapped existing raw `Spinner` controls in Material `TextInputLayout` wrappers:
+  - Data: Game version.
+  - Settings: Resolution preset and Scaling quality.
+  - Controller: Layout, Left stick, Right stick, Touchpad mode, Touchpad output.
+  - Dynamic controller mappings: Kind and Value.
+- Kept all existing Spinner IDs, adapters, `OnItemSelectedListener` callbacks, `selectedItemPosition` usage, LiveData observers, enable/disable logic, dynamic adapter replacement, and persistence.
+- Increased `launcher_spinner_item.xml` minimum height to 48dp and added horizontal padding.
+- Added field-label string resources for floating labels.
+- Added spacing and adjusted weights for dynamic mapping rows so Button / Kind / Value remain readable on phone screens.
+- No new dependency added; existing Material Components `1.6.1` reused.
+
+### Crash found after first UI build
+
+App installed successfully, but opening `LauncherActivity` crashed:
+
+```text
+Caused by: java.lang.IllegalArgumentException: The style on this component requires your app theme to be Theme.MaterialComponents (or a descendant).
+at com.google.android.material.internal.ThemeEnforcement.checkMaterialTheme
+at com.google.android.material.textfield.TextInputLayout.<init>
+```
+
+Root cause: `LauncherActivity` uses `@style/AppTheme.NoActionBar`, while that style did not inherit from a Material Components theme. New `TextInputLayout` instances therefore failed during ViewPager layout.
+
+### Crash fix applied
+
+Updated `android/app/src/main/res/values/styles.xml`:
+
+```xml
+<style name="AppTheme.NoActionBar" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <item name="colorPrimary">@color/colorPrimary</item>
+    <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+    <item name="colorAccent">@color/colorAccent</item>
+</style>
+```
+
+This is a theme-only compatibility fix. No controller, persistence, adapter, or callback logic changed.
+
+### Verification state
+
+- Initial UI APK build: passed.
+- Initial APK install: passed.
+- Initial `LauncherActivity` start: command returned `Status: ok`, but app then crashed on first view layout due to theme mismatch.
+- Crash log captured from emulator `emulator-5554`.
+- Theme fix applied locally.
+- Rebuild and reinstall after theme fix: pending; run from Android directory:
+
+```bash
+cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android"
+./gradlew app:testDebugUnitTest app:assembleDebug --no-daemon --console=plain
+adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
+adb -s emulator-5554 shell am force-stop io.github.ja2stracciatella
+adb -s emulator-5554 shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+- `git diff --check`: previously passed before latest theme-only edit; rerun after rebuild.
+- Emulator: `emulator-5554`.
+- Samsung A16 serial: `R5GL31H83QX`.
+
+### Files changed for launcher UI
+
+- `android/app/src/main/java/io/github/ja2stracciatella/ui/main/ControllerFragment.kt`
+- `android/app/src/main/res/layout/activity_launcher.xml`
+- `android/app/src/main/res/layout/fragment_launcher_controller.xml`
+- `android/app/src/main/res/layout/fragment_launcher_data_tab.xml`
+- `android/app/src/main/res/layout/fragment_launcher_settings.xml`
+- `android/app/src/main/res/layout/launcher_spinner_item.xml`
+- `android/app/src/main/res/values/strings.xml`
+- `android/app/src/main/res/values/styles.xml`
+
+### Next action
+
+1. Rebuild after `AppTheme.NoActionBar` Material parent fix.
+2. Reinstall APK on `emulator-5554`.
+3. Launch and confirm no crash.
+4. Visually verify tabs-only header, reduced header height, outlined fields, floating labels, dropdown popup, and readable mapping rows.
+5. Verify tab switching and controller selection callbacks still update configuration.
+6. Run `git diff --check`.
+7. Leave changes uncommitted unless user requests commit.
+8. Keep live button-listening remap and native multi-controller support in backlog.
+
+### Repository state
+
+- Branch: `feature/multi-edition-detector`.
+- Launcher UI changes remain uncommitted.
+- No commit created for this UI session.
+- Existing prior commits remain unchanged.
+- Do not mark UI smoke verification complete until rebuilt APK launches without crash and screenshot confirms requested layout.
+
+---
+
+## 13. COMMAND QUICK REFERENCE
+
+```bash
+# List available AVDs
+~/Library/Android/sdk/emulator/emulator -list-avds
+
+# One-terminal build/install/launch flow; starts first AVD if needed
+cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android" && AVD=$(~/Library/Android/sdk/emulator/emulator -list-avds | sed -n '1p') && [ -n "$AVD" ] || { printf 'Chưa có AVD\n'; exit 1; }; adb start-server >/dev/null; SERIAL=$(adb devices | awk '$1 ~ /^emulator-/ {print $1; exit}'); [ -n "$SERIAL" ] || { nohup ~/Library/Android/sdk/emulator/emulator -avd "$AVD" >/tmp/ja2-emulator.log 2>&1 </dev/null & }; printf 'Đang chờ simulator...\n'; while :; do SERIAL=$(adb devices | awk '$1 ~ /^emulator-/ && $2=="device" {print $1; exit}'); if [ -n "$SERIAL" ] && [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then break; fi; sleep 2; done; printf 'Simulator sẵn sàng: %s\n' "$SERIAL"; ./gradlew app:assembleDebug --no-daemon --console=plain && adb -s "$SERIAL" install -r app/build/outputs/apk/debug/app-debug.apk && adb -s "$SERIAL" shell am force-stop io.github.ja2stracciatella && adb -s "$SERIAL" shell am start -n io.github.ja2stracciatella/.LauncherActivity
+
+# Rebuild after theme crash fix
+./gradlew app:testDebugUnitTest app:assembleDebug --no-daemon --console=plain
+
+# Install and launch existing emulator
+adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
+adb -s emulator-5554 shell am force-stop io.github.ja2stracciatella
+adb -s emulator-5554 shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+Do not paste `NAME_AVD` literally; it is only a placeholder. Use the exact name returned by `-list-avds`.
+
+---
+
+## 14. WARNINGS AND KNOWN LIMITATIONS
+
+- Android SDK XML version mismatch warning is environmental.
+- `platforms;android-33` package path warning is environmental.
+- `package.xml` unexpected `abis` element warning is environmental.
+- Gradle deprecated-feature warning is non-blocking.
+- AVD may not receive Mac-attached DualSense input even when macOS sees controller.
+- Samsung native button/stick smoke evidence remains pending.
+- Full live button-listening remap remains backlog.
+
+---
+
+## 15. HANDOFF ACCEPTANCE CRITERIA
+
+UI session complete only when all items pass:
+
+- [x] Rebuilt APK includes Material theme fix.
+- [x] `LauncherActivity` opens without crash.
+- [x] Header contains tabs only; title area removed.
+- [x] Header is visibly shorter and content starts higher.
+- [x] Select controls show gray bottom border and readable values.
+- [x] Directory fields show gray bottom border.
+- [x] Dropdown popups open and values remain selectable.
+- [x] Disabled fields render correctly.
+- [x] Tab switching works.
+- [x] Controller configuration updates remain functional.
+- [x] `controller.ini` persistence remains functional.
+- [x] `git diff --check` passes.
+- [x] Changes committed and pushed after explicit user request.
+
+---
+
+## 16. CURRENT SESSION HANDOFF — 09/08/2026 LAUNCHER FIELD BORDERS
+
+### User request
+
+- Keep tab labels white with visible active-tab indicator.
+- Add visible selector borders so tap targets are clear.
+- Use gray bottom border only, not full rectangular outline.
+- Apply same bottom border to game and save directory fields.
+
+### Changes made
+
+- Added gray tab text and white active-tab indicator in `activity_launcher.xml`.
+- Added `launcher_spinner_border.xml`: white background with gray `2dp` bottom line anchored to view bottom.
+- Added `launcher_directory_border.xml`: same gray bottom line for directory path fields.
+- Applied selector background to static and dynamic Spinner rows.
+- Applied directory background to `gameDirValueText` and `saveGameDirValueText`.
+- Removed full `TextInputLayout` outline styling; retained wrapper for existing labels/layout.
+- Kept controller mapping, callbacks, persistence, and tab behavior unchanged.
+
+### Verification
+
+- `git diff --check`: passed.
+- User screenshot confirmed selector rows and directory field layout visible.
+- Android SDK XML/package warnings remain environmental.
+- Samsung native button/stick smoke evidence remains pending.
+
+### Files changed
+
+- `android/app/src/main/java/io/github/ja2stracciatella/ui/main/ControllerFragment.kt`
+- `android/app/src/main/res/layout/activity_launcher.xml`
+- `android/app/src/main/res/layout/fragment_launcher_controller.xml`
+- `android/app/src/main/res/layout/fragment_launcher_data_tab.xml`
+- `android/app/src/main/res/layout/fragment_launcher_settings.xml`
+- `android/app/src/main/res/layout/launcher_spinner_item.xml`
+- `android/app/src/main/res/drawable/launcher_directory_border.xml`
+- `android/app/src/main/res/drawable/launcher_spinner_border.xml`
+- `android/app/src/main/res/values/colors.xml`
+- `android/app/src/main/res/values/strings.xml`
+- `android/app/src/main/res/values/styles.xml`
+- `docs/HANDOFF-08-08-2026-android-settings-controller.md`
+
+### Next action
+
+1. Run Android unit tests and debug APK build if final clean verification needed.
+2. Keep Samsung native controller evidence pending until logs and input proof captured.
+3. Keep live remap and native multi-controller support in backlog.
+4. Use commit/push recorded in Git history.
+
+### Commit
+
+```text
+OGVM-ANDROID: add launcher selector bottom borders
+```
+
+### Repository
+
+```text
+Branch: feature/multi-edition-detector
+Remote: origin
+```
+
+---
+
+## 17. COMMAND QUICK REFERENCE — FINAL UI VERIFY
+
+```bash
+cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android"
+./gradlew app:testDebugUnitTest app:assembleDebug --no-daemon --console=plain
+adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk
+adb -s emulator-5554 shell am force-stop io.github.ja2stracciatella
+adb -s emulator-5554 shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+Warnings expected: SDK XML version mismatch, inconsistent `platforms;android-33` path, unexpected `abis` in `package.xml`, and Gradle deprecated features.
+
+Do not mark Samsung native controller smoke complete without Android device visibility, SDL enumeration/open logs, and button/stick evidence.
+
+---
+
+## 18. FINAL STATUS
+
+- Launcher UI changes: ready for commit and push.
+- Android controller mapping UI and persistence: done.
+- Samsung native controller smoke evidence: pending.
+- Live button-listening remap: backlog.
+- Native multi-controller support: backlog.
+- Reset-to-default button: backlog.

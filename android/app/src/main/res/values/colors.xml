@@ -3,4 +3,5 @@
     <color name="colorPrimary">#9d1e1c</color>
     <color name="colorPrimaryDark">#4e0f0e</color>
     <color name="colorAccent">#9d1e1c</color>
+    <color name="launcherFieldStroke">#777777</color>
 </resources>

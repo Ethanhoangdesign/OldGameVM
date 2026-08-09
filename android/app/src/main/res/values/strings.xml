@@ -24,6 +24,16 @@
         Select the game version of you original Jagged Alliance 2 game files.
     </string>
     <string name="game_version_empty_text">No version chosen yet</string>
+    <string name="game_version_field_label">Game version</string>
+    <string name="resolution_preset_field_label">Resolution preset</string>
+    <string name="scaling_quality_field_label">Scaling mode</string>
+    <string name="controller_layout_field_label">Controller layout</string>
+    <string name="controller_left_stick_field_label">Left stick</string>
+    <string name="controller_right_stick_field_label">Right stick</string>
+    <string name="controller_touchpad_field_label">Touchpad</string>
+    <string name="controller_touchpad_output_field_label">Touchpad output</string>
+    <string name="controller_binding_kind_field_label">Kind</string>
+    <string name="controller_binding_value_field_label">Value</string>
     <string name="scaling_quality_info_title_text">Scaling Mode</string>
     <string name="scaling_quality_info_text">Choose how game video scales to screen. Pixel-perfect stays sharp; other modes fit any screen.</string>
     <string name="resolution_info_title_text">Internal Resolution</string>

@@ -15,8 +15,10 @@ import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.google.android.material.textfield.TextInputLayout
 import io.github.ja2stracciatella.*
 import io.github.ja2stracciatella.databinding.FragmentLauncherControllerBinding
 
@@ -125,10 +127,14 @@ class ControllerFragment : Fragment() {
             value.adapter = spinnerAdapter(listOf("None"))
             kind.tag = 0
             value.tag = 0
+            val kindField = outlinedSpinner(kind, R.string.controller_binding_kind_field_label)
+            val valueField = outlinedSpinner(value, R.string.controller_binding_value_field_label)
             val rowParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(6) }
-            row.addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f))
-            row.addView(kind, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f))
-            row.addView(value, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.7f))
+            row.addView(label, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.8f))
+            row.addView(kindField, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f))
+            row.addView(valueField, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.7f))
+            kindField.layoutParams = kindField.layoutParams.apply { (this as LinearLayout.LayoutParams).marginEnd = dp(4) }
+            valueField.layoutParams = valueField.layoutParams.apply { (this as LinearLayout.LayoutParams).marginStart = dp(4) }
             binding.controllerBindingsContainer.addView(row, rowParams)
             bindingRows += BindingRow(token, kind, value)
             kind.onItemSelectedListener = selectionListener { kindIndex ->
@@ -200,6 +206,16 @@ class ControllerFragment : Fragment() {
         override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = action(position)
         override fun onNothingSelected(parent: AdapterView<*>?) {}
     }
+
+    private fun outlinedSpinner(spinner: Spinner, label: Int): TextInputLayout =
+        TextInputLayout(requireContext(), null, com.google.android.material.R.attr.textInputStyle).apply {
+            setHint(label)
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+            setBoxStrokeColor(ContextCompat.getColor(requireContext(), R.color.launcherFieldStroke))
+            boxStrokeWidth = dp(1)
+            boxStrokeWidthFocused = dp(2)
+            addView(spinner, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
