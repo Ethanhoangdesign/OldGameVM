@@ -9,6 +9,7 @@
 #include "Logger.h"
 #include "UILayout.h"
 #include "RustInterface.h"
+#include "MouseSystem.h"
 
 #include <fstream>
 #include <string>
@@ -340,8 +341,14 @@ void LoadMappingDb()
 void OpenFirstController()
 {
 	if (g_pad) return;
-	for (int i = 0; i < SDL_NumJoysticks(); ++i) {
-		if (SDL_IsGameController(i)) {
+	const int joystickCount = SDL_NumJoysticks();
+	SLOGI("OGVM-CONTROLLER: enumerating {} joystick(s)", joystickCount);
+	for (int i = 0; i < joystickCount; ++i) {
+		const char* name = SDL_JoystickNameForIndex(i);
+		const bool isController = SDL_IsGameController(i);
+		SLOGI("OGVM-CONTROLLER: joystick {} name='{}' game_controller={}",
+		      i, name ? name : "<unknown>", isController ? "yes" : "no");
+		if (isController) {
 			g_pad = SDL_GameControllerOpen(i);
 			if (g_pad) {
 				const int pads = SDL_GameControllerGetNumTouchpads(g_pad);
@@ -350,6 +357,7 @@ void OpenFirstController()
 				g_tpFingerDown = false;
 				return;
 			}
+			SLOGW("OGVM-CONTROLLER: open joystick {} failed: {}", i, SDL_GetError());
 		}
 	}
 }
@@ -359,6 +367,7 @@ void OpenFirstController()
 void TouchpadRelMove(float x, float y, bool down)
 {
 	if (!g_touchpadCursor) return;
+	SetUsingTouch(false);
 	if (!down) {
 		g_tpFingerDown = false;
 		return;
@@ -380,6 +389,7 @@ void TouchpadRelMove(float x, float y, bool down)
 	const int ny = (int)gusMouseYPos + dy;
 	SetSafeMousePosition(nx, ny);
 	SimulateMouseMovement(gusMouseXPos, gusMouseYPos);
+	RefreshMouseRegions();
 }
 
 /* Poll path — works even if host doesn't forward ctouchpad events. */
@@ -418,6 +428,7 @@ void FireOut(const PadOut& o, bool down)
 			break;
 		case OUT_NUDGE:
 			if (down) {
+				SetUsingTouch(false);
 				int dx = 0, dy = 0;
 				if (o.param == 0) dy = -NUDGE_PX;
 				else if (o.param == 1) dy = NUDGE_PX;
@@ -427,6 +438,7 @@ void FireOut(const PadOut& o, bool down)
 				int ny = (int)gusMouseYPos + dy;
 				SetSafeMousePosition(nx, ny);
 				SimulateMouseMovement(gusMouseXPos, gusMouseYPos);
+				RefreshMouseRegions();
 			}
 			break;
 		default: break;
@@ -547,8 +559,10 @@ void GameController_Update(void)
 		if (dx == 0 && dy == 0) return;
 		int nxPos = (int)gusMouseXPos + dx;
 		int nyPos = (int)gusMouseYPos + dy;
+		SetUsingTouch(false);
 		SetSafeMousePosition(nxPos, nyPos);
 		SimulateMouseMovement(gusMouseXPos, gusMouseYPos);
+		RefreshMouseRegions();
 	};
 
 	// Digital stick -> 4 keys (edge). keys: [up,down,left,right]

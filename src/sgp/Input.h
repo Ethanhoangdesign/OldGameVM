@@ -66,6 +66,7 @@ bool IsMouseButtonDown(UINT32 mouseButton);
 bool IsMainFingerDown();
 // TRUE = Last pointer device that was used was a touch device, FALSE = Last pointer device that was used was a mouse
 bool IsUsingTouch();
+void SetUsingTouch(bool usingTouch);
 
 void DequeueAllInputEvents(void);
 extern BOOLEAN DequeueEvent(InputAtom *Event);

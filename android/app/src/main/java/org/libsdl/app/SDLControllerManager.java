@@ -558,10 +558,12 @@ class SDLGenericMotionListener_API12 implements View.OnGenericMotionListener {
         float x, y;
         int action;
 
-        switch ( event.getSource() ) {
-            case InputDevice.SOURCE_JOYSTICK:
-                return SDLControllerManager.handleJoystickMotionEvent(event);
+        int source = event.getSource();
+        if ((source & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
+            return SDLControllerManager.handleJoystickMotionEvent(event);
+        }
 
+        switch (source) {
             case InputDevice.SOURCE_MOUSE:
                 action = event.getActionMasked();
                 switch (action) {
@@ -687,10 +689,12 @@ class SDLGenericMotionListener_API26 extends SDLGenericMotionListener_API24 {
         float x, y;
         int action;
 
-        switch ( event.getSource() ) {
-            case InputDevice.SOURCE_JOYSTICK:
-                return SDLControllerManager.handleJoystickMotionEvent(event);
+        int source = event.getSource();
+        if ((source & InputDevice.SOURCE_CLASS_JOYSTICK) != 0) {
+            return SDLControllerManager.handleJoystickMotionEvent(event);
+        }
 
+        switch (source) {
             case InputDevice.SOURCE_MOUSE:
             // DeX desktop mouse cursor is a separate non-standard input type.
             case InputDevice.SOURCE_MOUSE | InputDevice.SOURCE_TOUCHSCREEN:

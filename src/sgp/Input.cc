@@ -552,6 +552,10 @@ bool IsUsingTouch() {
 	return gfIsUsingTouch;
 }
 
+void SetUsingTouch(bool usingTouch) {
+	gfIsUsingTouch = usingTouch;
+}
+
 void RestrictMouseToXYXY(UINT16 usX1, UINT16 usY1, UINT16 usX2, UINT16 usY2)
 {
 	SGPRect TempRect;

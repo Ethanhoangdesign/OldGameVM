@@ -25,36 +25,44 @@ object ControllerIni {
     val LAYOUTS = arrayOf("xbox", "ps5")
     val TOUCHPAD_MODES = arrayOf("cursor", "button", "none")
 
-    /** Values accepted by native ParseOutSpec, grouped for Android dropdowns. */
+    /** Values accepted by native ParseOutSpec, grouped like desktop launcher menus. */
     val OUTPUTS = listOf(
         Output("None", "none", "none"),
-        Output("Mouse left", "mouse", "mouse:left"),
-        Output("Mouse right", "mouse", "mouse:right"),
-        Output("Mouse middle", "mouse", "mouse:middle"),
-        Output("Wheel up", "wheel", "wheel:up"),
-        Output("Wheel down", "wheel", "wheel:down"),
-        Output("Nudge up", "motion", "nudge:up"),
-        Output("Nudge down", "motion", "nudge:down"),
-        Output("Nudge left", "motion", "nudge:left"),
-        Output("Nudge right", "motion", "nudge:right"),
-        Output("Key Up", "key", "key:up"),
-        Output("Key Down", "key", "key:down"),
-        Output("Key Left", "key", "key:left"),
-        Output("Key Right", "key", "key:right"),
-        Output("Enter", "key", "key:return"),
-        Output("Escape", "key", "key:escape"),
+        Output("0 (main click)", "mouse", "mouse:left"),
+        Output("1 (secondary click)", "mouse", "mouse:right"),
+        Output("2 (middle click)", "mouse", "mouse:middle"),
+        Output("Up", "wheel", "wheel:up"),
+        Output("Down", "wheel", "wheel:down"),
+        Output("Up", "motion", "nudge:up"),
+        Output("Down", "motion", "nudge:down"),
+        Output("Left", "motion", "nudge:left"),
+        Output("Right", "motion", "nudge:right"),
+        Output("Up", "key", "key:up"),
+        Output("Down", "key", "key:down"),
+        Output("Left", "key", "key:left"),
+        Output("Right", "key", "key:right"),
         Output("Space", "key", "key:space"),
+        Output("Return", "key", "key:return"),
+        Output("Escape", "key", "key:escape"),
         Output("Tab", "key", "key:tab"),
         Output("Backspace", "key", "key:backspace"),
         Output("Delete", "key", "key:delete"),
+        Output("Insert", "key", "key:insert"),
+        Output("Home", "key", "key:home"),
+        Output("End", "key", "key:end"),
+        Output("PageUp", "key", "key:pageup"),
+        Output("PageDown", "key", "key:pagedown"),
+        Output("Shift", "key", "key:lshift"),
+        Output("Ctrl", "key", "key:lctrl"),
+        Output("Alt", "key", "key:lalt"),
         Output("F1", "key", "key:f1"), Output("F2", "key", "key:f2"),
         Output("F3", "key", "key:f3"), Output("F4", "key", "key:f4"),
         Output("F5", "key", "key:f5"), Output("F6", "key", "key:f6"),
         Output("F7", "key", "key:f7"), Output("F8", "key", "key:f8"),
         Output("F9", "key", "key:f9"), Output("F10", "key", "key:f10"),
         Output("F11", "key", "key:f11"), Output("F12", "key", "key:f12")
-    ) + ('A'..'Z').map { Output("Key $it", "key", "key:${it.lowercase()}") } +
-        ('0'..'9').map { Output("Key $it", "key", "key:$it") }
+    ) + ('A'..'Z').map { Output(it.toString(), "key", "key:${it.lowercase()}") } +
+        ('0'..'9').map { Output(it.toString(), "key", "key:$it") }
 
     data class Output(val label: String, val kind: String, val spec: String)
 

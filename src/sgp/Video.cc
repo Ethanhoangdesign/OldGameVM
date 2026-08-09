@@ -20,6 +20,7 @@
 #include "Laptop.h"
 #endif
 #include "Icon.h"
+#include "Input.h"
 #include <algorithm>
 #include <chrono>
 #include <stdexcept>
@@ -471,7 +472,7 @@ static bool ClampSDLRectToSurface(SDL_Rect& r, int const w, int const h)
 	int bottom = r.y + r.h;
 	if (left   < 0) left   = 0;
 	if (top    < 0) top    = 0;
-	if (right  > w) right  = w;
+	if (right  > w) right = w;
 	if (bottom > h) bottom = h;
 	if (right <= left || bottom <= top)
 	{
@@ -485,6 +486,45 @@ static bool ClampSDLRectToSurface(SDL_Rect& r, int const w, int const h)
 	return true;
 }
 
+static void BlitSoftwareCursor(SDL_Surface* destination, bool saveBackground)
+{
+	if (IsUsingTouch())
+	{
+		if (saveBackground) MouseBackground = { 0, 0, 0, 0 };
+		return;
+	}
+
+	INT16 const cursorH = static_cast<INT16>(gusMouseCursorHeight + gsMouseSizeYModifier);
+	if (gusMouseCursorWidth == 0 || cursorH <= 0 || !MouseCursor || !MouseCursor->pixels)
+	{
+		if (saveBackground) MouseBackground = { 0, 0, 0, 0 };
+		return;
+	}
+
+	auto const cursorPos{ GetCursorPos() };
+	SDL_Rect src{ 0, 0, gusMouseCursorWidth, cursorH };
+	if (src.w > MouseCursor->w) src.w = MouseCursor->w;
+	if (src.h > MouseCursor->h) src.h = MouseCursor->h;
+	SDL_Rect dst{
+		cursorPos.iX - gsMouseCursorXOffset,
+		cursorPos.iY - gsMouseCursorYOffset,
+		src.w, src.h
+	};
+	SDL_Rect footprint = dst;
+	if (SDL_BlitSurface(MouseCursor, &src, destination, &dst) != 0)
+	{
+		SLOGW("OGVM-CURSOR: blit failed: {}", SDL_GetError());
+		return;
+	}
+	if (saveBackground)
+	{
+		if (ClampSDLRectToSurface(footprint, destination->w, destination->h))
+			MouseBackground = footprint;
+		else
+			MouseBackground = { 0, 0, 0, 0 };
+	}
+}
+
 void RefreshScreen(void)
 {
 	// Not initialised yet or already shut down?
@@ -495,7 +535,7 @@ void RefreshScreen(void)
 	const BOOLEAN scrolling = (gsScrollXIncrement != 0 || gsScrollYIncrement != 0);
 
 #ifdef __ANDROID__
-	// Android: present FrameBuffer directly (no ScreenBuffer/cursor path).
+	// Android: composite cursor on clean ScreenBuffer and upload full texture.
 	// Dirty partial UpdateTexture + soft cursor SEGV (fault 0x1c) on GLES
 	// during GIO / MessageBox / fade.
 	if (gfFadeInitialized && gfFadeInVideo)
@@ -513,8 +553,10 @@ void RefreshScreen(void)
 	}
 	gfIgnoreScrollDueToCenterAdjust = FALSE;
 	MouseBackground = { 0, 0, 0, 0 };
+	SDL_BlitSurface(FrameBuffer, NULL, ScreenBuffer, NULL);
+		BlitSoftwareCursor(ScreenBuffer, false);
 
-	SDL_UpdateTexture(ScreenTexture, NULL, FrameBuffer->pixels, FrameBuffer->pitch);
+	SDL_UpdateTexture(ScreenTexture, NULL, ScreenBuffer->pixels, ScreenBuffer->pitch);
 	SDL_RenderClear(GameRenderer);
 	// Laptop fit only while scale active; else full screen (GIO/fade).
 	{
@@ -600,8 +642,9 @@ void RefreshScreen(void)
 	}
 #endif
 
-	#ifndef __ANDROID__
-	// Software cursor (desktop). Android touch: skip — bad cursor rect SEGV in SDL blit.
+	if (!IsUsingTouch())
+	{
+	// Software cursor. Android touch skips this path; controller input renders it.
 	INT16 const cursorH = static_cast<INT16>(gusMouseCursorHeight + gsMouseSizeYModifier);
 	if (gusMouseCursorWidth > 0 && cursorH > 0 && MouseCursor && MouseCursor->pixels)
 	{
@@ -626,7 +669,7 @@ void RefreshScreen(void)
 	{
 		MouseBackground = { 0, 0, 0, 0 };
 	}
-#endif
+	}
 
 	// Full texture upload. Partial rect + pitched SrcPixels SEGV on Android GLES.
 	SDL_UpdateTexture(ScreenTexture, NULL, ScreenBuffer->pixels, ScreenBuffer->pitch);
