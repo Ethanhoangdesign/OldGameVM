@@ -393,8 +393,39 @@ Android `Spinner` fires `onItemSelected` while value adapter is being replaced. 
 ### Verification
 
 - `git diff --check`: passed.
-- Android unit test/build: run after this handoff update; record result here.
-- Samsung A16 mapping persistence: user reports fixed in latest APK; repeat after build if APK install available.
+- Android unit tests + debug APK build: passed.
+- Build result:
+
+```text
+BUILD SUCCESSFUL in 3s
+42 actionable tasks: 3 executed, 39 up-to-date
+```
+
+- APK install on Samsung A16/connected Android device: passed.
+- Launcher force-stop and start: passed.
+- User confirmed mapping fix works: rows other than A / Cross can retain selected `Kind` and `Value`.
+- SDK warnings remain environmental and do not block build:
+  - SDK XML version mismatch.
+  - `platforms;android-33` inconsistent path.
+  - `package.xml` unexpected `abis` element.
+  - Deprecated Gradle features warning.
+- Full Samsung native button/stick smoke evidence: still pending.
+
+### Commit and push
+
+```text
+Commit: b1110c98d
+Message: OGVM-ANDROID: fix controller mapping persistence
+Branch: feature/multi-edition-detector
+Remote: origin
+Status: pushed successfully
+```
+
+Repository:
+
+```text
+https://github.com/Ethanhoangdesign/OldGameVM/tree/feature/multi-edition-detector
+```
 
 ### Files changed in mapping fix
 
