@@ -170,7 +170,7 @@ class ControllerFragment : Fragment() {
                 kind.tag = kindIndex
                 value.adapter = spinnerAdapter(outputs.map { it.label })
                 value.setSelection(0, false)
-                value.isEnabled = kindIndex != 0
+                setSpinnerEnabled(value, (configurationModel.controllerConfig.value?.enabled == true) && kindIndex != 0)
                 updateConfig { it.withBinding(token, outputs.firstOrNull()?.spec ?: "none") }
                 suppressControllerCallback = false
             }

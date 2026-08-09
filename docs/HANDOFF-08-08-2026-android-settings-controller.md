@@ -781,6 +781,44 @@ adb shell am start -n io.github.ja2stracciatella/.LauncherActivity
 
 APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-Commit message planned: `OGVM-ANDROID: fix disabled controller field styling`.
+Commit message: `OGVM-ANDROID: fix disabled controller field styling`.
 
-Changes remain uncommitted until explicit commit/push action.
+---
+
+## 21. CURRENT SESSION HANDOFF — 09/08/2026 VALUE DROPDOWN TOUCH FIX
+
+### User-reported defect
+
+Only A / Cross and B / Circle Value dropdowns opened. Later rows showed selected Kind and Value text but tapping Value did nothing.
+
+### Root cause
+
+When a row started with `Kind = <empty>`, `syncControllerUi()` disabled both Value Spinner and its `TextInputLayout` wrapper. Kind selection later set only `value.isEnabled = true`; wrapper stayed disabled. `guardSpinner()` therefore consumed Value touches.
+
+### Fix
+
+`ControllerFragment.kt` now calls existing `setSpinnerEnabled()` after Kind changes. Spinner, `TextInputLayout`, border styling, and touch state stay synchronized. Value enables only when Gamepad is enabled and selected Kind is not `<empty>`.
+
+### Verification
+
+- `git diff --check`: passed.
+- Android unit tests: passed.
+- Debug APK build: passed.
+- APK installed and launcher reopened on Android simulator.
+- User confirmed Value dropdowns work after fix.
+- Samsung native button/stick evidence remains pending.
+
+### Commit
+
+```text
+OGVM-ANDROID: fix disabled controller field styling
+```
+
+Changes committed on `feature/multi-edition-detector`. Working tree clean.
+
+### Remaining backlog
+
+- Live button-listening remap.
+- Native multi-controller support.
+- Reset-to-default button.
+- Samsung native button/stick smoke evidence.
