@@ -7,7 +7,7 @@
     </item>
     <item android:height="1dp" android:gravity="bottom">
         <shape>
-            <solid android:color="#777777" />
+            <solid android:color="#000000" />
         </shape>
     </item>
 </layer-list>

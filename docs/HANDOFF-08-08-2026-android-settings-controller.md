@@ -695,3 +695,92 @@ Do not mark Samsung native controller smoke complete without Android device visi
 - Live button-listening remap: backlog.
 - Native multi-controller support: backlog.
 - Reset-to-default button: backlog.
+
+---
+
+## 19. CURRENT SESSION HANDOFF — 09/08/2026 DISABLED CONTROLLER FIELDS
+
+### User-reported issue
+
+Controller mapping rows stayed visually active while Gamepad was disabled. Kind and Value text/lines did not share disabled styling, and disabled fields could still open dropdowns.
+
+### Fix
+
+`ControllerFragment.kt` now synchronizes disabled state across Spinner and `TextInputLayout`:
+
+- Disabled Kind and Value text use light gray `#D9D9D9`.
+- Enabled Kind and Value text use black `#000000`.
+- Disabled bottom lines use light gray `#D9D9D9`.
+- Enabled bottom lines use black `#000000`.
+- All selector lines remain `1dp`.
+- Disabled wrapper and Spinner reject touch, so dropdowns cannot open.
+- Value stays disabled when Kind is `<empty>`.
+- Static controller selectors use same state handling.
+- Directory fields keep one-pixel bottom borders.
+
+Separate enabled/disabled drawables:
+
+- `android/app/src/main/res/drawable/launcher_spinner_enabled_border.xml`
+- `android/app/src/main/res/drawable/launcher_spinner_disabled_border.xml`
+
+### Verification
+
+- Android unit tests: passed.
+- Debug APK build: passed.
+
+```text
+BUILD SUCCESSFUL in 3s
+42 actionable tasks: 3 executed, 39 up-to-date
+```
+
+- APK install: passed.
+- Launcher restart: passed.
+- User confirmed disabled mapping line/text appearance is correct.
+- SDK XML, SDK path, `package.xml`, and Gradle deprecation warnings remain environmental/non-blocking.
+- Samsung native button/stick evidence remains pending.
+
+### Build APK
+
+```bash
+cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android"
+./gradlew clean app:testDebugUnitTest app:assembleDebug --no-daemon --console=plain
+```
+
+APK output:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Install and restart
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am force-stop io.github.ja2stracciatella
+adb shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+### Repository state
+
+- Branch: `feature/multi-edition-detector`.
+- Changes ready for commit and push after this handoff update.
+- Keep live button-listening remap and native multi-controller support in backlog.
+- Do not mark Samsung native controller smoke complete without Android visibility, SDL enumeration/open logs, and button/stick evidence.
+
+---
+
+## 20. BUILD / INSTALL QUICK REFERENCE
+
+```bash
+cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android"
+./gradlew clean app:testDebugUnitTest app:assembleDebug --no-daemon --console=plain
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am force-stop io.github.ja2stracciatella
+adb shell am start -n io.github.ja2stracciatella/.LauncherActivity
+``` 
+
+APK: `android/app/build/outputs/apk/debug/app-debug.apk`
+
+Commit message planned: `OGVM-ANDROID: fix disabled controller field styling`.
+
+Changes remain uncommitted until explicit commit/push action.

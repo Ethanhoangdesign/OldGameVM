@@ -40,7 +40,13 @@ class ControllerFragment : Fragment() {
         }
     }
 
-    private data class BindingRow(val token: String, val kind: Spinner, val value: Spinner)
+    private data class BindingRow(
+        val token: String,
+        val kind: Spinner,
+        val value: Spinner,
+        val kindField: TextInputLayout,
+        val valueField: TextInputLayout
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,7 +92,19 @@ class ControllerFragment : Fragment() {
     }
 
     private fun <T> spinnerAdapter(items: List<T>): ArrayAdapter<String> {
-        val adapter = ArrayAdapter(requireContext(), R.layout.launcher_spinner_item, items.map { it.toString() })
+        val adapter = object : ArrayAdapter<String>(requireContext(), R.layout.launcher_spinner_item, items.map { it.toString() }) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return super.getView(position, convertView, parent).apply {
+                    isEnabled = parent.isEnabled
+                    (this as? TextView)?.setTextColor(
+                        ContextCompat.getColor(
+                            requireContext(),
+                            if (parent.isEnabled) R.color.launcherFieldEnabled else R.color.launcherFieldDisabled
+                        )
+                    )
+                }
+            }
+        }
         adapter.setDropDownViewResource(R.layout.launcher_spinner_dropdown_item)
         return adapter
     }
@@ -97,6 +115,14 @@ class ControllerFragment : Fragment() {
         binding.rightStickSpinner.adapter = spinnerAdapter(stickModes.map(::stickLabel))
         binding.touchpadModeSpinner.adapter = spinnerAdapter(ControllerIni.TOUCHPAD_MODES.map(::touchpadLabel))
         binding.touchpadOutputSpinner.adapter = spinnerAdapter(ControllerIni.OUTPUTS.map { it.label })
+        listOf(
+            binding.controllerLayoutSpinner,
+            binding.leftStickSpinner,
+            binding.rightStickSpinner,
+            binding.touchpadModeSpinner,
+            binding.touchpadOutputSpinner
+        ).forEach(::guardSpinner)
+
         buildBindingRows()
         configurationModel.controllerConfig.observe(viewLifecycleOwner) { config -> syncControllerUi(config) }
         binding.controllerEnableChip.setOnCheckedChangeListener { _, checked -> if (!suppressControllerCallback) updateConfig { it.copy(enabled = checked) } }
@@ -136,7 +162,7 @@ class ControllerFragment : Fragment() {
             kindField.layoutParams = kindField.layoutParams.apply { (this as LinearLayout.LayoutParams).marginEnd = dp(4) }
             valueField.layoutParams = valueField.layoutParams.apply { (this as LinearLayout.LayoutParams).marginStart = dp(4) }
             binding.controllerBindingsContainer.addView(row, rowParams)
-            bindingRows += BindingRow(token, kind, value)
+            bindingRows += BindingRow(token, kind, value, kindField, valueField)
             kind.onItemSelectedListener = selectionListener { kindIndex ->
                 if (suppressControllerCallback) return@selectionListener
                 val outputs = outputsForKind(kindIndex)
@@ -185,21 +211,55 @@ class ControllerFragment : Fragment() {
             row.kind.setSelection(kind, false)
             row.value.adapter = spinnerAdapter(options.map { it.label })
             row.value.setSelection(options.indexOfFirst { it.spec == output.spec }.coerceAtLeast(0), false)
-            row.value.isEnabled = config.enabled && kind != 0
-            row.kind.isEnabled = config.enabled
+            setSpinnerEnabled(row.kind, config.enabled)
+            setSpinnerEnabled(row.value, config.enabled && kind != 0)
+            guardSpinner(row.kind)
+            guardSpinner(row.value)
         }
-        binding.controllerLayoutSpinner.isEnabled = config.enabled
-        binding.leftStickSpinner.isEnabled = config.enabled
-        binding.rightStickSpinner.isEnabled = config.enabled
-        binding.touchpadModeSpinner.isEnabled = config.enabled
+        setSpinnerEnabled(binding.controllerLayoutSpinner, config.enabled)
+        setSpinnerEnabled(binding.leftStickSpinner, config.enabled)
+        setSpinnerEnabled(binding.rightStickSpinner, config.enabled)
+        setSpinnerEnabled(binding.touchpadModeSpinner, config.enabled)
         binding.touchpadSensitivityBar.isEnabled = config.enabled && config.touchpad == "cursor"
-        binding.touchpadOutputSpinner.isEnabled = config.enabled && config.touchpad == "button"
+        setSpinnerEnabled(binding.touchpadOutputSpinner, config.enabled && config.touchpad == "button" )
         suppressControllerCallback = false
     }
 
     private fun updateConfig(change: (ControllerIni.Config) -> ControllerIni.Config) {
         val current = configurationModel.controllerConfig.value ?: ControllerIni.Config()
         configurationModel.setControllerConfig(change(current))
+    }
+
+    private fun setSpinnerEnabled(spinner: Spinner, enabled: Boolean) {
+        spinner.isEnabled = enabled
+        val field = spinner.parent as? TextInputLayout
+        field?.isEnabled = enabled
+        field?.alpha = 1f
+        field?.setBoxStrokeColorStateList(requireNotNull(ContextCompat.getColorStateList(requireContext(), R.color.launcher_field_stroke)))
+        field?.setHintTextColor(requireNotNull(ContextCompat.getColorStateList(requireContext(), R.color.launcher_field_text)))
+        (spinner.selectedView as? TextView)?.background = ContextCompat.getDrawable(
+            requireContext(),
+            if (enabled) R.drawable.launcher_spinner_enabled_border else R.drawable.launcher_spinner_disabled_border
+        )
+        fun refreshSelectedView() {
+            (spinner.selectedView as? TextView)?.apply {
+                isEnabled = enabled
+                setTextColor(ContextCompat.getColor(requireContext(), if (enabled) R.color.launcherFieldEnabled else R.color.launcherFieldDisabled))
+                background = ContextCompat.getDrawable(
+                    requireContext(),
+                    if (enabled) R.drawable.launcher_spinner_enabled_border else R.drawable.launcher_spinner_disabled_border
+                )
+                refreshDrawableState()
+            }
+        }
+        refreshSelectedView()
+        spinner.post(::refreshSelectedView)
+    }
+
+    private fun guardSpinner(spinner: Spinner) {
+        val field = spinner.parent as? TextInputLayout
+        spinner.setOnTouchListener { _, _ -> !spinner.isEnabled || field?.isEnabled == false }
+        field?.setOnTouchListener { _, _ -> !field.isEnabled || !spinner.isEnabled }
     }
 
     private fun selectionListener(action: (Int) -> Unit) = object : AdapterView.OnItemSelectedListener {
@@ -211,9 +271,9 @@ class ControllerFragment : Fragment() {
         TextInputLayout(requireContext(), null, com.google.android.material.R.attr.textInputStyle).apply {
             setHint(label)
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            setBoxStrokeColor(ContextCompat.getColor(requireContext(), R.color.launcherFieldStroke))
+            setBoxStrokeColorStateList(requireNotNull(ContextCompat.getColorStateList(requireContext(), R.color.launcher_field_stroke)))
             boxStrokeWidth = dp(1)
-            boxStrokeWidthFocused = dp(2)
+            boxStrokeWidthFocused = dp(1)
             addView(spinner, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
 

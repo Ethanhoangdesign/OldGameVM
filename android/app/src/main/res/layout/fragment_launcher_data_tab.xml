@@ -48,6 +48,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/launcher_directory_border"
+                        android:textColor="@color/launcher_field_text"
                         android:layout_weight="1"
                         android:text="@string/game_dir_empty_text" />
 
@@ -128,6 +129,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@drawable/launcher_directory_border"
+                        android:textColor="@color/launcher_field_text"
                         android:layout_weight="1"
                         android:text="@string/save_game_dir_empty_text" />
 

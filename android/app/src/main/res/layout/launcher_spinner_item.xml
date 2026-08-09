@@ -5,6 +5,7 @@
     android:layout_height="wrap_content"
     android:gravity="center_vertical|start"
     android:minHeight="48dp"
-    android:background="@drawable/launcher_spinner_border"
+    android:background="@drawable/launcher_spinner_enabled_border"
+    android:textColor="@color/launcher_field_text"
     android:paddingStart="12dp"
     android:paddingEnd="12dp" />
