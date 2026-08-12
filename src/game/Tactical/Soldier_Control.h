@@ -1059,6 +1059,7 @@ void PlayStealthySoldierFootstepSound(SOLDIERTYPE* pSoldier);
 UINT16 PickSoldierReadyAnimation(SOLDIERTYPE* pSoldier, BOOLEAN fEndReady);
 
 extern BOOLEAN gfGetNewPathThroughPeople;
+extern UINT8 gubEnemyTurnAnimationSpeed;
 
 void FlashSoldierPortrait(SOLDIERTYPE*);
 

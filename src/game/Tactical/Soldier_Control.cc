@@ -184,6 +184,7 @@ static PaletteSubRangeType* gpPaletteSubRanges;
 static UINT32 guiNumReplacements;
 
 BOOLEAN	gfGetNewPathThroughPeople = FALSE;
+UINT8 gubEnemyTurnAnimationSpeed = 1;
 
 
 UINT8*                  gubpNumReplacementsPerRange;
@@ -4896,6 +4897,10 @@ static void CalculateSoldierAniSpeed(SOLDIERTYPE* pSoldier, SOLDIERTYPE* pStatsS
 	if (gTacticalStatus.uiFlags & INCOMBAT)
 	{
 		pSoldier->sAniDelay = pSoldier->sAniDelay / 2;
+		if (gubEnemyTurnAnimationSpeed > 1 && pSoldier->bTeam != OUR_TEAM)
+		{
+			pSoldier->sAniDelay = std::max<INT16>(1, pSoldier->sAniDelay / gubEnemyTurnAnimationSpeed);
+		}
 	}
 
 	// MODIFY IF REALTIME COMBAT

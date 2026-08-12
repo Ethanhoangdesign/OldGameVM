@@ -2549,7 +2549,7 @@ void RenderTEAMPanel(DirtyLevel const dirty_level)
 		MarkAButtonDirty(iTEAMPanelButtons[TEAM_DONE_BUTTON]);
 		MarkAButtonDirty(iTEAMPanelButtons[TEAM_MAP_SCREEN_BUTTON]);
 		MarkAButtonDirty(iTEAMPanelButtons[CHANGE_SQUAD_BUTTON]);
-
+	
 		BltVideoSurface(guiSAVEBUFFER, guiTEAMPanel, INTERFACE_START_X, INTERFACE_START_Y, NULL);
 
 		// LOOP THROUGH ALL MERCS ON TEAM PANEL

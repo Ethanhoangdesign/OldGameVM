@@ -44,6 +44,7 @@
 #include "Radar_Screen.h"
 #include "Render_Dirty.h"
 #include "RenderWorld.h"
+#include "Soldier_Control.h"
 #include "Soldier_Find.h"
 #include "Soldier_Functions.h"
 #include "Soldier_Macros.h"
@@ -93,6 +94,10 @@ struct TOP_MESSAGE
 };
 
 static TOP_MESSAGE gTopMessage;
+static GUIButtonRef gEnemyTurnSpeedButton;
+
+static void EnemyTurnSpeedCallback(GUI_BUTTON*, UINT32);
+static void UpdateEnemyTurnSpeedButton();
 BOOLEAN gfTopMessageDirty = FALSE;
 
 
@@ -235,12 +240,15 @@ void InitializeTacticalInterface()
 	guiRADIO2       = AddVideoObjectFromFile(INTERFACEDIR "/radio2.sti");
 
 	gTopMessage.uiSurface = AddVideoSurface(SCREEN_WIDTH, 20, PIXEL_DEPTH);
+	gEnemyTurnSpeedButton = CreateTextButton("1x", FONT10ARIAL, FONT_MCOLOR_WHITE, DEFAULT_SHADOW,
+		SCREEN_WIDTH - 42, 0, 42, 20, MSYS_PRIORITY_HIGH, EnemyTurnSpeedCallback);
+	gEnemyTurnSpeedButton->SetFastHelpText("Enemy animations: 1x");
+	HideButton(gEnemyTurnSpeedButton);
 
 	InitRadarScreen( );
 
 	InitTEAMSlots( );
 }
-
 
 void InitializeCurrentPanel()
 {
@@ -1905,9 +1913,40 @@ static void CreateTopMessage(void)
 }
 
 
+static void UpdateEnemyTurnSpeedButton()
+{
+	const bool enemy_turn = gTacticalStatus.fInTopMessage &&
+		(gTacticalStatus.ubTopMessageType == COMPUTER_TURN_MESSAGE ||
+		 gTacticalStatus.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE ||
+		 gTacticalStatus.ubTopMessageType == MILITIA_INTERRUPT_MESSAGE ||
+		 gTacticalStatus.ubTopMessageType == AIR_RAID_TURN_MESSAGE);
+	if (!enemy_turn)
+	{
+		HideButton(gEnemyTurnSpeedButton);
+		return;
+	}
+
+	ShowButton(gEnemyTurnSpeedButton);
+	gEnemyTurnSpeedButton->SpecifyText(ST::format("{}x", gubEnemyTurnAnimationSpeed));
+	gEnemyTurnSpeedButton->SetFastHelpText(ST::format("Enemy animations: {}x", gubEnemyTurnAnimationSpeed));
+}
+
+
+static void EnemyTurnSpeedCallback(GUI_BUTTON*, UINT32 const reason)
+{
+	if (reason & MSYS_CALLBACK_REASON_POINTER_UP)
+	{
+		gubEnemyTurnAnimationSpeed = gubEnemyTurnAnimationSpeed == 4 ? 1 : gubEnemyTurnAnimationSpeed + 1;
+		UpdateEnemyTurnSpeedButton();
+		MarkAButtonDirty(gEnemyTurnSpeedButton);
+	}
+}
+
+
 void HandleTopMessages(void)
 {
 	TacticalStatusType* const ts = &gTacticalStatus;
+	UpdateEnemyTurnSpeedButton();
 
 	if (!ts->fInTopMessage)
 	{
@@ -2021,6 +2060,7 @@ void EndTopMessage(void)
 
 	gsVIEWPORT_WINDOW_START_Y     = 0;
 	gTacticalStatus.fInTopMessage = FALSE;
+	HideButton(gEnemyTurnSpeedButton);
 
 	SetRenderFlags(RENDER_FLAG_FULL);
 }
