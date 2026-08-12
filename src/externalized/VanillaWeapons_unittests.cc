@@ -191,6 +191,34 @@ TEST(Items, ValidAttachment)
 	GCM = oldGCM;
 }
 
+TEST(Items, P90SilencerCompatibility)
+{
+	std::unique_ptr<DefaultContentManager> cm(DefaultContentManagerUT::createDefaultCMForTesting());
+	ASSERT_TRUE(cm->loadGameData());
+	auto const oldGCM = std::exchange(GCM, cm.release());
+
+	auto const* p90 = dynamic_cast<const WeaponModel *>(GCM->getItem(ITEMDEFINE::__ITEM_15));
+	auto const* silencer = GCM->getItem(ITEMDEFINE::SILENCER);
+	ASSERT_TRUE(p90 != nullptr);
+	ASSERT_TRUE(silencer != nullptr);
+	ASSERT_EQ(silencer->getItemIndex(), ITEMDEFINE::SILENCER);
+
+	EXPECT_TRUE(p90->canBeAttached(GCM->getGamePolicy(), silencer));
+	EXPECT_TRUE(ValidAttachment(ITEMDEFINE::SILENCER, ITEMDEFINE::__ITEM_15));
+	EXPECT_FALSE(ValidAttachment(ITEMDEFINE::SILENCER, ITEMDEFINE::HMX));
+
+	OBJECTTYPE p90Object{};
+	OBJECTTYPE silencerObject{};
+	CreateItem(ITEMDEFINE::__ITEM_15, 100, &p90Object);
+	CreateItem(ITEMDEFINE::SILENCER, 100, &silencerObject);
+	EXPECT_TRUE(AttachObject(nullptr, &p90Object, &silencerObject));
+	EXPECT_EQ(silencerObject.usItem, ITEMDEFINE::NOTHING);
+	EXPECT_NE(FindAttachment(&p90Object, ITEMDEFINE::SILENCER), ITEM_NOT_FOUND);
+
+	delete GCM;
+	GCM = oldGCM;
+}
+
 TEST(Items, CompatibleFaceItem)
 {
 	EXPECT_TRUE(CompatibleFaceItem(ITEMDEFINE::NIGHTGOGGLES, ITEMDEFINE::EXTENDEDEAR));

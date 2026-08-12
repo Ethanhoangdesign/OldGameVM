@@ -103,6 +103,14 @@ static std::map<UINT16, std::set<UINT16> const> const g_attachments
 	{COPPER_WIRE, {LAME_BOY}}
 };
 
+static bool IsWildfireP90Silencer(UINT16 const attachment, UINT16 const item)
+{
+	// ponytail: only the proven WF 6.08 mismatch; replace with a WF item table when full WF gameplay lands.
+	return attachment == CIGARS && item == __ITEM_15 &&
+		GCM->doesGameResExists("interface/b_map.sti") &&
+		!GCM->doesGameResExists("interface/b_map.pcx");
+}
+
 static std::initializer_list<std::array<UINT16, 2> const> const CompatibleFaceItems
 {
 	{ NIGHTGOGGLES, EXTENDEDEAR },
@@ -542,6 +550,14 @@ INT8 FindAttachment(const OBJECTTYPE* pObj, UINT16 usItem)
 	return FindAttachmentByFunction(pObj, [usItem](UINT16 item) { return item == usItem; });
 }
 
+INT8 FindSilencerAttachment(const OBJECTTYPE* pObj)
+{
+	INT8 const silencer = FindAttachment(pObj, SILENCER);
+	if (silencer != ITEM_NOT_FOUND) return silencer;
+	if (IsWildfireP90Silencer(CIGARS, pObj->usItem)) return FindAttachment(pObj, CIGARS);
+	return ITEM_NOT_FOUND;
+}
+
 
 INT8 FindAttachmentByClass(OBJECTTYPE const* const pObj, UINT32 const uiItemClass)
 {
@@ -638,6 +654,7 @@ bool ValidAttachment(UINT16 const attachment, UINT16 const item)
 		auto const it = g_attachments.find(attachment);
 		if (it != g_attachments.end() && it->second.count(item) == 1) return true;
 	}
+	if (IsWildfireP90Silencer(attachment, item)) return true;
 
 	return false;
 }
