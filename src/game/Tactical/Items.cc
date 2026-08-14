@@ -103,12 +103,26 @@ static std::map<UINT16, std::set<UINT16> const> const g_attachments
 	{COPPER_WIRE, {LAME_BOY}}
 };
 
-static bool IsWildfireP90Silencer(UINT16 const attachment, UINT16 const item)
+static bool UsesWildfireInterfaceArt()
 {
-	// ponytail: only the proven WF 6.08 mismatch; replace with a WF item table when full WF gameplay lands.
-	return attachment == CIGARS && item == __ITEM_15 &&
-		GCM->doesGameResExists("interface/b_map.sti") &&
+	return GCM->doesGameResExists("interface/b_map.sti") &&
 		!GCM->doesGameResExists("interface/b_map.pcx");
+}
+
+
+static bool IsWildfireSilencer(UINT16 const attachment, UINT16 const item)
+{
+	if (!UsesWildfireInterfaceArt()) return false;
+
+	// ponytail: confirmed WF 6.08 silencer IDs only; replace with a WF item table when full WF gameplay lands.
+	switch (attachment)
+	{
+		case __ITEM_265: return item == SW38 || item == __ITEM_8 || item == __ITEM_10; // .45: Colt 1991, UMP, MAC-10
+		case CIGARS: return item == __ITEM_15; // P90
+		case SPRING: return item == AUTOMAG_III; // MP7
+		case SPRING_AND_BOLT_UPGRADE: return item == __ITEM_14; // Colt Commando
+		default: return false;
+	}
 }
 
 static std::initializer_list<std::array<UINT16, 2> const> const CompatibleFaceItems
@@ -554,7 +568,14 @@ INT8 FindSilencerAttachment(const OBJECTTYPE* pObj)
 {
 	INT8 const silencer = FindAttachment(pObj, SILENCER);
 	if (silencer != ITEM_NOT_FOUND) return silencer;
-	if (IsWildfireP90Silencer(CIGARS, pObj->usItem)) return FindAttachment(pObj, CIGARS);
+	for (UINT16 const attachment : { __ITEM_265, CIGARS, SPRING, SPRING_AND_BOLT_UPGRADE })
+	{
+		if (IsWildfireSilencer(attachment, pObj->usItem))
+		{
+			INT8 const index = FindAttachment(pObj, attachment);
+			if (index != ITEM_NOT_FOUND) return index;
+		}
+	}
 	return ITEM_NOT_FOUND;
 }
 
@@ -654,7 +675,7 @@ bool ValidAttachment(UINT16 const attachment, UINT16 const item)
 		auto const it = g_attachments.find(attachment);
 		if (it != g_attachments.end() && it->second.count(item) == 1) return true;
 	}
-	if (IsWildfireP90Silencer(attachment, item)) return true;
+	if (IsWildfireSilencer(attachment, item)) return true;
 
 	return false;
 }

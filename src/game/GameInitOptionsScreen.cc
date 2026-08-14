@@ -23,18 +23,29 @@
 #include "Types.h"
 #include "HImage.h"
 #include "VObject.h"
+#include "VObject_Blitters.h"
 #include "VSurface.h"
 #include "Video.h"
 #include "WordWrap.h"
 #include "UILayout.h"
 
 #include <string_theory/string>
+#include <cmath>
 
 
 #ifdef __ANDROID__
-// ~2x from screen center. Higher (e.g. 2.8) pushes OK/Cancel past SCREEN_HEIGHT on 768p → crash.
-#define GIO_SCALE_X(x) ((INT16)((INT32)(SCREEN_WIDTH  / 2) + (INT32)(((INT32)(x) - (INT32)(STD_SCREEN_X + 320)) * 2)))
-#define GIO_SCALE_Y(y) ((INT16)((INT32)(SCREEN_HEIGHT / 2) + (INT32)(((INT32)(y) - (INT32)(STD_SCREEN_Y + 240)) * 2)))
+// Center-fit 640x480 GIO chrome into the screen (no 2x cap). Matches the
+// Options/SaveLoad family so narrow presets (e.g. 934x480) stretch full instead
+// of pushing OK/Cancel off-screen. A 2x fixed scale worked on 768p but overflowed
+// on shorter/wide presets.
+static float GioUiScale(void)
+{
+	float const sx = (float)SCREEN_WIDTH  / 640.f;
+	float const sy = (float)SCREEN_HEIGHT / 480.f;
+	return std::min(sx, sy);
+}
+#define GIO_SCALE_X(x) ((INT16)((INT32)(SCREEN_WIDTH  / 2) + (INT32)(((INT32)(x) - (INT32)(STD_SCREEN_X + 320)) * GioUiScale())))
+#define GIO_SCALE_Y(y) ((INT16)((INT32)(SCREEN_HEIGHT / 2) + (INT32)(((INT32)(y) - (INT32)(STD_SCREEN_Y + 240)) * GioUiScale())))
 // hugefont may be missing on some data packs; never pass null into button/text draw.
 #define GIO_TITLE_FONT			((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL)
 #define GIO_TITLE_COLOR		FONT_MCOLOR_WHITE
@@ -461,7 +472,11 @@ static void RenderGIOScreen(void)
 		{
 			// VO is 8bpp; stretch path needs 16bpp temp surface
 			SGPVSurface tmp(bg.usWidth, bg.usHeight, 16);
+			SGPRect tmpClip;
+			tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+			SGPRect const oldClip = SetClippingRect(tmpClip);
 			BltVideoObject(&tmp, vo, 0, 0, 0);
+			SetClippingRect(oldClip);
 			SGPBox src;
 			src.set(0, 0, bg.usWidth, bg.usHeight);
 			SGPBox dst;

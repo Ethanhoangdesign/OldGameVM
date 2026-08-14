@@ -5193,7 +5193,13 @@ void RenderMapRegionBackground( void )
 	}
 	else
 	{
-		RestoreExternBackgroundRect(MAP_LEFT_COL_X + 261, MAP_LEFT_COL_Y + 0, MAP_BG_WIDTH, 359);
+		/* 934x480 shifts the map beyond the vanilla 379px restore region.
+		 * Copy through the half-sized art's right edge so its shading reaches
+		 * FRAME_BUFFER too. */
+		UINT16 const mapBgWidth = SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480
+			? MAP_VIEW_START_X + MAP_VIEW_WIDTH + MAP_GRID_X + 1 - (MAP_LEFT_COL_X + 261)
+			: MAP_BG_WIDTH;
+		RestoreExternBackgroundRect(MAP_LEFT_COL_X + 261, MAP_LEFT_COL_Y + 0, mapBgWidth, 359);
 	}
 
 	// don't bother if showing sector inventory instead of the map!!!

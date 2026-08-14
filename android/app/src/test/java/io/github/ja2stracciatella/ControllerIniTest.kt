@@ -10,7 +10,7 @@ class ControllerIniTest {
         val dir = Files.createTempDirectory("controller-ini").toFile()
         val config = ControllerIni.Config(
             enabled = true,
-            layout = "ps5",
+            layout = "gamesir",
             leftStick = "wasd",
             touchpadSens = 9999,
             bindings = mapOf("a" to "mouse:right")
@@ -19,7 +19,7 @@ class ControllerIniTest {
 
         val loaded = ControllerIni.load(dir)
         assertEquals(true, loaded.enabled)
-        assertEquals("ps5", loaded.layout)
+        assertEquals("gamesir", loaded.layout)
         assertEquals("wasd", loaded.leftStick)
         assertEquals(4000, loaded.touchpadSens)
         assertEquals("mouse:right", loaded.binding("a"))

@@ -104,8 +104,8 @@
 
 /* Full-size map: rebase the "Sublevel" label into the enlarged view (2x the
  * vanilla offset from the map view origin). */
-#define MAP_LEVEL_STRING_X (g_ui.isMapFullSize() ? (MAP_VIEW_START_X + 324) : (STD_SCREEN_X + 432))
-#define MAP_LEVEL_STRING_Y (g_ui.isMapFullSize() ? (MAP_VIEW_START_Y + 590) : (STD_SCREEN_Y + 305))
+#define MAP_LEVEL_STRING_X (g_ui.isMapFullSize() ? (MAP_VIEW_START_X + 324) : (MAP_VIEW_START_X + 162))
+#define MAP_LEVEL_STRING_Y (g_ui.isMapFullSize() ? (MAP_VIEW_START_Y + 590) : (MAP_VIEW_START_Y + 295))
 
 // font
 #define MAP_FONT BLOCKFONT2
@@ -4240,7 +4240,15 @@ static void HandleLowerLevelMapBlit(void)
 	}
 	else
 	{
-		BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 21, MAP_VIEW_START_Y + 17);
+		auto const sublevel = CreateVideoSurfaceFromObjectFile(vo, 0);
+		if (sublevel && sublevel->Width() == 676 && sublevel->Height() == 580)
+		{
+			BltVideoSurfaceHalf(guiSAVEBUFFER, sublevel.get(), MAP_VIEW_START_X + 21, MAP_VIEW_START_Y + 17, NULL);
+		}
+		else
+		{
+			BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 21, MAP_VIEW_START_Y + 17);
+		}
 	}
 
 	// handle shading of sublevels

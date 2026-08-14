@@ -119,6 +119,13 @@ void VideoSetBrightness(float brightness)
 	}
 }
 
+BOOLEAN VideoMapWindowToLogical(int windowX, int windowY, float* logicalX, float* logicalY)
+{
+	if (!GameRenderer || !logicalX || !logicalY) return FALSE;
+	SDL_RenderWindowToLogical(GameRenderer, windowX, windowY, logicalX, logicalY);
+	return TRUE;
+}
+
 
 static void GetRGBDistribution();
 

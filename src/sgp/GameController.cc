@@ -10,6 +10,11 @@
 #include "UILayout.h"
 #include "RustInterface.h"
 #include "MouseSystem.h"
+#include "Cursors.h"
+#include "Cursor_Control.h"
+#ifdef __ANDROID__
+#include "Laptop.h"
+#endif
 
 #include <fstream>
 #include <string>
@@ -336,6 +341,11 @@ void LoadMappingDb()
 		int n = SDL_GameControllerAddMappingsFromFile(dbPath.get());
 		if (n >= 0) SLOGD("OGVM-CONTROLLER: loaded {} extra controller mappings", n);
 	}
+
+	// OGVM-ANDROID: Tweak for GameSir X5 Lite / G8 which misreports axes 2/3 as 0/1, and vice versa.
+	// Vendor 0500, Product 3735 (GameSir) or Vendor 3212, Product 4102 (GameSir G8)
+	SDL_GameControllerAddMapping("05000000353700000000000000000000,GameSir-X5 Lite,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b4,leftstick:b8,lefttrigger:a4,leftx:a0,lefty:a1,rightshoulder:b5,rightstick:b9,righttrigger:a5,rightx:a2,righty:a3,start:b11,x:b2,y:b3,");
+	SDL_GameControllerAddMapping("12320000024100000000000000000000,GameSir G8 Galileo,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b4,leftstick:b8,lefttrigger:a4,leftx:a0,lefty:a1,rightshoulder:b5,rightstick:b9,righttrigger:a5,rightx:a2,righty:a3,start:b11,x:b2,y:b3,");
 }
 
 void OpenFirstController()
@@ -363,11 +373,21 @@ void OpenFirstController()
 }
 
 
+static void RestoreControllerCursor()
+{
+	SetUsingTouch(false);
+	RefreshMouseRegions();
+#ifdef __ANDROID__
+	if (fCurrentlyInLaptop)
+		SetCurrentCursorFromDatabase(CURSOR_LAPTOP_SCREEN);
+#endif
+}
+
 /* Relative move from PS touchpad finger (normalized 0..1). Mac trackpad style. */
 void TouchpadRelMove(float x, float y, bool down)
 {
 	if (!g_touchpadCursor) return;
-	SetUsingTouch(false);
+	RestoreControllerCursor();
 	if (!down) {
 		g_tpFingerDown = false;
 		return;
@@ -387,8 +407,8 @@ void TouchpadRelMove(float x, float y, bool down)
 	if (dx == 0 && dy == 0) return;
 	const int nx = (int)gusMouseXPos + dx;
 	const int ny = (int)gusMouseYPos + dy;
-	SetSafeMousePositionLogical(nx, ny);
-	RefreshMouseRegions();
+	PadInjectMousePos(nx, ny);
+	RestoreControllerCursor();
 }
 
 /* Poll path — works even if host doesn't forward ctouchpad events. */
@@ -435,7 +455,7 @@ void FireOut(const PadOut& o, bool down)
 				else if (o.param == 3) dx = NUDGE_PX;
 				int nx = (int)gusMouseXPos + dx;
 				int ny = (int)gusMouseYPos + dy;
-				SetSafeMousePositionLogical(nx, ny);
+				PadInjectMousePos(nx, ny);
 				RefreshMouseRegions();
 			}
 			break;
@@ -515,6 +535,11 @@ void GameController_HandleEvent(const SDL_Event* event)
 		case SDL_CONTROLLERBUTTONUP:
 			HandleButton((SDL_GameControllerButton)event->cbutton.button, false);
 			break;
+		case SDL_CONTROLLERAXISMOTION:
+			SLOGI("OGVM-CONTROLLER: axis event axis={} value={}",
+			      event->caxis.axis, event->caxis.value);
+			GameController_Update();
+			break;
 		case SDL_CONTROLLERTOUCHPADDOWN:
 		case SDL_CONTROLLERTOUCHPADMOTION:
 			TouchpadRelMove(event->ctouchpad.x, event->ctouchpad.y, true);
@@ -533,6 +558,12 @@ void GameController_Update(void)
 	g_lastUpdate = now;
 	if (!g_enabled || !g_pad) return;
 	if (dtMs == 0 || dtMs > 200) return;
+	SLOGI("OGVM-CONTROLLER: update dt={} lx={} ly={} rx={} ry={}",
+	      dtMs,
+	      SDL_GameControllerGetAxis(g_pad, SDL_CONTROLLER_AXIS_LEFTX),
+	      SDL_GameControllerGetAxis(g_pad, SDL_CONTROLLER_AXIS_LEFTY),
+	      SDL_GameControllerGetAxis(g_pad, SDL_CONTROLLER_AXIS_RIGHTX),
+	      SDL_GameControllerGetAxis(g_pad, SDL_CONTROLLER_AXIS_RIGHTY));
 
 	UpdateTriggerActions();
 	UpdateTouchpadCursor();
@@ -551,15 +582,15 @@ void GameController_Update(void)
 		float nx = applyDead(ax);
 		float ny = applyDead(ay);
 		if (nx == 0.0f && ny == 0.0f) return;
+		SetUsingTouch(false);
 		float dt = dtMs / 1000.0f;
 		int dx = (int)std::lround(nx * MAX_SPEED_PX * dt);
 		int dy = (int)std::lround(ny * MAX_SPEED_PX * dt);
 		if (dx == 0 && dy == 0) return;
 		int nxPos = (int)gusMouseXPos + dx;
 		int nyPos = (int)gusMouseYPos + dy;
-		SetUsingTouch(false);
-		SetSafeMousePositionLogical(nxPos, nyPos);
-		RefreshMouseRegions();
+		PadInjectMousePos(nxPos, nyPos);
+		RestoreControllerCursor();
 	};
 
 	// Digital stick -> 4 keys (edge). keys: [up,down,left,right]

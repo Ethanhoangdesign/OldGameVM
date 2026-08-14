@@ -3963,7 +3963,11 @@ std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& 
 	AutoSGPVObject vo(AddVideoObjectFromFile(filename));
 	auto r = vo->SubregionProperties(usRegionIndex);
 	auto sf = std::make_unique<SGPVSurface>(r.usWidth, r.usHeight, PIXEL_DEPTH);
+	SGPRect clip;
+	clip.set(0, 0, r.usWidth, r.usHeight);
+	SGPRect const oldClip = SetClippingRect(clip);
 	BltVideoObject(sf.get(), vo.get(), usRegionIndex, 0, 0);
+	SetClippingRect(oldClip);
 
 	return sf;
 }

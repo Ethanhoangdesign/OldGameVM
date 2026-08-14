@@ -28,8 +28,8 @@
     <string name="resolution_preset_field_label">Resolution preset</string>
     <string name="scaling_quality_field_label">Scaling mode</string>
     <string name="controller_layout_field_label">Controller layout</string>
-    <string name="controller_left_stick_field_label">Left stick</string>
-    <string name="controller_right_stick_field_label">Right stick</string>
+    <string name="controller_left_stick_field_label">Left analog stick mode</string>
+    <string name="controller_right_stick_field_label">Right analog stick mode</string>
     <string name="controller_touchpad_field_label">Touchpad</string>
     <string name="controller_touchpad_output_field_label">Touchpad output</string>
     <string name="controller_binding_kind_field_label">Kind</string>
@@ -50,8 +50,8 @@
     <string name="controller_layout_label">Controller layout</string>
     <string name="controller_touchpad_label">Touchpad</string>
     <string name="controller_bindings_label">Button mappings</string>
-    <string name="controller_left_stick_label">Left stick</string>
-    <string name="controller_right_stick_label">Right stick</string>
+    <string name="controller_left_stick_label">Left analog stick</string>
+    <string name="controller_right_stick_label">Right analog stick</string>
     <string name="logs_description_text">The logs of your latest run of the game are shown below. In case of any issues, you can check the logs for errors. If you create a bug report, please include the logs.</string>
     <string name="logs_copy_to_clipboard_button">Copy all logs to clipboard</string>
     <string name="logs_copied_to_clipboard_name">JA2 Stracciatella logs</string>

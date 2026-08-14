@@ -537,6 +537,13 @@ static void EnterLaptop(void)
 	InitalizeSubSitesList();
 
 	InvalidateScreen();
+
+#ifdef __ANDROID__
+	// Canh giữa chuột khi mở laptop để tránh bị ẩn trong vùng bị che (letterbox/black bars)
+	SetUsingTouch(false);
+#endif
+	// Di chuyển chuột vào tâm màn hình Laptop
+	SetSafeMousePositionLogical((LAPTOP_SCREEN_UL_X + LAPTOP_SCREEN_LR_X) / 2, (LAPTOP_SCREEN_UL_Y + LAPTOP_SCREEN_LR_Y) / 2);
 }
 
 

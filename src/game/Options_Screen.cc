@@ -32,6 +32,7 @@
 #include "Map_Information.h"
 #include "SmokeEffects.h"
 #include "Button_System.h"
+#include "VObject_Blitters.h"
 #include "VSurface.h"
 #include "WorldMan.h"
 #include "UILayout.h"
@@ -42,13 +43,14 @@
 
 
 #ifdef __ANDROID__
-// Fit 640×480 options chrome into screen (cap 2×). Black under. Desktop 1×.
-// Integer-ish via float; cast INT16 for coords (same pattern as GIO_SCALE_*).
+// Fit 640×480 options chrome into screen (no cap — stretch full). Black under.
+// Desktop 1×. Matches the MainMenu/Options/SaveLoad GIO family so narrow presets
+// (e.g. 934x480) expand to fill the screen instead of leaving the panel offset.
 static float OptUiScale(void)
 {
 	float const sx = (float)SCREEN_WIDTH  / 640.f;
 	float const sy = (float)SCREEN_HEIGHT / 480.f;
-	return std::min(2.f, std::min(sx, sy));
+	return std::min(sx, sy);
 }
 static INT16 OptSX(INT32 x)
 {
@@ -544,7 +546,11 @@ static void RenderOptionsScreen(void)
 		UINT16 const dh = (UINT16)std::max(1, (INT32)(e.usHeight * sc));
 		// VO often 8bpp; stretch needs 16bpp temp.
 		SGPVSurface tmp(e.usWidth, e.usHeight, 16);
+		SGPRect tmpClip;
+		tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+		SGPRect const oldClip = SetClippingRect(tmpClip);
 		BltVideoObject(&tmp, vo, sub, 0, 0);
+		SetClippingRect(oldClip);
 		SGPBox src;
 		src.set(0, 0, e.usWidth, e.usHeight);
 		SGPBox dst;

@@ -57,13 +57,14 @@ constexpr int NUM_SAVE_GAMES = 11;
 
 
 #ifdef __ANDROID__
-// Fit 640×480 loadscreen chrome (cap 2×). Dim underlay ~80% (ShadowRect ×2).
-// Same center-scale family as Options / GIO.
+// Fit 640×480 loadscreen chrome (no cap — stretch full). Dim underlay ~80%
+// (ShadowRect ×2). Same center-scale family as Options / GIO so narrow presets
+// (e.g. 934x480) expand to fill the screen instead of leaving the panel offset.
 static float SlgUiScale(void)
 {
 	float const sx = (float)SCREEN_WIDTH  / 640.f;
 	float const sy = (float)SCREEN_HEIGHT / 480.f;
-	return std::min(2.f, std::min(sx, sy));
+	return std::min(sx, sy);
 }
 static INT16 SlgSX(INT32 x)
 {
@@ -414,7 +415,11 @@ static void SlgStretchVO(SGPVObject* vo, UINT16 sub, INT16 dx, INT16 dy, UINT16 
 	ETRLEObject const& e = vo->SubregionProperties(sub);
 	if (e.usWidth == 0 || e.usHeight == 0) return;
 	SGPVSurface tmp(e.usWidth, e.usHeight, 16);
+	SGPRect tmpClip;
+	tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+	SGPRect const oldClip = SetClippingRect(tmpClip);
 	BltVideoObject(&tmp, vo, sub, 0, 0);
+	SetClippingRect(oldClip);
 	SGPBox src;
 	src.set(0, 0, e.usWidth, e.usHeight);
 	SGPBox dst;

@@ -10,7 +10,9 @@
 
 #include <string_theory/string>
 
+#include <algorithm>
 #include <bitset>
+#include <cmath>
 
 #define BUTTON_REPEAT_TIMEOUT		250
 #define BUTTON_REPEAT_TIME			50
@@ -130,11 +132,38 @@ static void QueueKeyEvent(UINT16 ubInputEvent, SDL_Keycode Key, SDL_Keymod Mod, 
 static void SetMousePositionClamped(int x, int y) {
 	if (x < 0) x = 0;
 	if (y < 0) y = 0;
-	if (x > SCREEN_WIDTH) x = SCREEN_WIDTH;
-	if (y > SCREEN_HEIGHT) y = SCREEN_HEIGHT;
+	if (x >= SCREEN_WIDTH) x = SCREEN_WIDTH - 1;
+	if (y >= SCREEN_HEIGHT) y = SCREEN_HEIGHT - 1;
 
 	gusMouseXPos = x;
 	gusMouseYPos = y;
+}
+
+static void SetSafeTouchPosition(float x, float y)
+{
+	int windowWidth = 0;
+	int windowHeight = 0;
+	SDL_GetWindowSize(GAME_WINDOW, &windowWidth, &windowHeight);
+	if (windowWidth <= 0 || windowHeight <= 0)
+	{
+		SetSafeMousePosition((int)std::lround(x * SCREEN_WIDTH), (int)std::lround(y * SCREEN_HEIGHT));
+		return;
+	}
+
+	x = std::clamp(x, 0.0f, 1.0f);
+	y = std::clamp(y, 0.0f, 1.0f);
+	int const windowX = std::min((int)std::lround(x * windowWidth), windowWidth - 1);
+	int const windowY = std::min((int)std::lround(y * windowHeight), windowHeight - 1);
+	float logicalX = 0.0f;
+	float logicalY = 0.0f;
+	if (VideoMapWindowToLogical(windowX, windowY, &logicalX, &logicalY))
+	{
+		SetSafeMousePosition((int)std::lround(logicalX), (int)std::lround(logicalY));
+	}
+	else
+	{
+		SetSafeMousePosition((int)std::lround(x * SCREEN_WIDTH), (int)std::lround(y * SCREEN_HEIGHT));
+	}
 }
 
 void SetSafeMousePosition(int x, int y) {
@@ -308,6 +337,12 @@ void PadInjectWheel(bool up)
 	QueuePointerEvent(up ? MOUSE_WHEEL_UP : MOUSE_WHEEL_DOWN, 0);
 }
 
+void PadInjectMousePos(int x, int y)
+{
+	gfIsUsingTouch = FALSE;
+	SetSafeMousePositionLogical(x, y);
+}
+
 void FingerMove(const SDL_TouchFingerEvent* event) {
 	#ifdef SDL_MOUSE_TOUCHID
 	if (event->touchId == SDL_MOUSE_TOUCHID) return;
@@ -315,7 +350,7 @@ void FingerMove(const SDL_TouchFingerEvent* event) {
 	if (event->fingerId != gMainFingerId) return;
 	gfIsUsingTouch = true;
 
-	SetSafeMousePosition(event->x * SCREEN_WIDTH, event->y * SCREEN_HEIGHT);
+	SetSafeTouchPosition(event->x, event->y);
 
 	QueuePointerEvent(TOUCH_FINGER_MOVE, 0);
 }
@@ -328,7 +363,7 @@ void FingerDown(const SDL_TouchFingerEvent* event) {
 	gMainFingerId = event->fingerId;
 	gfIsUsingTouch = true;
 
-	SetSafeMousePosition(event->x * SCREEN_WIDTH, event->y * SCREEN_HEIGHT);
+	SetSafeTouchPosition(event->x, event->y);
 
 	gMainFingerState.handleDown();
 }
@@ -340,7 +375,7 @@ void FingerUp(const SDL_TouchFingerEvent* event) {
 	if (event->fingerId != gMainFingerId) return;
 	gfIsUsingTouch = true;
 
-	SetSafeMousePosition(event->x * SCREEN_WIDTH, event->y * SCREEN_HEIGHT);
+	SetSafeTouchPosition(event->x, event->y);
 
 	gMainFingerState.handleUp();
 }

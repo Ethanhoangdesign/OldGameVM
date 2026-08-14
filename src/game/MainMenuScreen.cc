@@ -30,6 +30,7 @@
 #include "Text.h"
 #include "Timer_Control.h"
 #include "VObject.h"
+#include "VObject_Blitters.h"
 #include "VSurface.h"
 #include "Video.h"
 #include "WordWrap.h"
@@ -398,7 +399,11 @@ static void RenderMainMenu(void)
 		{
 			// VO is 8bpp; stretch path needs 16bpp temp surface
 			SGPVSurface tmp(bgProps.usWidth, bgProps.usHeight, 16);
+			SGPRect tmpClip;
+			tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+			SGPRect const oldClip = SetClippingRect(tmpClip);
 			BltVideoObject(&tmp, vo, 0, 0, 0);
+			SetClippingRect(oldClip);
 			SGPBox src;
 			src.set(0, 0, bgProps.usWidth, bgProps.usHeight);
 			SGPBox dst;

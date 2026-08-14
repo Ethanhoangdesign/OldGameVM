@@ -1821,7 +1821,7 @@ void InternalInitItemDescriptionBox(OBJECTTYPE* const o, const INT16 sX, const I
 		gbOriginalAttachStatus[i] = o->bAttachStatus[i];
 	}
 
-	if (gpItemPointer != NULL && !gfItemDescHelpTextOffset && !CheckFact(FACT_ATTACHED_ITEM_BEFORE, 0))
+	if (gpItemPointer != NULL && !IsUsingTouch() && !gfItemDescHelpTextOffset && !CheckFact(FACT_ATTACHED_ITEM_BEFORE, 0))
 	{
 		ST::string text;
 		if (!(GCM->getItem(o->usItem)->getFlags() & ITEM_HIDDEN_ADDON) && (

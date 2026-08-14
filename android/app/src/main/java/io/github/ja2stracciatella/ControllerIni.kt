@@ -22,7 +22,7 @@ object ControllerIni {
     )
 
     val STICK_MODES = arrayOf("none", "cursor", "wasd", "arrow")
-    val LAYOUTS = arrayOf("xbox", "ps5")
+    val LAYOUTS = arrayOf("xbox", "ps5", "gamesir")
     val TOUCHPAD_MODES = arrayOf("cursor", "button", "none")
 
     /** Values accepted by native ParseOutSpec, grouped like desktop launcher menus. */
@@ -110,9 +110,10 @@ object ControllerIni {
         PAD_TOKENS.forEach { token ->
             values[token]?.let { bindings[token] = sanitizeOutput(it) }
         }
+        val layoutVal = values["layout"] ?: "xbox"
         return Config(
             enabled = values["enabled"] == "1",
-            layout = if (values["layout"] == "ps5" || values["layout"] == "ps") "ps5" else "xbox",
+            layout = if (layoutVal == "ps5" || layoutVal == "ps") "ps5" else if (layoutVal == "gamesir") "gamesir" else "xbox",
             leftStick = sanitizeStick(values["left_stick"] ?: "cursor"),
             rightStick = sanitizeStick(values["right_stick"] ?: "none"),
             touchpad = when (values["touchpad"]) {
@@ -131,7 +132,7 @@ object ControllerIni {
         f.parentFile?.mkdirs()
         val body = buildString {
             append("enabled=").append(if (config.enabled) "1" else "0").append('\n')
-            append("layout=").append(if (config.layout == "ps5") "ps5" else "xbox").append('\n')
+            append("layout=").append(if (config.layout == "ps5") "ps5" else if (config.layout == "gamesir") "gamesir" else "xbox").append('\n')
             append("left_stick=").append(sanitizeStick(config.leftStick)).append('\n')
             append("right_stick=").append(sanitizeStick(config.rightStick)).append('\n')
             append("touchpad=").append(if (config.touchpad in TOUCHPAD_MODES) config.touchpad else "cursor").append('\n')

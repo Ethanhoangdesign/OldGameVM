@@ -190,6 +190,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
     protected static int mCurrentOrientation;
     protected static Locale mCurrentLocale;
+    protected static boolean mSecondaryMouseModifierDown;
 
     // Handle the state of the native layer
     public enum NativeState {
@@ -378,6 +379,27 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
         mLayout = new RelativeLayout(this);
         mLayout.addView(mSurface);
+
+        // OGVM-ANDROID: right-click overlay button for emulator testing
+        Button rmbBtn = new Button(this);
+        rmbBtn.setText("RMB");
+        rmbBtn.setAlpha(0.6f);
+        rmbBtn.setTextSize(10);
+        RelativeLayout.LayoutParams rp = new RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.WRAP_CONTENT,
+            RelativeLayout.LayoutParams.WRAP_CONTENT);
+        rp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        rp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+        rp.setMargins(0, 80, 8, 0);
+        rmbBtn.setLayoutParams(rp);
+        rmbBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                SDLActivity.mSecondaryMouseModifierDown = !SDLActivity.mSecondaryMouseModifierDown;
+                rmbBtn.setAlpha(SDLActivity.mSecondaryMouseModifierDown ? 1.0f : 0.6f);
+            }
+        });
+        mLayout.addView(rmbBtn);
 
         // Get our current screen orientation and pass it down.
         mCurrentOrientation = SDLActivity.getCurrentOrientation();
@@ -894,6 +916,19 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     public static native boolean onNativeSoftReturnKey();
     public static native void onNativeKeyboardFocusLost();
     public static native void onNativeMouse(int button, int action, float x, float y, boolean relative);
+
+    static int sdlMouseButton(MotionEvent event, boolean secondaryModifierDown) {
+        int button = event.getActionButton();
+        if (button == 0) button = event.getButtonState();
+        if ((button & MotionEvent.BUTTON_SECONDARY) != 0 ||
+            (button & MotionEvent.BUTTON_PRIMARY) != 0 && (secondaryModifierDown ||
+            (event.getMetaState() & (KeyEvent.META_ALT_ON | KeyEvent.META_CTRL_ON)) != 0)) return 3;
+        if ((button & MotionEvent.BUTTON_TERTIARY) != 0) return 2;
+        if ((button & MotionEvent.BUTTON_BACK) != 0) return 4;
+        if ((button & MotionEvent.BUTTON_FORWARD) != 0) return 5;
+        return 1;
+    }
+
     public static native void onNativeTouch(int touchDevId, int pointerFingerId,
                                             int action, float x,
                                             float y, float p);
@@ -1974,6 +2009,10 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
         int deviceId = event.getDeviceId();
         int source = event.getSource();
+        if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT ||
+            keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT) {
+            SDLActivity.mSecondaryMouseModifierDown = event.getAction() == KeyEvent.ACTION_DOWN;
+        }
 
         if (source == InputDevice.SOURCE_UNKNOWN) {
             InputDevice device = InputDevice.getDevice(deviceId);
@@ -2059,18 +2098,21 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
             touchDevId -= 1;
         }
 
+        // Modifier-key right-click: Ctrl/Alt + left click on emulator (touch path).
+        if (SDLActivity.mSecondaryMouseModifierDown &&
+            (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_UP)) {
+            x = event.getX(0);
+            y = event.getY(0);
+            int nativeAction = (action == MotionEvent.ACTION_DOWN) ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP;
+            SDLActivity.onNativeMouse(3, nativeAction, x, y, false);
+            return true;
+        }
+
         // 12290 = Samsung DeX mode desktop mouse
         // 12290 = 0x3002 = 0x2002 | 0x1002 = SOURCE_MOUSE | SOURCE_TOUCHSCREEN
         // 0x2   = SOURCE_CLASS_POINTER
         if (event.getSource() == InputDevice.SOURCE_MOUSE || event.getSource() == (InputDevice.SOURCE_MOUSE | InputDevice.SOURCE_TOUCHSCREEN)) {
-            int mouseButton = 1;
-            try {
-                Object object = event.getClass().getMethod("getButtonState").invoke(event);
-                if (object != null) {
-                    mouseButton = (Integer) object;
-                }
-            } catch(Exception ignored) {
-            }
+            int mouseButton = SDLActivity.sdlMouseButton(event, SDLActivity.mSecondaryMouseModifierDown);
 
             // We need to check if we're in relative mouse mode and get the axis offset rather than the x/y values
             // if we are.  We'll leverage our existing mouse motion listener
@@ -2239,7 +2281,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
                 x = event.getX(0);
                 y = event.getY(0);
-                int button = event.getButtonState();
+                int button = SDLActivity.sdlMouseButton(event, SDLActivity.mSecondaryMouseModifierDown);
 
                 SDLActivity.onNativeMouse(button, action, x, y, true);
                 return true;

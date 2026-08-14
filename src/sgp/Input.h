@@ -94,5 +94,6 @@ void HandleSingleClicksAndButtonRepeats();
  * machine chuot co san thay vi ve lai. sdlButton = SDL_BUTTON_LEFT/RIGHT/... */
 void PadInjectMouseButton(UINT8 sdlButton, bool down);
 void PadInjectWheel(bool up);
+void PadInjectMousePos(int x, int y);
 
 bool _KeyDown(SDL_Keycode);

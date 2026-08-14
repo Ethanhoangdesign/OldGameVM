@@ -78,9 +78,9 @@ UINT16 UILayout::activeButtonsBoxShift() const
 }
 
 UINT16 UILayout::currentHeight() const             { return fInMapMode ? (get_MAP_BOTTOM_BASE_Y() + m_mapScreenHeight) : m_screenHeight; }
-UINT16 UILayout::get_CLOCK_X() const               { return fInMapMode ? (isMapFullSize() ? (get_MAP_BOTTOM_BASE_X() + 668) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 554) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + 56 + activeButtonsBoxShift(); }
+UINT16 UILayout::get_CLOCK_X() const               { return fInMapMode ? (isWidePanel() ? (get_MAP_BOTTOM_BASE_X() + 668) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 554) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + 56 + activeButtonsBoxShift(); }
 UINT16 UILayout::get_CLOCK_Y() const               { return currentHeight() - 23;                                  }
-UINT16 UILayout::get_RADAR_WINDOW_X() const        { return fInMapMode ? (isMapFullSize() ? (get_MAP_BOTTOM_BASE_X() + 663) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 543) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + 45 + activeButtonsBoxShift(); }
+UINT16 UILayout::get_RADAR_WINDOW_X() const        { return fInMapMode ? (isWidePanel() ? (get_MAP_BOTTOM_BASE_X() + 663) /* CLOCKBAY */ : get_MAP_BOTTOM_BASE_X() + 543) : m_teamPanelPosition.iX + m_teamPanelSlotsTotalWidth + 45 + activeButtonsBoxShift(); }
 UINT16 UILayout::get_RADAR_WINDOW_TM_Y() const     { return currentHeight() - 107;                                 }
 UINT16 UILayout::get_INV_INTERFACE_START_Y() const { return m_screenHeight - INV_INTERFACE_HEIGHT;                                  }
 
@@ -218,9 +218,37 @@ bool UILayout::isMapFullSize() const
 {
 	/* Full-size strategic map (docs/KE-HOACH-mapscreen-fullsize.md, M2):
 	 * editions with full-resolution map art (Wildfire's 714x612 b_map.sti)
-	 * draw it at full scale when the 1024x768 Wildfire layout fits. */
+	 * draw it at full scale when the 1024x768 Wildfire layout fits.
+	 * OGVM-ANDROID: Allow 720p height so 1280x720 can use the big map. */
 	return UsesWildfireInterfaceArt() &&
-		m_screenWidth >= 1024 && m_screenHeight >= 768;
+		m_screenWidth >= 1024 && m_screenHeight >= 720;
+}
+
+
+/** Check if this is a widescreen layout that uses full-width bottom panel but not full-size map art.
+ * Used for screens like 934x480 where we want bottom panel from x=0 to x=width but keep vanilla map size. */
+bool UILayout::isWidescreenLayout() const
+{
+	/* Widescreen layouts: width >= 934 AND height < 720. This covers:
+	 * - 934x480 (Android emulator preset) - exact match
+	 * - 1024x600, 1024x576, etc.
+	 * Excludes very wide/high screens like 1024x768 which use full-size map art. */
+	return (m_screenWidth >= 934) && (m_screenHeight < 720);
+}
+
+
+bool UILayout::isWidePanel() const
+{
+	return isMapFullSize() || isWidescreenLayout();
+}
+
+
+/* 934x480: preserve the history log at the left edge; anchor the 763px
+ * Wildfire panel art to the right so its recesses cannot cover the log. */
+UINT16 UILayout::get_MAP_BOTTOM_BASE_X() const {
+	if (isMapFullSize()) return get_MAP_VIEW_START_X();
+	if (isWidescreenLayout()) return m_screenWidth - 763;
+	return m_stdScreenOffsetX;           // Centered for smaller screens
 }
 
 /* Strategic-map screen grid metrics. Vanilla renders the strategic map at
@@ -258,29 +286,49 @@ UINT16 UILayout::get_MAP_GRID_X() const       { return isMapFullSize() ? (UINT16
 UINT16 UILayout::get_MAP_GRID_Y() const       { return isMapFullSize() ? (UINT16)(36 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 18; }
 UINT16 UILayout::get_MAP_VIEW_START_X() const { /* LEVELSLOT-H: centre the fixed 672px map in the right-hand region so a
 	   wider screen only grows the wooden background, never the map. */
-	/* LEVELSLOT-H: centre the fixed 672px map in the right-hand region so a
-	   wider screen only grows the wooden background, never the map. The map
-	   art is a fixed 714px picture, so pinning it to the right edge would
-	   only move the empty wood from one side to the other. */
-	return isMapFullSize() ? (UINT16)(261 + (m_screenWidth - 261 - 714 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) / 2) : m_stdScreenOffsetX + 270; }
+	/* FULL-SIZE: anchor the Wildfire art to the top-left corner (261px left column).
+	   Level selector centres the 672px map in the remaining space. */
+	if (isMapFullSize()) {
+		return (UINT16)(261 + (m_screenWidth - 261 - 714 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) / 2);
+	}
+
+	/* WIDESCREEN 934x480: move the fixed 336px map view into the centre
+	 * of the large right-hand red frame. Move the shared origin only: map
+	 * art, overlays, input, paths, and underground layers stay aligned. */
+	if (m_screenWidth == 934 && m_screenHeight == 480) return 500;
+
+	/* VANILLA: default offset with 270px margin like original game */
+	return m_stdScreenOffsetX + 270; }
 /* Full-size: the map hugs the top of the screen (grid bottom lands at y 612),
  * leaving the 613..648 band free for the toggle strip, matching Wildfire's own
  * Map_Bord.sti border art (wood bar at 609..648). */
-UINT16 UILayout::get_MAP_VIEW_START_Y() const { return isMapFullSize()
-		? (UINT16)((m_screenHeight - 121) > (612 * MapZoomNum(m_screenWidth, m_screenHeight) / 2 + 35) ? ((m_screenHeight - 121) - (612 * MapZoomNum(m_screenWidth, m_screenHeight) / 2 + 35)) / 2 : 0)
-		: m_stdScreenOffsetY + 10; }
+UINT16 UILayout::get_MAP_VIEW_START_Y() const
+{
+	if (isMapFullSize())
+	{
+		return (UINT16)((m_screenHeight - 121) > (612 * MapZoomNum(m_screenWidth, m_screenHeight) / 2 + 35) ? ((m_screenHeight - 121) - (612 * MapZoomNum(m_screenWidth, m_screenHeight) / 2 + 35)) / 2 : 0);
+	}
+
+	/* Match the same 934x480 frame: centre the unchanged 298px map view
+	 * vertically in its 360px height. */
+	if (m_screenWidth == 934 && m_screenHeight == 480) return (360 - 298) / 2;
+	return m_stdScreenOffsetY + 10;
+}
 UINT16 UILayout::get_MAP_VIEW_WIDTH() const   { return isMapFullSize() ? (UINT16)(672 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 336; }
 UINT16 UILayout::get_MAP_VIEW_HEIGHT() const  { return isMapFullSize() ? (UINT16)(596 * MapZoomNum(m_screenWidth, m_screenHeight) / 2) : 298; }
 
 /* The map screen bottom panel keeps its vanilla-relative offsets (+0..640,
  * +359..480); in the full-size Wildfire layout its 763px art sits at
  * (261, 647), i.e. base (261, 288). */
-/* PINRIGHT: the 763px bottom panel art is pinned to the right edge, so the
- * left column grows with the screen and the history log fills it. */
-UINT16 UILayout::get_MAP_BOTTOM_BASE_X() const { return isMapFullSize() ? (UINT16)(m_screenWidth > 1024 ? m_screenWidth - 763 : 261) : m_stdScreenOffsetX; }
+/* UNIFIED-ANCHOR: keep the bottom panel attached to the centered map instead
+ * of pinning it independently to the right edge on wide screens. */
 UINT16 UILayout::get_MAP_BOTTOM_BASE_Y() const { return isMapFullSize() ? (UINT16)(m_screenHeight - 480) : m_stdScreenOffsetY; }
 
-UINT16 UILayout::get_MAP_LEFT_COL_X() const { return isMapFullSize() ? 0 : m_stdScreenOffsetX; }
+UINT16 UILayout::get_MAP_LEFT_COL_X() const
+{
+	/* WIDESCREEN: keep the soldier column to the right of the history strip. */
+	return isMapFullSize() ? 0 : isWidescreenLayout() ? get_MAP_BOTTOM_BASE_X() : m_stdScreenOffsetX;
+}
 UINT16 UILayout::get_MAP_LEFT_COL_Y() const { return isMapFullSize() ? 0 : m_stdScreenOffsetY; }
 
 UINT16 UILayout::getTeamPanelButtonsBoxWidth() const

@@ -143,6 +143,14 @@ public:
 	/** Check if the screen is bigger than original 640x480. */
 	bool isBigScreen() const;
 
+	/** True when using widescreen layouts that span full width (bottom panel from x=0 to x=width)
+	 * but not full-size map art. Used for screens like 934x480, 1024x600, etc. where height < 720
+	 * but we want full-width bottom panels. */
+	bool isWidescreenLayout() const;
+
+	/** True when map-screen widgets use the wide bottom-panel artwork. */
+	bool isWidePanel() const;
+
 	UINT16 currentHeight() const;
 	UINT16 get_CLOCK_X() const;
 	UINT16 get_CLOCK_Y() const;
@@ -193,7 +201,7 @@ public:
 	UINT16 get_MAP_VIEW_HEIGHT() const;
 
 	/** Base offset of the map screen bottom panel (vanilla: STD_SCREEN with
-	 *  the panel at +0,+359; full-size Wildfire layout: at 261,647). */
+	 *  the panel at +0,+359; full-size Wildfire layout: at 261,647; widescreen right-anchored panel leaves the history strip at the left). */
 	UINT16 get_MAP_BOTTOM_BASE_X() const;
 	UINT16 get_MAP_BOTTOM_BASE_Y() const;
 

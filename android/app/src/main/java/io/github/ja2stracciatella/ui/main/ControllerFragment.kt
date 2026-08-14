@@ -76,14 +76,24 @@ class ControllerFragment : Fragment() {
         val device = devices.firstOrNull { (_, input) -> !input.isVirtual } ?: devices.firstOrNull()
         val input = device?.second
         val isPs5 = input?.vendorId == 0x054c && input.productId == 0x0ce6
+        val isGameSir = input?.vendorId == 0x0500 && input.productId == 0x3735 // gamesir x5 lite or similar
         val newId = device?.first
-        val newName = input?.name?.let { if (isPs5) "PS5 DualSense ($it)" else it } ?: ""
+        val newName = input?.name?.let {
+            when {
+                isPs5 -> "PS5 DualSense ($it)"
+                isGameSir -> "GameSir ($it)"
+                else -> it
+            }
+        } ?: ""
         if (newId == detectedDeviceId && newName == detectedDeviceName) return
         val wasConnected = detectedDeviceId != null
         val inserted = !wasConnected && newId != null
         detectedDeviceId = newId
         detectedDeviceName = if (newId == null) null else newName
-        if (inserted && isPs5) updateConfig { it.copy(layout = "ps5") }
+        if (inserted) {
+            if (isPs5) updateConfig { it.copy(layout = "ps5") }
+            else if (isGameSir) updateConfig { it.copy(layout = "gamesir") }
+        }
         when {
             newId != null -> {
                 binding.controllerStatusText.text = getString(R.string.controller_status_detected, newName)
@@ -113,7 +123,13 @@ class ControllerFragment : Fragment() {
     }
 
     private fun setupController() {
-        binding.controllerLayoutSpinner.adapter = spinnerAdapter(layouts.map { if (it == "ps5") "PS5" else "Xbox" })
+        binding.controllerLayoutSpinner.adapter = spinnerAdapter(layouts.map {
+            when (it) {
+                "ps5" -> "PS5"
+                "gamesir" -> "GameSir"
+                else -> "Xbox"
+            }
+        })
         binding.leftStickSpinner.adapter = spinnerAdapter(stickModes.map(::stickLabel))
         binding.rightStickSpinner.adapter = spinnerAdapter(stickModes.map(::stickLabel))
         binding.touchpadModeSpinner.adapter = spinnerAdapter(ControllerIni.TOUCHPAD_MODES.map(::touchpadLabel))

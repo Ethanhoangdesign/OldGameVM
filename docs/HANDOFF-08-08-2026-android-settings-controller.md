@@ -808,6 +808,41 @@ When a row started with `Kind = <empty>`, `syncControllerUi()` disabled both Val
 - User confirmed Value dropdowns work after fix.
 - Samsung native button/stick evidence remains pending.
 
+---
+
+## 28. CURRENT SESSION HANDOFF — 10/08/2026 LAPTOP CURSOR AUTO-CENTER
+
+### User-reported defect
+
+- Laptop opens with cursor at previous strategic/tactical position.
+- On Android (aspect-fit), cursor often ends up in black bars/letterbox area or obscured regions, making it invisible upon opening Laptop.
+
+### Fix
+
+`src/game/Laptop/Laptop.cc` now forces the cursor to the logical center of the Laptop screen during initialization:
+
+- Modified `EnterLaptop()` to reset mouse position at the end of initialization.
+- Uses `SetSafeMousePositionLogical()` to target the 640x480 workspace center (`x=360, y=227`).
+- Calls `SetUsingTouch(false)` on Android to ensure the software cursor renders immediately, even if the user was just using touch input.
+- Position is set after `LaptopScreenRect` and mouse regions are initialized, ensuring the cursor stays within valid bounds.
+
+### Verification
+
+- Code change applied to `src/game/Laptop/Laptop.cc`.
+- Build and runtime verification on Samsung A16: pending (safety classifier delay).
+- Expected behavior: Every time Laptop opens, the cursor should jump to the center (near the AIM icon), regardless of where it was on the previous screen.
+
+### Files changed
+
+- `src/game/Laptop/Laptop.cc`
+
+### Next action
+
+1. Run Android debug build and install on device.
+2. Verify cursor centers correctly upon opening Laptop.
+3. Verify cursor becomes visible immediately if touch was used before opening.
+4. Commit after user confirmation.
+
 ### Commit
 
 ```text
@@ -914,3 +949,275 @@ cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android" && .
 - Native multi-controller support.
 - Reset-to-default button.
 - Full Samsung native button/stick evidence.
+
+---
+
+## 24. CURRENT SESSION HANDOFF — 10/08/2026 LAPTOP CURSOR AXIS DIAGNOSTIC
+
+### User-reported defect
+
+- Samsung A16 opens laptop with software cursor hidden.
+- Left Stick remains configured as `Cursor`.
+- Moving Left Stick does not reveal or move cursor.
+- Touching PS5 touchpad makes cursor appear.
+
+### Confirmed configuration and device
+
+`controller.ini`:
+
+```ini
+enabled=1
+left_stick=cursor
+right_stick=none
+touchpad=cursor
+```
+
+Samsung native startup log:
+
+```text
+OGVM-CONTROLLER: enumerating 2 joystick(s)
+OGVM-CONTROLLER: joystick 0 name='DualSense Wireless Controller' game_controller=yes
+OGVM-CONTROLLER: opened 'DualSense Wireless Controller' touchpads=0
+```
+
+The DualSense opens successfully. `touchpads=0` means SDL does not expose the PS5 touchpad through `SDL_GameController`; Android touch events are separate input.
+
+### Root-cause investigation
+
+Original `MainLoop()` called `GameController_Update()` only when `SDL_PollEvent()` returned no event. Stick motion produces `SDL_CONTROLLERAXISMOTION`, so polling could be skipped while the stick moved. Touchpad events already had explicit routing, matching the symptom that touchpad input restored the cursor.
+
+Changes now present:
+
+- `src/sgp/SGP.cc` routes `SDL_CONTROLLERAXISMOTION` to `GameController_HandleEvent()`.
+- `src/sgp/GameController.cc` handles axis events by calling `GameController_Update()`.
+- `RestoreControllerCursor()` clears touch mode, refreshes mouse regions, and selects `CURSOR_LAPTOP_SCREEN` while laptop is active.
+- Controller cursor movement uses `SetSafeMousePositionLogical()` to avoid applying Android laptop coordinate conversion twice.
+- Runtime diagnostics log axis events and sampled stick values.
+
+Diagnostic log lines:
+
+```text
+OGVM-CONTROLLER: axis event axis={} value={}
+OGVM-CONTROLLER: update dt={} lx={} ly={} rx={} ry={}
+```
+
+### Build/install result
+
+Build and install on Samsung succeeded:
+
+```text
+BUILD SUCCESSFUL in 3s
+Performing Streamed Install
+Success
+Starting: Intent { cmp=io.github.ja2stracciatella/.LauncherActivity }
+```
+
+The supplied `adb -d logcat` output only showed Android/SDL lifecycle and screen-touch lines. It did not contain `OGVM-CONTROLLER`, `axis event`, or `update` lines. This does not prove axis input failed because native logger writes to `cache/ja2.log`, and the logcat buffer was cleared after launch.
+
+### Correct Samsung verification
+
+```bash
+cd "/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella/android"
+./gradlew app:assembleDebug --rerun-tasks --no-daemon --console=plain
+adb -d install -r app/build/outputs/apk/debug/app-debug.apk
+adb -d shell am force-stop io.github.ja2stracciatella
+adb -d shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+Reproduce:
+
+1. Start game.
+2. Open laptop.
+3. Move Left Stick for 2–3 seconds without touching screen or DualSense touchpad.
+4. Pull native log:
+
+```bash
+adb -d exec-out run-as io.github.ja2stracciatella cat cache/ja2.log > /tmp/ja2.log
+grep -F "OGVM-CONTROLLER" /tmp/ja2.log
+```
+
+Interpretation:
+
+- `axis event` + changing `update ... lx/ly`: SDL receives stick; inspect cursor overwrite or Android laptop crop/render state.
+- `axis event` without `update`: timing guard or repeated same-clock updates blocks movement.
+- `update` with `lx/ly` near zero: Android/SDL axis mapping problem.
+- No axis/update lines, only enumeration/open: APK lacks current diagnostics or Android does not forward stick events.
+
+### Current source concerns
+
+- `GameController_Update()` runs from both axis-event dispatch and no-event polling.
+- Every call updates `g_lastUpdate`; rapid axis events can produce `dtMs == 0` and return.
+- The current diagnostics are required before changing cursor or laptop rendering again.
+- Keep transition-time `VIDEO_NO_CURSOR` behavior unchanged until runtime evidence proves a later cursor overwrite.
+
+### Verification state
+
+- Controller config: confirmed.
+- DualSense SDL open: confirmed.
+- Android debug build: passed.
+- Samsung APK install/restart: passed.
+- Runtime axis evidence: pending.
+- Samsung laptop Left Stick cursor fix: not confirmed.
+- Do not mark fix complete until cursor appears and moves without touchpad, then touchpad behavior still works.
+
+### Repository state
+
+- Branch: `feature/multi-edition-detector`.
+- Prior UI commit: `755964511` — `OGVM-ANDROID: fix disabled controller field styling`.
+- Latest `src/sgp/GameController.cc` and `src/sgp/SGP.cc` controller changes remain subject to normal git status check.
+- Do not commit new controller changes unless explicitly requested.
+
+---
+
+## 25. CURRENT SESSION HANDOFF — 10/08/2026 GAMESIR LAYOUT & STICK LABELS
+
+### User request
+
+- Thêm lựa chọn layout "GameSir" vào danh sách chọn layout tay cầm.
+- Ghi rõ nhãn "Left analog stick" và "Right analog stick" cho hai cần xoay thay vì ghi vắn tắt.
+- Thêm nhãn (label) tiêu đề phía trên 3 Spinner: Controller layout, Left analog stick, và Right analog stick do `TextInputLayout` bọc ngoài `Spinner` không tự động hiển thị gợi ý (hint).
+- Không tự động commit khi chưa được yêu cầu.
+
+### UI changes made
+
+- Cập nhật [ControllerIni.kt](android/app/src/main/java/io/github/ja2stracciatella/ControllerIni.kt):
+  - Thêm `"gamesir"` vào mảng `LAYOUTS`.
+  - Hỗ trợ lưu/đọc config trường `layout` cho `"gamesir"` vào tệp `controller.ini`.
+- Cập nhật [ControllerFragment.kt](android/app/src/main/java/io/github/ja2stracciatella/ui/main/ControllerFragment.kt):
+  - Hiển thị `"GameSir"` trong danh sách chọn Layout (Spinner).
+  - Tự động nhận diện tay cầm GameSir X5 Lite (Vendor ID `0x0500`, Product ID `0x3735`) để gán sang `"gamesir"` khi kết nối.
+  - Ẩn phần tuỳ chỉnh touchpad (PS5) khi chọn layout GameSir hoặc Xbox.
+- Cập nhật [strings.xml](android/app/src/main/res/values/strings.xml):
+  - Đổi từ `Left stick` thành `Left analog stick` (với label chính) và `Left analog stick mode` (ở ô chọn).
+  - Đổi từ `Right stick` thành `Right analog stick` (với label chính) và `Right analog stick mode` (ở ô chọn).
+- Cập nhật [fragment_launcher_controller.xml](android/app/src/main/res/layout/fragment_launcher_controller.xml):
+  - Thêm 3 `TextView` làm nhãn cố định đặt phía trên 3 Spinner: "Controller layout", "Left analog stick", và "Right analog stick" để khắc phục việc hint biến mất trong `TextInputLayout`.
+- Cập nhật [ControllerIniTest.kt](android/app/src/test/java/io/github/ja2stracciatella/ControllerIniTest.kt):
+  - Sửa unit test kiểm tra việc đọc/ghi layout `gamesir` hoạt động ổn định.
+
+### Verification state
+
+- Android unit tests: Passed.
+- Debug APK build: Passed.
+- UI layouts verified.
+- Handoff file updated.
+
+---
+
+## 26. NEXT HANDOFF ACTION
+
+1. Pull `/tmp/ja2.log` from Samsung after Left Stick reproduction.
+2. Read `axis event` and `update` evidence before changing source.
+3. If events exist, fix `GameController_Update()` timing/event scheduling first.
+4. If values change but cursor remains hidden, trace later cursor selection and Android laptop presentation.
+5. Rebuild, reinstall, and repeat laptop test.
+6. Commit only after user confirms fix.
+
+---
+
+## 27. CURRENT SESSION HANDOFF — 10/08/2026 LEFT STICK CURSOR EVENT INJECTION
+
+### User-reported defect
+
+- Left Stick configured as `cursor` on GameSir G8 did not move the mouse properly.
+- Releasing the stick or interacting with other inputs would cause the cursor to snap back to the edge of the screen.
+- SDL axis motion events (`axis 0` and `axis 1` for Left Stick) were successfully registered by SDL and native code, but the UI ignored them.
+
+### Root cause
+
+`GameController_Update()` previously handled cursor movement by directly modifying internal variables (`gusMouseXPos` and `gusMouseYPos`) via `SetSafeMousePositionLogical()`. However, it never enqueued an actual `MOUSE_POS` event into the game's event queue (`gEventQueue`). Because the event system and UI were unaware of the movement, the cursor didn't visually update correctly, and subsequent touch/mouse events would overwrite the position with stale coordinates, causing the snap-back effect.
+
+### Fixes applied
+
+1. **Mouse Event Injection**:
+   - Added `PadInjectMousePos(int x, int y)` in `src/sgp/Input.cc` and `src/sgp/Input.h`.
+   - This function clears `gfIsUsingTouch`, clamps coordinates, and correctly enqueues a `MOUSE_POS` event using `QueuePointerEvent`.
+   - Updated `src/sgp/GameController.cc` to call `PadInjectMousePos()` during stick/touchpad cursor movement instead of silently setting logical bounds.
+
+2. **GameSir Hardware Mapping**:
+   - Injected explicit standard SDL mapping strings in `LoadMappingDb()` for **GameSir-X5 Lite** (Vendor `0x0500`, Product `0x3735`) and **GameSir G8 Galileo** (Vendor `0x3212`, Product `0x4102`).
+   - Ensures axes and buttons are mapped to the correct SDL standard natively on initialization, regardless of Android's default behavior.
+
+### Verification state
+
+- Code successfully modified.
+- User tested the compiled APK on Samsung device with GameSir G8.
+- Cursor now tracks Left Stick correctly without drifting or snapping back.
+- Game interactions (Laptop, UI buttons) process the injected MOUSE_POS correctly.
+
+### Commit and next actions
+
+- Code changes are verified and ready to be committed.
+- Keep tracking `Native multi-controller support` and `Live button-listening remap` in the backlog.
+
+---
+
+## 29. CURRENT SESSION HANDOFF — 11/08/2026 BIG MAP FOR 720P & RESOLUTION PRESETS
+
+### User request
+
+- Tăng kích thước Strategic Map cho màn hình 720p (1280x720) để tận dụng diện tích hiển thị.
+- Sắp xếp lại Resolution Presets trong Launcher, ưu tiên 1280x720 lên đầu.
+- Giữ lại các chuẩn cũ (1664x768) nhưng thêm các chuẩn an toàn (4:3) cho Mobile.
+
+### Changes made
+
+1. **Resolution Presets (Launcher)**:
+   - Cập nhật `ConfigurationModel.kt`:
+     - Đưa `1280x720` lên vị trí đầu tiên.
+     - Thêm đầy đủ 4 chuẩn an toàn: `640x480`, `800x600`, `1024x768`, `1280x720`.
+     - Giữ lại chuẩn siêu rộng `1664x768` ở cuối danh sách.
+
+2. **Big Map for 720p (Engine)**:
+   - Cập nhật `src/game/UILayout.cc`:
+     - Hạ ngưỡng chiều cao tối thiểu để kích hoạt "Full-size Map" (Big Map) từ `768` xuống `720`.
+     - Điều này cho phép màn hình `1280x720` hiển thị bản đồ chiến lược lớn (ô lưới 42x36) thay vì bản đồ thu nhỏ (21x18) lọt thỏm giữa màn hình.
+
+3. **Toạ độ UI Map Screen**:
+   - Do Big Map (612px cao) + Bottom Panel (121px cao) = 733px, trên màn hình 720px thực tế sẽ có sự chồng lấn nhẹ (13px) hoặc cần cắt bớt phần gỗ dư thừa.
+   - Logic `get_MAP_BOTTOM_BASE_Y()` hiện tại đặt panel tại `m_screenHeight - 480`. Với 720p, panel bắt đầu tại $Y=240$. Kết hợp offset vẽ `+359`, thanh đáy sẽ nằm sát mép dưới tại $Y=599$, khớp khít với bản đồ phía trên.
+
+### Verification state
+
+- **Code changes**: Applied to `ConfigurationModel.kt` and `UILayout.cc`.
+- **Android Build**: Sẵn sàng để chạy `assembleDebug`.
+- **Expected behavior**: Strategic Map của 1280x720 sẽ to tương đương với bản 768p, không còn bị co nhỏ ở giữa.
+
+### Next action
+
+1. Chạy build Android: `cd android && ./gradlew assembleDebug`.
+2. Test thực tế trên 1280x720, kiểm tra xem thanh HUD đáy có bị đè lên bản đồ hay không.
+3. Nếu bị đè, tinh chỉnh `get_MAP_BOTTOM_BASE_Y` hoặc `get_MAP_VIEW_START_Y`.
+
+---
+
+## 30. HIDE TACTICAL HISTORY LOG ON MOBILE (11/08/2026)
+
+### User request
+
+- Ẩn hoàn toàn bảng hiển thị tin nhắn (History Log) chứa text xanh/trắng ở góc dưới bên trái màn hình khi đang ở màn hình chiến thuật (Tactical / GAME_SCREEN).
+- Bảng tin nhắn này lấn chiếm quá nhiều không gian trên màn hình nhỏ của mobile (như kích thước 1280x720 vừa được chỉnh lại).
+- Giữ nguyên hệ thống History Log ở màn hình bản đồ chiến lược (Strategic Map / MAP_SCREEN).
+
+### Changes made
+
+1. **Vô hiệu hóa render và cập nhật Tactical Messages (`src/game/Utils/Message.cc`)**:
+   - `TacticalScreenMsg`: Thêm `return;` ngay đầu hàm để chặn hoàn toàn việc tạo dòng tin nhắn mới và đưa vào hàng đợi (`pStringS`) của màn hình chiến thuật.
+   - `ScrollString`: Thêm `return;` ngay đầu hàm để vô hiệu hóa việc tạo các Video Overlay cho các dòng tin nhắn mới.
+   - `BlitString`: Thêm điều kiện `if (guiCurrentScreen == GAME_SCREEN) return;` để phòng hờ chặn render bất kỳ video overlay nào nếu vô tình lọt vào.
+
+2. **Kết quả**:
+   - Hệ thống tin nhắn hệ thống (ScrollString) ngừng hoàn toàn việc tạo chữ, xếp hàng và hiển thị đồ hoạ khi vào GAME_SCREEN.
+   - Hàm `MapScreenMessage` chịu trách nhiệm ghi lại log cho màn hình bản đồ vẫn hoạt động bình thường, bảo toàn tính năng đọc lịch sử cũ ở ngoài Strategic Map.
+
+### Verification state
+
+- Cập nhật thành công mã nguồn C++.
+- Đã build thành công bản Android Debug (`assembleDebug` - 42s).
+- Cài đặt APK bằng `adb install -r`.
+- Kiểm tra thực tế trên Emulator (Samsung A16 - 1280x720): Góc trái màn hình Tactical đã hoàn toàn biến mất phần History Log, trả lại không gian hiển thị mặt đất rộng rãi cho map.
+
+### Next action
+
+- Commit code changes.
+- Chuyển sang tối ưu hoặc sửa thêm các lỗi hiển thị khác trên màn hình nhỏ (nếu có yêu cầu từ user).

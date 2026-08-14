@@ -49,6 +49,9 @@
 #include "Creature_Spreading.h"
 #include "Soldier_Macros.h"
 #include "GameSettings.h"
+#include "GameRes.h"
+#include "ContentManager.h"
+#include "GameInstance.h"
 #include "SaveLoadScreen.h"
 #include "Soldier_Profile.h"
 #include "Debug.h"
@@ -67,23 +70,23 @@
 #define MAP_BOTTOM_X (MAP_BOTTOM_BASE_X + 0)
 #define MAP_BOTTOM_Y (MAP_BOTTOM_BASE_Y + 359)
 
-/* Full-size layout: wide 9-line history log inside the bottom band (top edge
- * from MapScreenLogTop()). */
-#define MESSAGE_BOX_X (g_ui.isMapFullSize() ?   8 : MAP_BOTTOM_BASE_X +  17)
-#define MESSAGE_BOX_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 13) : MAP_BOTTOM_BASE_Y + 377)
-#define MESSAGE_BOX_W (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 40) : 301)
-#define MESSAGE_BOX_H (g_ui.isMapFullSize() ? 100 :  86)
+/* Wide panels reserve the left strip for history; the 763px art begins at
+ * MAP_BOTTOM_BASE_X and must not cover it. */
+#define MESSAGE_BOX_X (g_ui.isWidePanel() ? 8 : MAP_BOTTOM_BASE_X + 17)
+#define MESSAGE_BOX_Y (g_ui.isWidePanel() ? (MapScreenLogTop() + 13) : MAP_BOTTOM_BASE_Y + 377)
+#define MESSAGE_BOX_W (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 40) : g_ui.isWidescreenLayout() ? (MAP_BOTTOM_BASE_X - 8) : 301)
+#define MESSAGE_BOX_H (g_ui.isWidePanel() ? 100 : 86)
 
 /* SCROLLIN: nut van de dua cum cuon vao trong long khung BEVEL3.
  * Vien khung day 13 pixel nen long khung ket thuc som hon truoc.
  * So am dich sang trai, so duong dich sang phai. */
 #define SCROLL_NUDGE_X (-6)
 #define SCROLL_NUDGE_Y (2)
-#define MESSAGE_SCROLL_AREA_START_X (g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 23 + SCROLL_NUDGE_X) : MAP_BOTTOM_BASE_X + 330)   /* SCROLLBAY */
+#define MESSAGE_SCROLL_AREA_START_X (g_ui.isWidescreenLayout() ? (MAP_BOTTOM_BASE_X - (MAP_BOTTOM_BASE_X * 23 / 261)) : g_ui.isWidePanel() ? (MAP_BOTTOM_BASE_X - 23 + SCROLL_NUDGE_X) : MAP_BOTTOM_BASE_X + 330)   /* SCROLLBAY */
 #define MESSAGE_SCROLL_AREA_WIDTH    15
 
-#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isMapFullSize() ? (MapScreenLogTop() + 32 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 390)
-#define MESSAGE_SCROLL_AREA_HEIGHT  (g_ui.isMapFullSize() ?  53 :  59)
+#define MESSAGE_SCROLL_AREA_START_Y (g_ui.isWidescreenLayout() ? (27 * SCREEN_HEIGHT / 409) : g_ui.isWidePanel() ? (MapScreenLogTop() + 32 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 390)
+#define MESSAGE_SCROLL_AREA_HEIGHT  (g_ui.isWidescreenLayout() ? ((381 - 27) * SCREEN_HEIGHT / 409) : g_ui.isWidePanel() ?  53 :  59)
 
 #define SLIDER_HEIGHT		11
 #define SLIDER_WIDTH		11
@@ -126,7 +129,16 @@ enum{
 
 static void RenderMapScreenLogFrame(INT32 bx, INT32 by, INT32 bw, INT32 bh)
 {
-	/* BEVEL3: dung khung noi bang 13 lop vien long nhau.
+	/* Stretch the original Wildfire log frame to the available left column. */
+	auto const source = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/map_screen_log.sti", 0);
+	SGPBox const src{ 0, 0, (UINT16)source->Width(), (UINT16)source->Height() };
+	SGPBox const dst{ (UINT16)bx, (UINT16)by, (UINT16)bw, (UINT16)bh };
+	BltStretchVideoSurface(guiSAVEBUFFER, source.get(), &src, &dst);
+}
+
+static void RenderMapScreenLogFrameFallback(INT32 bx, INT32 by, INT32 bw, INT32 bh)
+{
+	/* BEVEL3 fallback when the edition does not ship the Wildfire frame asset.
 	   Dai do sang lay tu anh ban goc: 2 diem sang ngoai, ranh toi 3 diem,
 	   dai xam 4 diem, 3 diem sang trong, roi vao long khung. */
 	static UINT8 const prof[13][3] =
@@ -166,6 +178,9 @@ static void RenderMapScreenLogFrame(INT32 bx, INT32 by, INT32 bw, INT32 bh)
 
 INT16 MapScreenLogTop()
 {
+	/* Widescreen frame has a 13px inner border; keep the text origin aligned
+	 * with Message.cc while leaving the frame itself at the screen edge. */
+	if (g_ui.isWidescreenLayout()) return 13 + 4;
 	return (INT16)(SCREEN_HEIGHT - 118);   /* VFIT */
 }
 
@@ -279,7 +294,29 @@ void RenderMapScreenInterfaceBottom( void )
 	{
 		if (!g_ui.isMapFullSize())
 		{
+			/* Fill the widescreen extension first, then preserve the complete panel art on top. */
+			if (g_ui.isWidescreenLayout())
+			{
+				SGPBox const band = {(UINT16)MAP_BOTTOM_X, (UINT16)MAP_BOTTOM_Y,
+				                     (UINT16)(SCREEN_WIDTH - MAP_BOTTOM_X), (UINT16)(SCREEN_HEIGHT - MAP_BOTTOM_Y)};
+				DrawFillerOnSurface(guiSAVEBUFFER, band);
+			}
+
 			BltVideoObject(guiSAVEBUFFER, guiMAPBOTTOMPANEL, 0, MAP_BOTTOM_X, MAP_BOTTOM_Y);
+				/* Use the original Wildfire frame across the tall history column. */
+			if (g_ui.isWidescreenLayout())
+			{
+				if (GCM->doesGameResExists(INTERFACEDIR "/map_screen_log.sti"))
+				{
+					RenderMapScreenLogFrame(0, 0,
+						(INT32)g_ui.get_MAP_BOTTOM_BASE_X(), SCREEN_HEIGHT);
+				}
+				else
+				{
+					RenderMapScreenLogFrameFallback(0, 0,
+						(INT32)g_ui.get_MAP_BOTTOM_BASE_X(), SCREEN_HEIGHT);
+				}
+			}
 		}
 		if (g_ui.isMapFullSize())
 		{
@@ -300,7 +337,9 @@ void RenderMapScreenInterfaceBottom( void )
 			INT32 const lcRaw = (lcListBot > 8 && lcListBot < lcSafeTop) ? lcListBot : lcSafeTop;
 			UINT16 const lcTop = (UINT16)lcRaw;
 			UINT16 const lcH   = (UINT16)((INT32)SCREEN_HEIGHT > lcRaw ? (INT32)SCREEN_HEIGHT - lcRaw : 125);
-			SGPBox const leftColumn = {0, lcTop, 261, lcH};
+			/* Fill the complete strip left of the map, not just the roster width;
+			 * this removes the wide-screen wood gap behind the history log. */
+			SGPBox const leftColumn = {0, lcTop, g_ui.get_MAP_VIEW_START_X(), lcH};
 			DrawFillerOnSurface(guiSAVEBUFFER, leftColumn);
 			SGPBox const band = {(UINT16)MAP_BOTTOM_X, (UINT16)MAP_BOTTOM_Y, (UINT16)(SCREEN_WIDTH - MAP_BOTTOM_X), 121};
 			DrawFillerOnSurface(guiSAVEBUFFER, band);
@@ -308,41 +347,13 @@ void RenderMapScreenInterfaceBottom( void )
 			 * bang dung khoang tu MAP_BOTTOM_X den mep phai man hinh, nen
 			 * ve thang no len thay vi tu ve khung chim bang tay. */
 			BltVideoObject(guiSAVEBUFFER, guiMAPBOTTOMPANEL, 0, MAP_BOTTOM_X, MAP_BOTTOM_Y);
-			/* Sunken dark compartments with bevel frames, like the reference
-			 * layout: log box, three finance boxes, sector picture and clock. */
-			/* LOGFRAME2: boxFill khong con dung */
-			RenderMapScreenLogFrame(0, MapScreenLogTop(),
-			(INT32)g_ui.get_MAP_BOTTOM_BASE_X(),
-			(INT32)SCREEN_HEIGHT - MapScreenLogTop());   /* LOGFRAME2 */
-					/* DARKFILLS: the panel art already provides every sunken
-					   compartment, so the hand-drawn dark slabs are gone. The
-					   sector-picture one was landing on the level selector. */
-			{
-				SGPVSurface::Lock l(guiSAVEBUFFER);
-				UINT16* const buf  = l.Buffer<UINT16>();
-				UINT16 const dark  = Get16BPPColor(FROMRGB(20, 24, 18));
-				UINT16 const light = Get16BPPColor(FROMRGB(96, 104, 84));
-				/* Raised section frames dividing the band into compartments
-				 * (log | finances | buttons | sector), like the reference. */
-				/* VFIT: quy ve moc goc bang duoi va chieu cao man hinh */
-				INT32 const bx0   = (INT32)g_ui.get_MAP_BOTTOM_BASE_X();
-				INT32 const byTop = (INT32)SCREEN_HEIGHT - 119;
-				INT32 const sections[][4] = {
-					/* SHOWART: khoang nhat ky da co tranh goc, bo khung ve tay */
-					{bx0 -   2, byTop, bx0 + 112, SCREEN_HEIGHT - 2},
-					{bx0 + 112, byTop, bx0 + 224, SCREEN_HEIGHT - 2},
-					{bx0 + 224, byTop, SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2},
-				};
-				for (auto const& s : sections)
-				{
-					RectangleDraw(TRUE, s[0],     s[1],     s[2],     s[3],     light, buf);
-					RectangleDraw(TRUE, s[0] + 1, s[1] + 1, s[2] - 1, s[3] - 1, dark,  buf);
-				}
-
-		/* REALPANEL: cac o chim quanh nut da duoc khoet san trong tranh nen,
-		   khong can ve tay nua. */
-				/* SHOWART: bo not khung trong, tranh goc tu lo ra */
-			}
+			/* The Wildfire art already contains the finance, radar, clock, and
+			 * control recesses. Keep only the custom history-log frame; drawing
+			 * synthetic section borders over the art makes those recesses appear
+			 * shifted from their widgets. */
+			RenderMapScreenLogFrameFallback(0, MapScreenLogTop(),
+				(INT32)g_ui.get_MAP_BOTTOM_BASE_X(),
+				(INT32)SCREEN_HEIGHT - MapScreenLogTop());
 		}
 		auto const& sMap{ sSelMap };
 
@@ -364,8 +375,8 @@ void RenderMapScreenInterfaceBottom( void )
 		MarkButtonsDirty( );
 
 		// invalidate region (in full-size mode include the log column on the left)
-		INT16 const restoreX = g_ui.isMapFullSize() ? 0 : MAP_BOTTOM_X;
-		INT16 const restoreY = g_ui.isMapFullSize() ? 354 : MAP_BOTTOM_Y;
+		INT16 const restoreX = (g_ui.isMapFullSize() || g_ui.isWidescreenLayout()) ? 0 : MAP_BOTTOM_X;
+		INT16 const restoreY = g_ui.isWidescreenLayout() ? 0 : g_ui.isMapFullSize() ? 354 : MAP_BOTTOM_Y;
 		if (g_ui.isMapFullSize())
 		{
 			/* LEVELRENDER: the filler band drawn above wipes the hand-drawn level
@@ -426,7 +437,7 @@ static GUIButtonRef MakeArrowButton(INT32 grayed, INT32 off, INT32 on, INT16 x, 
 
 static void CreateButtonsForMapScreenInterfaceBottom(void)
 {
-	bool const fs = g_ui.isMapFullSize();
+	bool const fs = g_ui.isWidePanel();
 	/* Real frame sizes (measured from map_border_buttons.sti): options disc
 	 * 94x27, laptop/tactical 43x32. */
 	guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]   = MakeExitButton( 6, 15, fs ? (MAP_BOTTOM_BASE_X + 554) : MAP_BOTTOM_BASE_X + 456, fs ? (MAP_BOTTOM_BASE_Y + 410) : MAP_BOTTOM_BASE_Y + 410, BtnLaptopCallback,               pMapScreenBottomFastHelp[0]);
@@ -438,9 +449,9 @@ static void CreateButtonsForMapScreenInterfaceBottom(void)
 	guiMapBottomTimeButtons[MAP_TIME_COMPRESS_LESS] = MakeArrowButton( 9, 0, 2, fs ? (MAP_BOTTOM_BASE_X + 558) : MAP_BOTTOM_BASE_X + 466, fs ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 456, BtnTimeCompressLessMapScreenCallback, pMapScreenBottomFastHelp[4]);
 
 	// scroll buttons
-	INT16 const msgUpX   = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X - 23 + SCROLL_NUDGE_X) : MAP_BOTTOM_BASE_X + 331;   /* SCROLLBAY */
-	INT16 const msgUpY   = g_ui.isMapFullSize() ? (MapScreenLogTop() + 14 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 371;
-	INT16 const msgDownY = g_ui.isMapFullSize() ? (MapScreenLogTop() + 85 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 452;
+	INT16 const msgUpX   = g_ui.isWidescreenLayout() ? (MAP_BOTTOM_BASE_X - (MAP_BOTTOM_BASE_X * 23 / 261)) : g_ui.isWidePanel() ? (MAP_BOTTOM_BASE_X - 23 + SCROLL_NUDGE_X) : MAP_BOTTOM_BASE_X + 331;   /* SCROLLBAY */
+	INT16 const msgUpY   = g_ui.isWidescreenLayout() ? (12 * SCREEN_HEIGHT / 409) : g_ui.isWidePanel() ? (MapScreenLogTop() + 14 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 371;
+	INT16 const msgDownY = g_ui.isWidescreenLayout() ? (381 * SCREEN_HEIGHT / 409) : g_ui.isWidePanel() ? (MapScreenLogTop() + 85 + SCROLL_NUDGE_Y) : MAP_BOTTOM_BASE_Y + 452;
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_UP]   = MakeArrowButton(11, 4, 6, msgUpX, msgUpY,   BtnMessageUpMapScreenCallback,   pMapScreenBottomFastHelp[5]);
 	guiMapMessageScrollButtons[MAP_SCROLL_MESSAGE_DOWN] = MakeArrowButton(12, 5, 7, msgUpX, msgDownY, BtnMessageDownMapScreenCallback, pMapScreenBottomFastHelp[6]);
 }
@@ -489,9 +500,9 @@ static void DrawNameOfLoadedSector()
 	SetFontAttributes(font, 183);
 
 	ST::string buf = GetSectorIDString(sSelMap, TRUE);
-	buf = ReduceStringLength(buf, g_ui.isMapFullSize() ? 92 : 80, font);
+	buf = ReduceStringLength(buf, g_ui.isWidePanel() ? 92 : 80, font);
 
-	if (g_ui.isMapFullSize())
+	if (g_ui.isWidePanel())
 	{
 		MPrint(MAP_BOTTOM_BASE_X + 663, MAP_BOTTOM_BASE_Y + 423, buf, HCenterVCenterAlign(94, 23));   /* RIGHTBAY */
 	}
@@ -678,11 +689,11 @@ static void DisplayCompressMode(void)
 		Time = sTimeStrings[IsTimeBeingCompressed() ? giTimeCompressMode : 0];
 	}
 
-	INT16 const cmX = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X + 573) : MAP_BOTTOM_BASE_X + 489;
-	INT16 const cmY = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 457;
+	INT16 const cmX = g_ui.isWidePanel() ? (MAP_BOTTOM_BASE_X + 573) : MAP_BOTTOM_BASE_X + 489;
+	INT16 const cmY = g_ui.isWidePanel() ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 457;
 	/* RIGHTBAY: khoang trong giua hai mui ten rong 66, cao 13. */
-	INT16 const cmW = g_ui.isMapFullSize() ? 66 : (522 - 489);
-	INT16 const cmH = g_ui.isMapFullSize() ? 13 : (467 - 454);
+	INT16 const cmW = g_ui.isWidePanel() ? 66 : (522 - 489);
+	INT16 const cmH = g_ui.isWidePanel() ? 13 : (467 - 454);
 	RestoreExternBackgroundRect( cmX, cmY, cmW, cmH );
 	SetFontDestBuffer(FRAME_BUFFER);
 
@@ -712,9 +723,9 @@ static void DisplayCompressMode(void)
 
 static void CreateCompressModePause(void)
 {
-	INT16 const pzX = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_X + 573) : MAP_BOTTOM_BASE_X + 487;
-	INT16 const pzY = g_ui.isMapFullSize() ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 456;
-	MSYS_DefineRegion( &gMapPauseRegion, pzX, pzY, pzX + (g_ui.isMapFullSize() ? 66 : 35), pzY + (g_ui.isMapFullSize() ? 13 : 11), MSYS_PRIORITY_HIGH,
+	INT16 const pzX = g_ui.isWidePanel() ? (MAP_BOTTOM_BASE_X + 573) : MAP_BOTTOM_BASE_X + 487;
+	INT16 const pzY = g_ui.isWidePanel() ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 456;
+	MSYS_DefineRegion( &gMapPauseRegion, pzX, pzY, pzX + (g_ui.isWidePanel() ? 66 : 35), pzY + (g_ui.isWidePanel() ? 13 : 11), MSYS_PRIORITY_HIGH,
 							MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressModeClickCallback );
 	gMapPauseRegion.SetFastHelpText(pMapScreenBottomFastHelp[7]);
 }
@@ -1018,7 +1029,7 @@ static void DisplayCurrentBalanceTitleForMapBottom(void)
 	SetFontAttributes(COMPFONT, MAP_BOTTOM_FONT_COLOR);
 	HCenterVCenterAlign const alignment{ 437 - 359, 10 };
 
-	if (g_ui.isMapFullSize())
+	if (g_ui.isWidePanel())
 	{
 		/* MONEYPLATE: the panel art recesses only two money plaques, at panel
 		   (372,27)-(528,50) and (372,85)-(528,108). Each label sits on the
@@ -1042,7 +1053,7 @@ static void DisplayCurrentBalanceForMapBottom(void)
 	// show the current balance for the player on the map panel bottom
 	SetFontDestBuffer(FRAME_BUFFER);
 	SetFontAttributes(COMPFONT, 183);
-	if (g_ui.isMapFullSize())
+	if (g_ui.isWidePanel())
 	{
 		MPrint(MAP_BOTTOM_BASE_X + 372, MAP_BOTTOM_BASE_Y + 386, SPrintMoney(LaptopSaveInfo.iCurrentBalance), HCenterVCenterAlign(157, 24));
 	}
@@ -1067,12 +1078,12 @@ void CreateDestroyMouseRegionMasksForTimeCompressionButtons()
 	if (disabled && !created)
 	{
 		// Mask over compress more, compress less and paus game buttons.
-		bool const fsm = g_ui.isMapFullSize();
+		bool const fsm = g_ui.isWidePanel();
 		INT16 const mMoreX = fsm ? (MAP_BOTTOM_BASE_X + 639) : MAP_BOTTOM_BASE_X + 528, mLessX = fsm ? (MAP_BOTTOM_BASE_X + 558) : MAP_BOTTOM_BASE_X + 466;
 		INT16 const mPzX   = fsm ? (MAP_BOTTOM_BASE_X + 573) : MAP_BOTTOM_BASE_X + 487, mY    = fsm ? (MAP_BOTTOM_BASE_Y + 456) : MAP_BOTTOM_BASE_Y + 457;
 		MSYS_DefineRegion(&gTimeCompressionMask[0], mMoreX, mY, mMoreX + 13, mY + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
 		MSYS_DefineRegion(&gTimeCompressionMask[1], mLessX, mY, mLessX + 13, mY + 14, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
-		MSYS_DefineRegion(&gTimeCompressionMask[2], mPzX,   mY, mPzX + 35,  mY + 11, MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
+		MSYS_DefineRegion(&gTimeCompressionMask[2], mPzX,   mY, mPzX + (fsm ? 66 : 35), mY + (fsm ? 13 : 11), MSYS_PRIORITY_HIGHEST - 1, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, CompressMaskClickCallback);
 		created = true;
 	}
 	else if (!disabled && created)
@@ -1111,7 +1122,7 @@ static void DisplayProjectedDailyMineIncome(void)
 
 	SetFontDestBuffer(FRAME_BUFFER);
 	SetFontAttributes(COMPFONT, 183);
-	if (g_ui.isMapFullSize())
+	if (g_ui.isWidePanel())
 	{
 		MPrint(MAP_BOTTOM_BASE_X + 372, MAP_BOTTOM_BASE_Y + 444, SPrintMoney(iRate), HCenterVCenterAlign(157, 24));
 	}

@@ -61,11 +61,16 @@ class Resolution(
          * Freeform WxH still allowed via edit fields.
          */
         val PRESETS = listOf(
+            Resolution(934u, 480u),  // widescreen at minimum height, narrower than 1280
+            Resolution(1366u, 768u), // mobile-recommended 16:9 HD (Big Map)
+            Resolution(1280u, 768u), // mobile-recommended 5:3 HD (Big Map)
             Resolution(1024u, 768u),
-            Resolution(1360u, 768u),
-            Resolution(1366u, 768u),
-            Resolution(1664u, 768u), // mobile-only ultra-wide
-            Resolution(640u, 480u) // smoke / original layout compare
+            Resolution(1280u, 600u), // widescreen at 600 height — same zoom as 800x600
+            Resolution(1280u, 480u), // widescreen at minimum height
+            Resolution(1024u, 600u), // medium-wide at 600 height — same zoom as 800x600
+            Resolution(800u, 600u),
+            Resolution(640u, 480u),  // original 4:3
+            Resolution(1664u, 768u)  // mobile-only ultra-wide
         )
     }
 }

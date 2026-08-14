@@ -166,6 +166,7 @@ static void MainLoop()
 				case SDL_CONTROLLERDEVICEREMOVED:
 				case SDL_CONTROLLERBUTTONDOWN:
 				case SDL_CONTROLLERBUTTONUP:
+				case SDL_CONTROLLERAXISMOTION:
 					GameController_HandleEvent(&event);
 					break;
 

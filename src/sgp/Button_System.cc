@@ -1067,7 +1067,11 @@ static void DrawQuickButton(const GUI_BUTTON* b)
 			SGPVSurface tmp(aw, ah, 16);
 			tmp.Fill(0);
 			tmp.SetTransparency(0);
+			SGPRect tmpClip;
+			tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+			SGPRect const oldClip = SetClippingRect(tmpClip);
 			BltVideoObject(&tmp, pics->vobj, static_cast<UINT16>(UseImage), 0, 0);
+			SetClippingRect(oldClip);
 			SGPBox src;
 			src.set(0, 0, aw, ah);
 			SGPBox dst;
@@ -1184,7 +1188,11 @@ static void DrawCheckBoxButton(const GUI_BUTTON *b)
 			SGPVSurface tmp(w, h, 16);
 			tmp.Fill(0);
 			tmp.SetTransparency(0);
+			SGPRect tmpClip;
+			tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+			SGPRect const oldClip = SetClippingRect(tmpClip);
 			BltVideoObject(&tmp, pics->vobj, static_cast<UINT16>(UseImage), 0, 0);
+			SetClippingRect(oldClip);
 
 			SGPBox src;
 			src.set(0, 0, w, h);
