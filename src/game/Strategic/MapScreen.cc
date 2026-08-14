@@ -4997,6 +4997,15 @@ void RenderMapRegionBackground( void )
 	{
 		/* The vanilla-sized map border does not fit the full-size map. */
 		RenderMapBorder( );
+		if (g_ui.isWidescreenLayout())
+		{
+			/* The 934x480 layout moves the map away from the vanilla border,
+			 * exposing its black backdrop. Replace the complete right-hand
+			 * backdrop first; DrawMap() below paints the map over it. */
+			UINT16 const x = MAP_LEFT_COL_X + 261;
+			SGPBox const backdrop = {x, 0, (UINT16)(SCREEN_WIDTH - x), 359};
+			DrawFillerOnSurface(guiSAVEBUFFER, backdrop);
+		}
 	}
 
 
@@ -5005,6 +5014,35 @@ void RenderMapRegionBackground( void )
 	{
 		// draw map
 		DrawMap( );
+
+		/* 934x480: reuse Wildfire's real Mbs molding instead of approximating
+		 * its irregular highlights with flat lines. The source well starts at
+		 * (49, 27), measured from the 763x647 artwork. Draw only the four frame
+		 * strips so the already-rendered map and index rails remain untouched. */
+		if (SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480)
+		{
+			auto const frame = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/mbs.sti", 0);
+			INT32 const x = (INT32)g_ui.get_MAP_VIEW_START_X() + 1;
+			INT32 const y = (INT32)g_ui.get_MAP_VIEW_START_Y();
+			INT32 const w = 714 / 2;
+			INT32 const h = 612 / 2;
+			INT32 const edgeX = 49;
+			INT32 const edgeY = 27;
+
+			SGPBox const srcTop    = {0, 0, frame->Width(), (UINT16)edgeY};
+			SGPBox const dstTop    = {(UINT16)(x - edgeX / 2), (UINT16)(y - edgeY / 2), (UINT16)(w + edgeX), (UINT16)(edgeY / 2)};
+			SGPBox const srcBottom = {0, (UINT16)(edgeY + 612), frame->Width(), (UINT16)(frame->Height() - edgeY - 612)};
+			SGPBox const dstBottom = {(UINT16)(x - edgeX / 2), (UINT16)(y + h), (UINT16)(w + edgeX), (UINT16)((frame->Height() - edgeY - 612) / 2)};
+			SGPBox const srcLeft   = {0, (UINT16)edgeY, (UINT16)edgeX, 612};
+			SGPBox const dstLeft   = {(UINT16)(x - edgeX / 2), (UINT16)y, (UINT16)(edgeX / 2), (UINT16)h};
+			SGPBox const srcRight  = {(UINT16)(edgeX + 714), (UINT16)edgeY, (UINT16)(frame->Width() - edgeX - 714), 612};
+			SGPBox const dstRight  = {(UINT16)(x + w), (UINT16)y, (UINT16)((frame->Width() - edgeX - 714) / 2), (UINT16)h};
+
+			BltStretchVideoSurface(guiSAVEBUFFER, frame.get(), &srcTop,    &dstTop);
+			BltStretchVideoSurface(guiSAVEBUFFER, frame.get(), &srcBottom, &dstBottom);
+			BltStretchVideoSurface(guiSAVEBUFFER, frame.get(), &srcLeft,   &dstLeft);
+			BltStretchVideoSurface(guiSAVEBUFFER, frame.get(), &srcRight,  &dstRight);
+		}
 	}
 
 	if (ghAttributeBox != NO_POPUP_BOX) ForceUpDateOfBox(ghAttributeBox);
@@ -5029,22 +5067,26 @@ void RenderMapRegionBackground( void )
 			{
 				UINT16 const artX = g_ui.get_MAP_VIEW_START_X() + 1;
 				UINT16 const artY = g_ui.get_MAP_VIEW_START_Y() + 1;
-				/* VFILL: keo xuong den dinh bang duoi, khong dung o day ban do */
-					UINT16 const bandH = (UINT16)(SCREEN_HEIGHT - 121);
-				if (artX > 261)
+				/* Fill the complete area above and beside the map, including the
+				 * exposed strip between the roster and the centred map. */
+				UINT16 const bandH = (UINT16)(SCREEN_HEIGHT - 121);
+				if (artX > 136)
 				{
-					SGPBox const b = {261, 0, (UINT16)(artX - 261), bandH};
+					SGPBox const b = {136, 0, (UINT16)(artX - 136), bandH};
 					DrawFillerOnSurface(guiSAVEBUFFER, b);
+					DrawFillerOnSurface(FRAME_BUFFER, b);
 				}
 				if (artX + (714 * MAPZOOM_NUM / 2) < SCREEN_WIDTH)
 				{
 					SGPBox const b = {(UINT16)(artX + (714 * MAPZOOM_NUM / 2)), 0, (UINT16)(SCREEN_WIDTH - artX - (714 * MAPZOOM_NUM / 2)), bandH};
 					DrawFillerOnSurface(guiSAVEBUFFER, b);
+					DrawFillerOnSurface(FRAME_BUFFER, b);
 				}
 				if (artY > 1)
 				{
 					SGPBox const b = {artX, 0, (UINT16)(714 * MAPZOOM_NUM / 2), artY};
 					DrawFillerOnSurface(guiSAVEBUFFER, b);
+					DrawFillerOnSurface(FRAME_BUFFER, b);
 				}
 			}
 
@@ -5054,6 +5096,7 @@ void RenderMapRegionBackground( void )
 			UINT16 const stripH   = (UINT16)(stripBot > stripTop + 35 ? stripBot - stripTop : 35);
 			SGPBox const strip = {262, stripTop, (UINT16)(SCREEN_WIDTH - 262), stripH};
 			DrawFillerOnSurface(guiSAVEBUFFER, strip);
+			DrawFillerOnSurface(FRAME_BUFFER, strip);
 			/* LISTLONG: da bo hai duong ke trang tri o day. Chung la khung cua
 			 * dai nut trong bo cuc 1024; tren man rong hon thi sau nut bam va
 			 * thanh chon tang da nam gon trong bang duoi, nen khung nay khong
@@ -5189,7 +5232,7 @@ void RenderMapRegionBackground( void )
 			RenderMapLevelSelectorFullSize();
 		}
 		/* Copy the whole full-size map region (the Wildfire right column). */
-		RestoreExternBackgroundRect(261, 0, SCREEN_WIDTH - 261, g_ui.get_MAP_VIEW_START_Y() + (612 * MAPZOOM_NUM / 2 + 35));
+		RestoreExternBackgroundRect(136, 0, SCREEN_WIDTH - 136, g_ui.get_MAP_VIEW_START_Y() + (612 * MAPZOOM_NUM / 2 + 35));
 	}
 	else
 	{
