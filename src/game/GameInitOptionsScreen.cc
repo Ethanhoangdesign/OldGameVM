@@ -46,15 +46,19 @@ static float GioUiScale(void)
 }
 #define GIO_SCALE_X(x) ((INT16)((INT32)(SCREEN_WIDTH  / 2) + (INT32)(((INT32)(x) - (INT32)(STD_SCREEN_X + 320)) * GioUiScale())))
 #define GIO_SCALE_Y(y) ((INT16)((INT32)(SCREEN_HEIGHT / 2) + (INT32)(((INT32)(y) - (INT32)(STD_SCREEN_Y + 240)) * GioUiScale())))
-// hugefont may be missing on some data packs; never pass null into button/text draw.
-#define GIO_TITLE_FONT			((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL)
+#define GIO_COMPACT_LAYOUT		(SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480)
+// 934x480 has only 1x vertical room; larger Android presets keep the touch layout.
+#define GIO_TITLE_FONT			(GIO_COMPACT_LAYOUT ? FONT16ARIAL : ((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL))
 #define GIO_TITLE_COLOR		FONT_MCOLOR_WHITE
-#define GIO_TOGGLE_TEXT_FONT		((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL)
+#define GIO_TOGGLE_TEXT_FONT		(GIO_COMPACT_LAYOUT ? FONT12ARIAL : ((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL))
 #define GIO_TOGGLE_TEXT_COLOR		FONT_MCOLOR_WHITE
-#define GIO_GAP_BN_SETTINGS		70
-#define GIO_OFFSET_TO_TEXT		40
-#define GIO_OFFSET_TO_TOGGLE_BOX	310
-#define GIO_OFFSET_TO_TOGGLE_BOX_Y	18
+#define GIO_GAP_BN_SETTINGS		(GIO_COMPACT_LAYOUT ? 35 : 70)
+#define GIO_OFFSET_TO_TEXT		(GIO_COMPACT_LAYOUT ? 20 : 40)
+#define GIO_OFFSET_TO_TOGGLE_BOX	(GIO_COMPACT_LAYOUT ? 250 : 310)
+#define GIO_OFFSET_TO_TOGGLE_BOX_Y	(GIO_COMPACT_LAYOUT ? 9 : 18)
+#define GIO_COMPACT_X(x)		(GIO_COMPACT_LAYOUT ? (x) - 40 : (x))
+#define GIO_COMPACT_LEFT_X(x)		(GIO_COMPACT_LAYOUT ? (x) - 60 : (x))
+#define GIO_COMPACT_RIGHT_X(x)		(GIO_COMPACT_LAYOUT ? (x) - 20 : (x))
 #else
 #define GIO_SCALE_X(x) (x)
 #define GIO_SCALE_Y(y) (y)
@@ -66,10 +70,13 @@ static float GioUiScale(void)
 #define GIO_OFFSET_TO_TEXT		20//30
 #define GIO_OFFSET_TO_TOGGLE_BOX	155//200
 #define GIO_OFFSET_TO_TOGGLE_BOX_Y	9
+#define GIO_COMPACT_X(x)		(x)
+#define GIO_COMPACT_LEFT_X(x)		(x)
+#define GIO_COMPACT_RIGHT_X(x)		(x)
 #endif
 
 //buttons
-#define GIO_BTN_OK_X			GIO_SCALE_X(STD_SCREEN_X + 141)
+#define GIO_BTN_OK_X			GIO_SCALE_X(STD_SCREEN_X + GIO_COMPACT_X(141))
 // Keep OK/Cancel fully on-screen (prefs button art ~40px tall; short heights clip).
 #ifdef __ANDROID__
 #define GIO_BTN_OK_Y			((GIO_SCALE_Y(STD_SCREEN_Y + 418) > (INT16)(SCREEN_HEIGHT - 48)) \
@@ -78,19 +85,23 @@ static float GioUiScale(void)
 #else
 #define GIO_BTN_OK_Y			GIO_SCALE_Y(STD_SCREEN_Y + 418)
 #endif
-#define GIO_CANCEL_X			GIO_SCALE_X(STD_SCREEN_X + 379)
+#define GIO_CANCEL_X			GIO_SCALE_X(STD_SCREEN_X + GIO_COMPACT_X(379))
 
 //main title
 #define GIO_MAIN_TITLE_X		GIO_SCALE_X(STD_SCREEN_X + 0)
 #define GIO_MAIN_TITLE_Y		GIO_SCALE_Y(STD_SCREEN_Y + 68)
+#ifdef __ANDROID__
+#define GIO_MAIN_TITLE_WIDTH		(GIO_COMPACT_LAYOUT ? 640 : 640 * 2)
+#else
 #define GIO_MAIN_TITLE_WIDTH		(640 * 2)
+#endif
 
 //radio box locations
-#define GIO_DIF_SETTINGS_X		GIO_SCALE_X(STD_SCREEN_X + 80)
+#define GIO_DIF_SETTINGS_X		GIO_SCALE_X(STD_SCREEN_X + GIO_COMPACT_LEFT_X(80))
 #define GIO_DIF_SETTINGS_Y		GIO_SCALE_Y(STD_SCREEN_Y + 150)
 #define GIO_DIF_SETTINGS_WIDTH		(GIO_OFFSET_TO_TOGGLE_BOX - GIO_OFFSET_TO_TEXT) //230
 
-#define GIO_GAME_SETTINGS_X		GIO_SCALE_X(STD_SCREEN_X + 350)
+#define GIO_GAME_SETTINGS_X		GIO_SCALE_X(STD_SCREEN_X + GIO_COMPACT_RIGHT_X(350))
 #define GIO_GAME_SETTINGS_Y		GIO_SCALE_Y(STD_SCREEN_Y + 300)
 #define GIO_GAME_SETTINGS_WIDTH	GIO_DIF_SETTINGS_WIDTH
 
@@ -292,10 +303,13 @@ static void MakeCheckBoxes(GUIButtonRef* const btns, size_t const n, INT16 const
 		btns[i] = b;
 		b->SetUserData(i);
 #ifdef __ANDROID__
-		// Set button width/height to twice its default size (pics->max.w / pics->max.h is normally 34x29)
-		// We can resize its mouse region area so that clicking/touching is highly responsive!
-		b->Area.RegionBottomRightX = b->Area.RegionTopLeftX + 68;
-		b->Area.RegionBottomRightY = b->Area.RegionTopLeftY + 58;
+		// Match DrawCheckBoxButton(): 934x480 renders at natural size; other
+		// Android layouts keep the enlarged touch target.
+		if (!GIO_COMPACT_LAYOUT)
+		{
+			b->Area.RegionBottomRightX = b->Area.RegionTopLeftX + 68;
+			b->Area.RegionBottomRightY = b->Area.RegionTopLeftY + 58;
+		}
 #endif
 	}
 	btns[def]->uiFlags |= BUTTON_CLICKED_ON;
@@ -488,7 +502,7 @@ static void RenderGIOScreen(void)
 
 	//Shade the background
 #ifdef __ANDROID__
-	FRAME_BUFFER->ShadowRect(GIO_SCALE_X(STD_SCREEN_X + 48), GIO_SCALE_Y(STD_SCREEN_Y + 55), GIO_SCALE_X(STD_SCREEN_X + 592), GIO_SCALE_Y(STD_SCREEN_Y + 408));
+	FRAME_BUFFER->ShadowRect(GIO_SCALE_X(STD_SCREEN_X + (GIO_COMPACT_LAYOUT ? 0 : 48)), GIO_SCALE_Y(STD_SCREEN_Y + 55), GIO_SCALE_X(STD_SCREEN_X + (GIO_COMPACT_LAYOUT ? 640 : 592)), GIO_SCALE_Y(STD_SCREEN_Y + 408));
 #else
 	FRAME_BUFFER->ShadowRect(STD_SCREEN_X + 48, STD_SCREEN_Y + 55, STD_SCREEN_X + 592, STD_SCREEN_Y + 408); //358
 #endif
@@ -554,7 +568,14 @@ static void RenderGIOScreen(void)
 
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY, GIO_DIF_SETTINGS_WIDTH, 2, GIO_TOGGLE_TEXT_FONT, GIO_TOGGLE_TEXT_COLOR, gzGIOScreenText[GIO_IRON_MAN_TEXT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
 #ifdef __ANDROID__
-	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+50, 440, 2, FONT16ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	if (GIO_COMPACT_LAYOUT)
+	{
+		DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	}
+	else
+	{
+		DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+50, 440, 2, FONT16ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	}
 #else
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
 #endif
@@ -562,7 +583,14 @@ static void RenderGIOScreen(void)
 
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY, GIO_DIF_SETTINGS_WIDTH, 2, GIO_TOGGLE_TEXT_FONT, GIO_TOGGLE_TEXT_COLOR, gzGIOScreenText[GIO_DEAD_IS_DEAD_TEXT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
 #ifdef __ANDROID__
-	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+50, 440, 2, FONT16ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	if (GIO_COMPACT_LAYOUT)
+	{
+		DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	}
+	else
+	{
+		DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+50, 440, 2, FONT16ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	}
 #else
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
 #endif
