@@ -377,11 +377,10 @@ void RenderMapScreenInterfaceBottom( void )
 		// invalidate region (in full-size mode include the log column on the left)
 		INT16 const restoreX = (g_ui.isMapFullSize() || g_ui.isWidescreenLayout()) ? 0 : MAP_BOTTOM_X;
 		INT16 const restoreY = g_ui.isWidescreenLayout() ? 0 : g_ui.isMapFullSize() ? 354 : MAP_BOTTOM_Y;
-		if (g_ui.isMapFullSize())
+		if (g_ui.isWidePanel())
 		{
-			/* LEVELRENDER: the filler band drawn above wipes the hand-drawn level
-			 * selector, which lives in this band now, so draw it again right
-			 * before the whole band is pushed from the save buffer to screen. */
+			/* LEVELRENDER: the panel drawn above wipes the current-level marker,
+			 * so draw it again before the band reaches the screen. */
 			RenderMapLevelSelectorFullSize();
 		}
 		RestoreExternBackgroundRect(restoreX, restoreY, SCREEN_WIDTH - restoreX, SCREEN_HEIGHT - restoreY);

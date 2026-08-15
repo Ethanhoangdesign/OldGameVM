@@ -6933,7 +6933,7 @@ static void CheckForAndRenderNewMailOverlay(void)
 	{
 		// Anchor the icon to the Laptop button; full-size moves that button
 		// right (+554 vs +456), so the hardcoded +464 floated over finance box.
-		INT32 const lapX = (g_ui.isMapFullSize() ? 554 : 456) + g_ui.get_MAP_BOTTOM_BASE_X();
+		INT32 const lapX = (g_ui.isWidePanel() ? 554 : 456) + g_ui.get_MAP_BOTTOM_BASE_X();
 		INT32 const lapY = 410 + g_ui.get_MAP_BOTTOM_BASE_Y();
 		if( GetJA2Clock() % 1000 < 667 )
 		{
