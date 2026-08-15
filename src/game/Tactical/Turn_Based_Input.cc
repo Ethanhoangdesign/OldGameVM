@@ -2309,6 +2309,13 @@ void GetKeyboardInput(UIEventKind* const puiNewEvent)
 		}
 
 
+		if (InputEvent.usEvent == KEY_DOWN && InputEvent.usKeyState == 0 &&
+			InputEvent.usParam == SDLK_F8 && gTacticalStatus.fInTopMessage)
+		{
+			gubEnemyTurnAnimationSpeed = gubEnemyTurnAnimationSpeed % 5 + 1;
+			continue;
+		}
+
 		// IF UI HAS LOCKED, ONLY ALLOW EXIT!
 		if ( gfDisableRegionActive || gfUserTurnRegionActive )
 		{

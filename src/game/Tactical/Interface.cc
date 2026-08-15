@@ -240,9 +240,11 @@ void InitializeTacticalInterface()
 	guiRADIO2       = AddVideoObjectFromFile(INTERFACEDIR "/radio2.sti");
 
 	gTopMessage.uiSurface = AddVideoSurface(SCREEN_WIDTH, 20, PIXEL_DEPTH);
+	constexpr INT16 speedButtonWidth = 42;
 	gEnemyTurnSpeedButton = CreateTextButton("1x", FONT10ARIAL, FONT_MCOLOR_WHITE, DEFAULT_SHADOW,
-		SCREEN_WIDTH - 42, 0, 42, 20, MSYS_PRIORITY_HIGH, EnemyTurnSpeedCallback);
-	gEnemyTurnSpeedButton->SetFastHelpText("Enemy animations: 1x");
+		(SCREEN_WIDTH - speedButtonWidth) / 2, 24, speedButtonWidth, 24,
+		MSYS_PRIORITY_HIGHEST, EnemyTurnSpeedCallback);
+	gEnemyTurnSpeedButton->SetFastHelpText("Enemy animations: 1x (F8)");
 	HideButton(gEnemyTurnSpeedButton);
 
 	InitRadarScreen( );
@@ -1715,6 +1717,7 @@ void AddTopMessage(const MESSAGE_TYPES ubType)
 
 	gTacticalStatus.ubTopMessageType = ubType;
 	gTacticalStatus.fInTopMessage    = TRUE;
+	UpdateEnemyTurnSpeedButton();
 
 	CreateTopMessage();
 }
@@ -1915,12 +1918,7 @@ static void CreateTopMessage(void)
 
 static void UpdateEnemyTurnSpeedButton()
 {
-	const bool enemy_turn = gTacticalStatus.fInTopMessage &&
-		(gTacticalStatus.ubTopMessageType == COMPUTER_TURN_MESSAGE ||
-		 gTacticalStatus.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE ||
-		 gTacticalStatus.ubTopMessageType == MILITIA_INTERRUPT_MESSAGE ||
-		 gTacticalStatus.ubTopMessageType == AIR_RAID_TURN_MESSAGE);
-	if (!enemy_turn)
+	if (!gTacticalStatus.fInTopMessage)
 	{
 		HideButton(gEnemyTurnSpeedButton);
 		return;
@@ -1928,7 +1926,8 @@ static void UpdateEnemyTurnSpeedButton()
 
 	ShowButton(gEnemyTurnSpeedButton);
 	gEnemyTurnSpeedButton->SpecifyText(ST::format("{}x", gubEnemyTurnAnimationSpeed));
-	gEnemyTurnSpeedButton->SetFastHelpText(ST::format("Enemy animations: {}x", gubEnemyTurnAnimationSpeed));
+	gEnemyTurnSpeedButton->SetFastHelpText(ST::format("Enemy animations: {}x (F8)", gubEnemyTurnAnimationSpeed));
+	MarkAButtonDirty(gEnemyTurnSpeedButton);
 }
 
 
@@ -1936,9 +1935,8 @@ static void EnemyTurnSpeedCallback(GUI_BUTTON*, UINT32 const reason)
 {
 	if (reason & MSYS_CALLBACK_REASON_POINTER_UP)
 	{
-		gubEnemyTurnAnimationSpeed = gubEnemyTurnAnimationSpeed == 4 ? 1 : gubEnemyTurnAnimationSpeed + 1;
+		gubEnemyTurnAnimationSpeed = gubEnemyTurnAnimationSpeed % 5 + 1;
 		UpdateEnemyTurnSpeedButton();
-		MarkAButtonDirty(gEnemyTurnSpeedButton);
 	}
 }
 
