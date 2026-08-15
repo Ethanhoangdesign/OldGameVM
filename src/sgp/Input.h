@@ -40,6 +40,8 @@ struct InputAtom
 	UINT16 usKeyState;
 	UINT16 usEvent;
 	UINT32 usParam;
+	UINT16 usMouseXPos;
+	UINT16 usMouseYPos;
 	ST::utf32_buffer codepoints;
 };
 

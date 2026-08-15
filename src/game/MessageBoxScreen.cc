@@ -23,6 +23,7 @@
 #include "Overhead_Map.h"
 #include "Button_System.h"
 #include "JAScreens.h"
+#include "Logger.h"
 #include "Video.h"
 #include "UILayout.h"
 
@@ -216,7 +217,7 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 
 	INT16 const dx = static_cast<INT16>((MSGBOX_BUTTON_WIDTH + MSGBOX_BUTTON_X_SEP) * MSGBOX_UI_SCALE);
 
-	auto const MakeButton{ [style, y](ST::string const& text,
+	auto const MakeButton{ [style, y, usFlags](ST::string const& text,
 		int const x, MessageBoxReturnValue const returnValue)
 	{
 #ifdef __ANDROID__
@@ -235,8 +236,15 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 			fore, shadow,
 			static_cast<INT16>(x), static_cast<INT16>(y),
 			MSYS_PRIORITY_HIGHEST,
-			[returnValue](GUI_BUTTON *, UINT32 const reason)
+			[returnValue, usFlags](GUI_BUTTON *, UINT32 const reason)
 			{
+#ifdef __ANDROID__
+				if (usFlags == MSG_BOX_FLAG_OK && (reason & MSYS_CALLBACK_REASON_POINTER_DWN))
+				{
+					gMsgBox.bHandled = returnValue;
+					return;
+				}
+#endif
 				if (reason & MSYS_CALLBACK_REASON_POINTER_UP)
 				{
 					gMsgBox.bHandled = returnValue;

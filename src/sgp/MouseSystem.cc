@@ -17,6 +17,7 @@
 #include "Debug.h"
 #include "Input.h"
 #include "Line.h"
+#include "Logger.h"
 #include "VObject.h"
 #include "Video.h"
 #include "MouseSystem.h"
@@ -170,6 +171,8 @@ void UpdateButtons()
 
 void MouseSystemHook(UINT16 type, UINT32 button, UINT16 x, UINT16 y)
 {
+	SetSafeMousePositionLogical(x, y);
+
 	UINT32 action = MSYS_NO_ACTION;
 	switch (type)
 	{

@@ -5,7 +5,10 @@
 #include "Video.h"
 #include "UILayout.h"
 #ifdef __ANDROID__
+#include "JAScreens.h"
 #include "Laptop.h"
+#include "Logger.h"
+#include "MessageBoxScreen.h"
 #endif
 
 #include <string_theory/string>
@@ -103,6 +106,8 @@ static void QueuePointerEvent(UINT16 eventType, UINT32 param)
 
 	gEventQueue[gusTailIndex].usEvent = eventType;
 	gEventQueue[gusTailIndex].usParam = param;
+	gEventQueue[gusTailIndex].usMouseXPos = gusMouseXPos;
+	gEventQueue[gusTailIndex].usMouseYPos = gusMouseYPos;
 
 	gusQueueCount++;
 
@@ -168,7 +173,7 @@ static void SetSafeTouchPosition(float x, float y)
 
 void SetSafeMousePosition(int x, int y) {
 #ifdef __ANDROID__
-	if (AndroidLaptopScaleActive())
+	if (!gfInMsgBox && guiCurrentScreen == LAPTOP_SCREEN && AndroidLaptopScaleActive())
 	{
 		AndroidLaptopMapScreenToLogical(&x, &y);
 	}
@@ -356,9 +361,8 @@ void FingerMove(const SDL_TouchFingerEvent* event) {
 }
 
 void FingerDown(const SDL_TouchFingerEvent* event) {
-	#ifdef SDL_MOUSE_TOUCHID
 	if (event->touchId == SDL_MOUSE_TOUCHID) return;
-	#endif
+	if (gMainFingerState.isDown()) return;
 
 	gMainFingerId = event->fingerId;
 	gfIsUsingTouch = true;
@@ -369,15 +373,14 @@ void FingerDown(const SDL_TouchFingerEvent* event) {
 }
 
 void FingerUp(const SDL_TouchFingerEvent* event) {
-	#ifdef SDL_MOUSE_TOUCHID
 	if (event->touchId == SDL_MOUSE_TOUCHID) return;
-	#endif
 	if (event->fingerId != gMainFingerId) return;
 	gfIsUsingTouch = true;
 
 	SetSafeTouchPosition(event->x, event->y);
 
 	gMainFingerState.handleUp();
+	gMainFingerId = 0;
 }
 
 

@@ -34,6 +34,7 @@
 #include "Local.h"
 #include "Map_Screen_Interface_Map.h"
 #include "MapScreen.h"
+#include "JAScreens.h"
 #include "MercProfile.h"
 #include "MercTextBox.h"
 #include "MouseSystem.h"
@@ -1918,10 +1919,22 @@ static void CreateTopMessage(void)
 
 static void UpdateEnemyTurnSpeedButton()
 {
-	if (!gTacticalStatus.fInTopMessage)
+	if (guiCurrentScreen != GAME_SCREEN || !gTacticalStatus.fInTopMessage)
 	{
 		HideButton(gEnemyTurnSpeedButton);
 		return;
+	}
+
+	switch (gTacticalStatus.ubTopMessageType)
+	{
+		case COMPUTER_TURN_MESSAGE:
+		case COMPUTER_INTERRUPT_MESSAGE:
+		case MILITIA_INTERRUPT_MESSAGE:
+		case AIR_RAID_TURN_MESSAGE:
+			break;
+		default:
+			HideButton(gEnemyTurnSpeedButton);
+			return;
 	}
 
 	ShowButton(gEnemyTurnSpeedButton);

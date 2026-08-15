@@ -652,6 +652,9 @@ static void RenderLapTopImage(void)
 {
 	if (fMaximizingProgram || fMinizingProgram) return;
 
+#ifdef __ANDROID__
+	FRAME_BUFFER->Fill(0);
+#endif
 	BltVideoObject(FRAME_BUFFER, guiLAPTOP,           0, LAPTOP_X,      LAPTOP_Y);
 	BltVideoObject(FRAME_BUFFER, guiLaptopBACKGROUND, 1, LAPTOP_X + 25, LAPTOP_Y + 23);
 
@@ -1021,7 +1024,7 @@ static void AndroidLaptopComputeScale(void)
 
 BOOLEAN AndroidLaptopScaleActive(void)
 {
-	return fCurrentlyInLaptop && s_lpScaleReady
+	return !gfInMsgBox && fCurrentlyInLaptop && s_lpScaleReady
 		&& (s_lpDstW != s_lpNatW || s_lpDstH != s_lpNatH
 		    || s_lpDstX != s_lpNatX || s_lpDstY != s_lpNatY);
 }

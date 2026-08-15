@@ -120,11 +120,11 @@ try
 	HandleSingleClicksAndButtonRepeats();
 	while (DequeueSpecificEvent(&InputEvent, MOUSE_EVENTS))
 	{
-		MouseSystemHook(InputEvent.usEvent, InputEvent.usParam, MousePos.iX, MousePos.iY);
+		MouseSystemHook(InputEvent.usEvent, InputEvent.usParam, InputEvent.usMouseXPos, InputEvent.usMouseYPos);
 	}
 	while (DequeueSpecificEvent(&InputEvent, TOUCH_EVENTS))
 	{
-		MouseSystemHook(InputEvent.usEvent, InputEvent.usParam, MousePos.iX, MousePos.iY);
+		MouseSystemHook(InputEvent.usEvent, InputEvent.usParam, InputEvent.usMouseXPos, InputEvent.usMouseYPos);
 	}
 
 

@@ -113,6 +113,7 @@ static SGPVObject* guiInsOrderBulletImage;
 static UINT8 gubNumberofDisplayedInsuranceGrids;
 
 static BOOLEAN gfChangeInsuranceFormButtons = FALSE;
+static BOOLEAN gfNoMercsPopupShown = FALSE;
 
 static SOLDIERTYPE* g_insurance_merc_array[20];
 static UINT         g_n_insurable_mercs;
@@ -173,6 +174,7 @@ void EnterInsuranceContract()
 
 	//build the list of mercs that are can be displayed
 	BuildInsuranceArray();
+	gfNoMercsPopupShown = FALSE;
 
 	SetNumberOfDisplayedInsuranceMercs();
 
@@ -332,8 +334,9 @@ void RenderInsuranceContract()
 	}
 
 	//if there are no valid mercs to insure
-	if (count_insurance_grids == 0)
+	if (count_insurance_grids == 0 && !gfNoMercsPopupShown)
 	{
+		gfNoMercsPopupShown = TRUE;
 		//if there where AIM mercs ( on short contract )
 		if( AreAnyAimMercsOnTeam( ) )
 		{

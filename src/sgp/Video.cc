@@ -564,6 +564,7 @@ void RefreshScreen(void)
 		BlitSoftwareCursor(ScreenBuffer, false);
 
 	SDL_UpdateTexture(ScreenTexture, NULL, ScreenBuffer->pixels, ScreenBuffer->pitch);
+	SDL_SetRenderDrawColor(GameRenderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 	SDL_RenderClear(GameRenderer);
 	// Laptop fit only while scale active; else full screen (GIO/fade).
 	{
@@ -681,6 +682,7 @@ void RefreshScreen(void)
 	// Full texture upload. Partial rect + pitched SrcPixels SEGV on Android GLES.
 	SDL_UpdateTexture(ScreenTexture, NULL, ScreenBuffer->pixels, ScreenBuffer->pitch);
 
+	SDL_SetRenderDrawColor(GameRenderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 	SDL_RenderClear(GameRenderer);
 
 #ifdef __ANDROID__
