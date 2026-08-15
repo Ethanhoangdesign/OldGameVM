@@ -64,8 +64,8 @@ static INT16 OptSY(INT32 y)
 	float const cy = (float)STD_SCREEN_Y + 240.f;
 	return (INT16)((float)(SCREEN_HEIGHT / 2) + ((float)y - cy) * sc);
 }
-// Labels wrap with HugeFont/16; 14pt fits scaled columns (checkbox + slider headers).
-#define OPT_MAIN_FONT				FONT14ARIAL
+// 934x480 keeps 640x480 geometry; 12pt prevents label overflow in narrow columns.
+#define OPT_MAIN_FONT				((SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480) ? FONT12ARIAL : FONT14ARIAL)
 // Bottom row: humanist = heavier than Arial (no 16pt bold STI).
 #define OPT_BTN_FONT				FONT14HUMANIST
 #else
@@ -360,12 +360,13 @@ static void EnterOptionsScreen(void)
 		guiOptionsToggles[cnt] = check;
 		check->SetUserData(cnt);
 #ifdef __ANDROID__
-		// Match DrawCheckBoxButton Android 2× stretch (not OptUiScale — draw path is fixed 2×).
+		// Match DrawCheckBoxButton Android stretch; 934x480 uses natural checkbox size.
 		{
 			INT32 const w = check->Area.RegionBottomRightX - check->Area.RegionTopLeftX;
 			INT32 const h = check->Area.RegionBottomRightY - check->Area.RegionTopLeftY;
-			check->Area.RegionBottomRightX = check->Area.RegionTopLeftX + w * 2;
-			check->Area.RegionBottomRightY = check->Area.RegionTopLeftY + h * 2;
+			INT32 const scale = (SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480) ? 1 : 2;
+			check->Area.RegionBottomRightX = check->Area.RegionTopLeftX + w * scale;
+			check->Area.RegionBottomRightY = check->Area.RegionTopLeftY + h * scale;
 		}
 #endif
 

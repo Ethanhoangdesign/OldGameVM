@@ -1179,8 +1179,9 @@ static void DrawCheckBoxButton(const GUI_BUTTON *b)
 		UINT16 const h = static_cast<UINT16>(pics->max.h);
 		INT32  const dx = b->X();
 		INT32  const dy = b->Y();
-		INT32  const dw = static_cast<INT32>(w) * 2;
-		INT32  const dh = static_cast<INT32>(h) * 2;
+		INT32 const scale = (SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480) ? 1 : 2;
+		INT32  const dw = static_cast<INT32>(w) * scale;
+		INT32  const dh = static_cast<INT32>(h) * scale;
 		if (w > 0 && h > 0 && dx >= 0 && dy >= 0 &&
 		    dx + dw <= ButtonDestBuffer->Width() &&
 		    dy + dh <= ButtonDestBuffer->Height())
