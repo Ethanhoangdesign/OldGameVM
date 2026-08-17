@@ -5,6 +5,7 @@
 #include "GameController.h"
 
 #include "Input.h"
+#include "English.h"
 #include "Timer.h"
 #include "Logger.h"
 #include "UILayout.h"
@@ -430,6 +431,9 @@ void SendKey(SDL_Keycode key, bool down)
 	SDL_Keysym ks{};
 	ks.sym = key;
 	ks.scancode = SDL_GetScancodeFromKey(key);
+	ks.mod = (_KeyDown(SHIFT) ? KMOD_SHIFT : 0) |
+	         (_KeyDown(CTRL)  ? KMOD_CTRL  : 0) |
+	         (_KeyDown(ALT)   ? KMOD_ALT   : 0);
 	if (down) KeyDown(&ks); else KeyUp(&ks);
 }
 

@@ -1,0 +1,53 @@
+2026-08-15T23:21:43.761727324Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_start id=25 team=1 alert=2 ap=20
+2026-08-15T23:21:43.762626324Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=25 team=1 alert=2 action=20 ms=0
+2026-08-15T23:21:43.76307617Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=25 action=20 ms=0 in_progress=1
+2026-08-15T23:21:43.781753401Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_end id=25 team=1 alert=2 total_ms=79
+2026-08-15T23:21:43.782085786Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_start id=20 team=1 alert=2 ap=23
+2026-08-15T23:21:43.782471324Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=25 action=43 ms=0 in_progress=0
+2026-08-15T23:21:43.789526632Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=20 team=1 alert=2 action=23 ms=0
+2026-08-15T23:21:43.82248017Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=20 action=23 ms=32 in_progress=1
+2026-08-15T23:21:43.828252786Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_disturbance id=20 result=15392 ms=0
+2026-08-15T23:21:43.82883217Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_path id=20 destination=15392 result=14129 ms=0
+2026-08-15T23:21:43.829334016Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_cautious_path id=20 destination=15392 result=25601 ms=0
+2026-08-15T23:21:43.82951717Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_friend id=20 result=13644 ms=0
+2026-08-15T23:21:43.829828863Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_friend_path id=20 destination=13644 result=13645 ms=0
+2026-08-15T23:21:43.830034324Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=20 team=1 alert=2 action=2 ms=2
+2026-08-15T23:21:43.831612247Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=20 action=2 ms=1 in_progress=1
+2026-08-15T23:21:44.53002017Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=20 team=1 alert=2 action=21 ms=0
+2026-08-15T23:21:44.531357786Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=20 action=21 ms=1 in_progress=1
+2026-08-15T23:21:44.545081401Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=20 team=1 alert=2 action=21 ms=0
+2026-08-15T23:21:44.54561094Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=20 action=21 ms=0 in_progress=1
+2026-08-15T23:21:44.561423017Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=20 team=1 alert=2 action=21 ms=0
+2026-08-15T23:21:44.562705093Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=20 action=21 ms=0 in_progress=1
+2026-08-15T23:21:44.615173786Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=20 team=1 alert=2 action=20 ms=0
+2026-08-15T23:21:44.61557217Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=20 action=20 ms=0 in_progress=1
+2026-08-15T23:21:44.666186324Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=20 team=1 alert=2 action=0 ms=0
+2026-08-15T23:21:44.666422093Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_end id=20 team=1 alert=2 total_ms=822
+2026-08-15T23:21:44.666751017Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_start id=22 team=1 alert=2 ap=17
+2026-08-15T23:21:44.667913786Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_friend id=22 result=13645 ms=0
+2026-08-15T23:21:44.668228863Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_friend_path id=22 destination=13645 result=14297 ms=0
+2026-08-15T23:21:44.668437093Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=22 team=1 alert=2 action=2 ms=0
+2026-08-15T23:21:44.669416786Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=22 action=2 ms=0 in_progress=1
+2026-08-15T23:21:44.859611863Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_friend id=22 result=13644 ms=0
+2026-08-15T23:21:44.860251863Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_friend_path id=22 destination=13644 result=25601 ms=0
+2026-08-15T23:22:22.13903648Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_cover id=22 result=13979 ms=37278
+2026-08-15T23:22:22.139646403Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_cover_disturbance id=22 result=15392 ms=0
+2026-08-15T23:22:22.139915942Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=22 team=1 alert=2 action=4 ms=37281
+2026-08-15T23:22:22.14074325Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=22 action=4 ms=0 in_progress=1
+2026-08-15T23:22:22.149072557Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_end id=22 team=1 alert=2 total_ms=37512
+2026-08-15T23:22:22.149528173Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_start id=23 team=1 alert=2 ap=22
+2026-08-15T23:22:22.150585403Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=23 team=1 alert=2 action=21 ms=0
+2026-08-15T23:22:22.151899326Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=23 action=21 ms=1 in_progress=1
+2026-08-15T23:22:22.163698942Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_end id=23 team=1 alert=2 total_ms=14
+2026-08-15T23:22:22.164091019Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_start id=24 team=1 alert=2 ap=22
+2026-08-15T23:22:22.164655557Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=23 action=43 ms=1 in_progress=0
+2026-08-15T23:22:22.165917788Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_disturbance id=24 result=15392 ms=0
+2026-08-15T23:22:22.166482711Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_path id=24 destination=15392 result=25601 ms=0
+2026-08-15T23:23:33.782587331Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_cover id=24 result=17807 ms=71615
+2026-08-15T23:23:33.783294946Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_cover_disturbance id=24 result=15392 ms=0
+2026-08-15T23:23:33.783521792Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_cover_path id=24 destination=17807 result=25601 ms=0
+2026-08-15T23:23:33.784586946Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_friend id=24 result=14297 ms=0
+2026-08-15T23:23:33.785240485Z [INFO] game/TacticalAI/DecideAction.cc: AI_TIMING red_seek_friend_path id=24 destination=14297 result=16857 ms=0
+2026-08-15T23:23:33.785656485Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING decision id=24 team=1 alert=2 action=2 ms=71620
+2026-08-15T23:23:33.786708792Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING execute id=24 action=2 ms=0 in_progress=1
+2026-08-15T23:23:33.795306331Z [INFO] game/TacticalAI/AIMain.cc: AI_TIMING soldier_end id=24 team=1 alert=2 total_ms=71631

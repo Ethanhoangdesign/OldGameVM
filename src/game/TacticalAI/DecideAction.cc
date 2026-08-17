@@ -1960,7 +1960,11 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 					#endif
 
 					// get the location of the closest reachable opponent
+					const auto disturbanceStart = ReferenceClock::now();
 					sClosestDisturbance = ClosestReachableDisturbance(pSoldier,ubUnconsciousOK, &fClimb);
+					SLOGI("AI_TIMING red_disturbance id={} result={} ms={}",
+						pSoldier->ubID, sClosestDisturbance,
+						std::chrono::duration_cast<milliseconds>(ReferenceClock::now() - disturbanceStart).count());
 
 					#ifdef AI_TIMING_TESTS
 					uiEndTime = GetJA2Clock();
@@ -1975,7 +1979,11 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 						//////////////////////////////////////////////////////////////////////
 
 						// try to move towards him
+						const auto seekPathStart = ReferenceClock::now();
 						pSoldier->usActionData = GoAsFarAsPossibleTowards(pSoldier,sClosestDisturbance,AI_ACTION_SEEK_OPPONENT);
+						SLOGI("AI_TIMING red_seek_path id={} destination={} result={} ms={}",
+							pSoldier->ubID, sClosestDisturbance, pSoldier->usActionData,
+							std::chrono::duration_cast<milliseconds>(ReferenceClock::now() - seekPathStart).count());
 
 						if (pSoldier->usActionData != NOWHERE)
 						{
@@ -2012,7 +2020,11 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 									if ( PythSpacesAway( pSoldier->usActionData, sClosestDisturbance ) < 5 || LocationToLocationLineOfSightTest( pSoldier->usActionData, pSoldier->bLevel, sClosestDisturbance, pSoldier->bLevel, (UINT8) MaxDistanceVisible(), TRUE ) )
 									{
 										// reserve APs for a possible crouch plus a shot
+										const auto cautiousPathStart = ReferenceClock::now();
 										pSoldier->usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, sClosestDisturbance, (INT8) (MinAPsToAttack( pSoldier, sClosestDisturbance, ADDTURNCOST) + AP_CROUCH), AI_ACTION_SEEK_OPPONENT, FLAG_CAUTIOUS );
+										SLOGI("AI_TIMING red_seek_cautious_path id={} destination={} result={} ms={}",
+											pSoldier->ubID, sClosestDisturbance, pSoldier->usActionData,
+											std::chrono::duration_cast<milliseconds>(ReferenceClock::now() - cautiousPathStart).count());
 										if ( pSoldier->usActionData != NOWHERE )
 										{
 											pSoldier->fAIFlags |= AI_CAUTIOUS;
@@ -2090,7 +2102,11 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 					#ifdef AI_TIMING_TESTS
 					uiStartTime = GetJA2Clock();
 					#endif
+					const auto friendStart = ReferenceClock::now();
 					sClosestFriend = ClosestReachableFriendInTrouble(pSoldier, &fClimb );
+					SLOGI("AI_TIMING red_seek_friend id={} result={} ms={}",
+						pSoldier->ubID, sClosestFriend,
+						std::chrono::duration_cast<milliseconds>(ReferenceClock::now() - friendStart).count());
 					#ifdef AI_TIMING_TESTS
 					uiEndTime = GetJA2Clock();
 
@@ -2103,7 +2119,11 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 						//////////////////////////////////////////////////////////////////////
 						// GO DIRECTLY TOWARDS CLOSEST FRIEND UNDER FIRE OR WHO LAST RADIOED
 						//////////////////////////////////////////////////////////////////////
+						const auto friendPathStart = ReferenceClock::now();
 						pSoldier->usActionData = GoAsFarAsPossibleTowards(pSoldier,sClosestFriend,AI_ACTION_SEEK_OPPONENT);
+						SLOGI("AI_TIMING red_seek_friend_path id={} destination={} result={} ms={}",
+							pSoldier->ubID, sClosestFriend, pSoldier->usActionData,
+							std::chrono::duration_cast<milliseconds>(ReferenceClock::now() - friendPathStart).count());
 
 						if (pSoldier->usActionData != NOWHERE)
 						{
@@ -2134,7 +2154,11 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 						uiStartTime = GetJA2Clock();
 						#endif
 
+						const auto coverStart = ReferenceClock::now();
 						pSoldier->usActionData = FindBestNearbyCover(pSoldier,pSoldier->bAIMorale,&iDummy);
+						SLOGI("AI_TIMING red_cover id={} result={} ms={}",
+							pSoldier->ubID, pSoldier->usActionData,
+							std::chrono::duration_cast<milliseconds>(ReferenceClock::now() - coverStart).count());
 						#ifdef AI_TIMING_TESTS
 						uiEndTime = GetJA2Clock();
 
@@ -2145,12 +2169,22 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 						// let's be a bit cautious about going right up to a location without enough APs to shoot
 						if ( pSoldier->usActionData != NOWHERE )
 						{
+							const auto coverDisturbanceStart = ReferenceClock::now();
 							sClosestDisturbance = ClosestReachableDisturbance(pSoldier, ubUnconsciousOK, &fClimb);
+							SLOGI("AI_TIMING red_cover_disturbance id={} result={} ms={}",
+								pSoldier->ubID, sClosestDisturbance,
+								std::chrono::duration_cast<milliseconds>(ReferenceClock::now() - coverDisturbanceStart).count());
 							if ( sClosestDisturbance != NOWHERE && ( SpacesAway( pSoldier->usActionData, sClosestDisturbance ) < 5 || SpacesAway( pSoldier->usActionData, sClosestDisturbance ) + 5 < SpacesAway( pSoldier->sGridNo, sClosestDisturbance ) ) )
 							{
 								// either moving significantly closer or into very close range
 								// ensure will we have enough APs for a possible crouch plus a shot
-								if ( InternalGoAsFarAsPossibleTowards( pSoldier, pSoldier->usActionData, (INT8) (MinAPsToAttack( pSoldier, sClosestOpponent, ADDTURNCOST) + AP_CROUCH), AI_ACTION_TAKE_COVER, 0 ) == pSoldier->usActionData )
+								const INT16 coverGridNo = pSoldier->usActionData;
+								const auto coverPathStart = ReferenceClock::now();
+								const INT16 coverPathGridNo = InternalGoAsFarAsPossibleTowards( pSoldier, coverGridNo, (INT8) (MinAPsToAttack( pSoldier, sClosestOpponent, ADDTURNCOST) + AP_CROUCH), AI_ACTION_TAKE_COVER, 0 );
+								SLOGI("AI_TIMING red_cover_path id={} destination={} result={} ms={}",
+									pSoldier->ubID, coverGridNo, coverPathGridNo,
+									std::chrono::duration_cast<milliseconds>(ReferenceClock::now() - coverPathStart).count());
+								if ( coverPathGridNo == pSoldier->usActionData )
 								{
 									return(AI_ACTION_TAKE_COVER);
 								}

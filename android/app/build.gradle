@@ -67,8 +67,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            debuggable project.hasProperty('debugSigning')
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig project.hasProperty('debugSigning') ? signingConfigs.debug : signingConfigs.release
         }
     }
 

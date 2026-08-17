@@ -38,7 +38,7 @@ configure_file(
 )
 
 # execute getter
-execute_process(COMMAND ${CMAKE_COMMAND} . "-G${CMAKE_GENERATOR}" "-DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}" WORKING_DIRECTORY "${GETTER_DIR}" RESULT_VARIABLE result)
+execute_process(COMMAND ${CMAKE_COMMAND} . "-G${CMAKE_GENERATOR}" "-DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION}" "-DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}" WORKING_DIRECTORY "${GETTER_DIR}" RESULT_VARIABLE result)
 if(NOT result EQUAL 0)
     message(FATAL_ERROR "Failed to configure magic_enum getter: ${result}")
 endif()

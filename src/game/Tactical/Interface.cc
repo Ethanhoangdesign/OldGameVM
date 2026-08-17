@@ -1931,6 +1931,8 @@ static void UpdateEnemyTurnSpeedButton()
 		case COMPUTER_INTERRUPT_MESSAGE:
 		case MILITIA_INTERRUPT_MESSAGE:
 		case AIR_RAID_TURN_MESSAGE:
+		case PLAYER_TURN_MESSAGE:
+		case PLAYER_INTERRUPT_MESSAGE:
 			break;
 		default:
 			HideButton(gEnemyTurnSpeedButton);
@@ -1939,7 +1941,7 @@ static void UpdateEnemyTurnSpeedButton()
 
 	ShowButton(gEnemyTurnSpeedButton);
 	gEnemyTurnSpeedButton->SpecifyText(ST::format("{}x", gubEnemyTurnAnimationSpeed));
-	gEnemyTurnSpeedButton->SetFastHelpText(ST::format("Enemy animations: {}x (F8)", gubEnemyTurnAnimationSpeed));
+	gEnemyTurnSpeedButton->SetFastHelpText(ST::format("Turn animations: {}x (F8)", gubEnemyTurnAnimationSpeed));
 	MarkAButtonDirty(gEnemyTurnSpeedButton);
 }
 

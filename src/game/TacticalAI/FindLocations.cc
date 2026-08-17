@@ -10,6 +10,7 @@
 #include "Overhead.h"
 #include "Soldier_Profile.h"
 #include "Structure.h"
+#include "Timer_Control.h"
 #include "Weapons.h"
 #include "OppList.h"
 #include "PathAI.h"
@@ -86,7 +87,41 @@ static void AICenterXY(INT16 sGridNo, FLOAT* pdX, FLOAT* pdY)
 }
 
 
-static INT8 CalcWorstCTGTForPosition(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const opponent, const INT16 sOppGridNo, const INT8 bLevel, const INT32 iMyAPsLeft)
+struct CoverTiming
+{
+	ReferenceClock::duration path{};
+	ReferenceClock::duration worstCtgt{};
+	ReferenceClock::duration bestCtgt{};
+	ReferenceClock::duration averageCtgt{};
+	UINT32 bestCandidates{};
+	UINT32 bestValid{};
+	UINT32 bestCacheHits{};
+	UINT32 bestCacheMisses{};
+	UINT32 candidates{};
+	UINT32 reachable{};
+	UINT32 evaluated{};
+	UINT32 calls{};
+};
+
+struct CoverTimingLog
+{
+	SOLDIERTYPE* const soldier;
+	CoverTiming& timing;
+
+	~CoverTimingLog()
+	{
+		SLOGI("AI_TIMING cover_deep id={} candidates={} reachable={} evaluated={} calls={} best_candidates={} best_valid={} best_cache_hits={} best_cache_misses={} path_ms={} worst_ms={} best_ms={} average_ms={}",
+			soldier->ubID, timing.candidates, timing.reachable, timing.evaluated, timing.calls,
+			timing.bestCandidates, timing.bestValid, timing.bestCacheHits, timing.bestCacheMisses,
+			std::chrono::duration_cast<milliseconds>(timing.path).count(),
+			std::chrono::duration_cast<milliseconds>(timing.worstCtgt).count(),
+			std::chrono::duration_cast<milliseconds>(timing.bestCtgt).count(),
+			std::chrono::duration_cast<milliseconds>(timing.averageCtgt).count());
+	}
+};
+
+
+static INT8 CalcWorstCTGTForPosition(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const opponent, const INT16 sOppGridNo, const INT8 bLevel, const INT32 iMyAPsLeft, CoverTiming& timing)
 {
 	// When considering a gridno for cover, we want to take into account cover if we
 	// lie down, so we return the LOWEST chance to get through for that location.
@@ -126,7 +161,7 @@ static INT8 CalcWorstCTGTForPosition(SOLDIERTYPE* const pSoldier, const SOLDIERT
 }
 
 
-static INT8 CalcAverageCTGTForPosition(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const opponent, const INT16 sOppGridNo, const INT8 bLevel, const INT32 iMyAPsLeft)
+static INT8 CalcAverageCTGTForPosition(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const opponent, const INT16 sOppGridNo, const INT8 bLevel, const INT32 iMyAPsLeft, CoverTiming& timing)
 {
 	// When considering a gridno for cover, we want to take into account cover if we
 	// lie down, so we return the LOWEST chance to get through for that location.
@@ -161,13 +196,15 @@ static INT8 CalcAverageCTGTForPosition(SOLDIERTYPE* const pSoldier, const SOLDIE
 }
 
 
-static INT8 CalcBestCTGT(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const opponent, const INT16 sOppGridNo, const INT8 bLevel, const INT32 iMyAPsLeft)
+static INT8 CalcBestCTGT(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const opponent, const INT16 sOppGridNo, const INT8 bLevel, const INT32 iMyAPsLeft, CoverTiming& timing)
 {
 	// NOTE: CTGT stands for "ChanceToGetThrough..."
 
 	// using only ints for maximum execution speed here
 	// CJC: Well, so much for THAT idea!
 	INT16 sCentralGridNo, sAdjSpot, sNorthGridNo, sSouthGridNo, sDir, sCheckSpot;
+	INT16 sFirstSpot = NOWHERE;
+	INT8 bFirstCTGT = 0;
 
 	INT8 bThisCTGT, bBestCTGT = 0;
 
@@ -183,6 +220,7 @@ static INT8 CalcBestCTGT(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const o
 	// look into all 8 adjacent tiles & determine where the cover is the worst
 	for (sDir = 1; sDir <= 8; sDir++)
 	{
+		++timing.bestCandidates;
 		// get the gridno of the adjacent spot lying in that direction
 		sAdjSpot = NewGridNo( sCentralGridNo, DirectionInc( sDir ) );
 
@@ -216,13 +254,29 @@ static INT8 CalcBestCTGT(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const o
 				// if the adjacent gridno is reachable from the starting spot
 				if ( NewOKDestination( pSoldier, sCheckSpot, FALSE, bLevel ) )
 				{
+					++timing.bestValid;
 					// the dude could move to this adjacent gridno, so put him there
 					// "virtually" so we can calculate what our cover is from there
 
 					// NOTE: GOTTA SET THESE 3 FIELDS *BACK* AFTER USING THIS FUNCTION!!!
 					pSoldier->sGridNo = sAdjSpot;     // pretend he's standing at 'sAdjSpot'
 					AICenterXY( sAdjSpot, &(pSoldier->dXPos), &(pSoldier->dYPos) );
-					bThisCTGT = CalcWorstCTGTForPosition(pSoldier, opponent, sOppGridNo, bLevel, iMyAPsLeft);
+
+					if (sAdjSpot == sFirstSpot)
+					{
+						++timing.bestCacheHits;
+						bThisCTGT = bFirstCTGT;
+					}
+					else
+					{
+						++timing.bestCacheMisses;
+						bThisCTGT = CalcWorstCTGTForPosition(pSoldier, opponent, sOppGridNo, bLevel, iMyAPsLeft, timing);
+						if (sFirstSpot == NOWHERE)
+						{
+							sFirstSpot = sAdjSpot;
+							bFirstCTGT = bThisCTGT;
+						}
+					}
 					if (bThisCTGT > bBestCTGT)
 					{
 						bBestCTGT = bThisCTGT;
@@ -240,8 +294,9 @@ static INT8 CalcBestCTGT(SOLDIERTYPE* const pSoldier, const SOLDIERTYPE* const o
 }
 
 
-static INT32 CalcCoverValue(SOLDIERTYPE* pMe, INT16 sMyGridNo, INT32 iMyThreat, INT32 iMyAPsLeft, UINT32 uiThreatIndex, INT32 iRange, INT32 morale, INT32* iTotalScale)
+static INT32 CalcCoverValue(SOLDIERTYPE* pMe, INT16 sMyGridNo, INT32 iMyThreat, INT32 iMyAPsLeft, UINT32 uiThreatIndex, INT32 iRange, INT32 morale, INT32* iTotalScale, CoverTiming& timing)
 {
+	++timing.calls;
 	// all 32-bit integers for max. speed
 	INT32 iMyPosValue, iHisPosValue, iCoverValue;
 	INT32 iReductionFactor, iThisScale;
@@ -296,7 +351,9 @@ static INT32 CalcCoverValue(SOLDIERTYPE* pMe, INT16 sMyGridNo, INT32 iMyThreat, 
 		// optimistically assume we'll be behind the best cover available at this spot
 
 		//bHisActualCTGT = ChanceToGetThrough(pHim,sMyGridNo,FAKE,ACTUAL,TESTWALLS,9999,M9PISTOL,NOT_FOR_LOS); // assume a gunshot
-		bHisActualCTGT = CalcWorstCTGTForPosition(pHim, pMe, sMyGridNo, pMe->bLevel, iMyAPsLeft);
+		const auto start = ReferenceClock::now();
+		bHisActualCTGT = CalcWorstCTGTForPosition(pHim, pMe, sMyGridNo, pMe->bLevel, iMyAPsLeft, timing);
+		timing.worstCtgt += ReferenceClock::now() - start;
 	}
 
 	// normally, that will be the cover I'll use, unless worst case over-rides it
@@ -315,7 +372,9 @@ static INT32 CalcCoverValue(SOLDIERTYPE* pMe, INT16 sMyGridNo, INT32 iMyThreat, 
 		}
 
 		// calculate where my cover is worst if opponent moves just 1 tile over
-		bHisBestCTGT = CalcBestCTGT(pHim, pMe, sMyGridNo, pMe->bLevel, iMyAPsLeft);
+		const auto start = ReferenceClock::now();
+		bHisBestCTGT = CalcBestCTGT(pHim, pMe, sMyGridNo, pMe->bLevel, iMyAPsLeft, timing);
+		timing.bestCtgt += ReferenceClock::now() - start;
 
 		// if he can actually improve his CTGT by moving to a nearby gridno
 		if (bHisBestCTGT > bHisActualCTGT)
@@ -346,7 +405,9 @@ static INT32 CalcCoverValue(SOLDIERTYPE* pMe, INT16 sMyGridNo, INT32 iMyThreat, 
 
 		// let's not assume anything about the stance the enemy might take, so take an average
 		// value... no cover give a higher value than partial cover
-		bMyCTGT = CalcAverageCTGTForPosition(pMe, pHim, sHisGridNo, pHim->bLevel, iMyAPsLeft);
+		const auto start = ReferenceClock::now();
+		bMyCTGT = CalcAverageCTGTForPosition(pMe, pHim, sHisGridNo, pHim->bLevel, iMyAPsLeft, timing);
+		timing.averageCtgt += ReferenceClock::now() - start;
 
 		// since NPCs are too dumb to shoot "blind", ie. at opponents that they
 		// themselves can't see (mercs can, using another as a spotter!), if the
@@ -524,6 +585,8 @@ INT16 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	BOOLEAN fNight;
 
 	INT32 iBestCoverScale = 0; // XXX HACK000E
+	CoverTiming timing;
+	CoverTimingLog timingLog{pSoldier, timing};
 
 	bool const fHasGasMask = IsWearingHeadGear(*pSoldier, GASMASK);
 
@@ -719,7 +782,7 @@ INT16 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 		if (Threat[uiLoop].iOrigRange <= MAX_THREAT_RANGE)
 		{
 			// add this opponent's cover value to our current total cover value
-			iCurrentCoverValue += CalcCoverValue(pSoldier,pSoldier->sGridNo,iMyThreatValue,pSoldier->bActionPoints,uiLoop,Threat[uiLoop].iOrigRange,morale,&iCurrentScale);
+			iCurrentCoverValue += CalcCoverValue(pSoldier,pSoldier->sGridNo,iMyThreatValue,pSoldier->bActionPoints,uiLoop,Threat[uiLoop].iOrigRange,morale,&iCurrentScale, timing);
 		}
 	}
 
@@ -787,7 +850,9 @@ INT16 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 		}
 	}
 
+	const auto pathStart = ReferenceClock::now();
 	FindBestPath( pSoldier, NOWHERE, pSoldier->bLevel, DetermineMovementMode( pSoldier, AI_ACTION_TAKE_COVER ), COPYREACHABLE_AND_APS, 0 );
+	timing.path += ReferenceClock::now() - pathStart;
 
 	// Turn off the "reachable" flag for his current location
 	// so we don't consider it
@@ -798,6 +863,7 @@ INT16 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	{
 		for (sXOffset = -sMaxLeft; sXOffset <= sMaxRight; sXOffset++)
 		{
+			++timing.candidates;
 			//HandleMyMouseCursor(KEYBOARDALSO);
 
 			// calculate the next potential gridno
@@ -824,6 +890,7 @@ INT16 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 			{
 				continue;
 			}
+			++timing.reachable;
 
 			if ( !fHasGasMask )
 			{
@@ -863,6 +930,7 @@ INT16 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 
 			// OK, this place shows potential.  How useful is it as cover?
 			// EVALUATE EACH GRID #, remembering the BEST PROTECTED ONE
+			++timing.evaluated;
 			iCoverValue = 0;
 			iCoverScale = 0;
 
@@ -876,7 +944,7 @@ INT16 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 				{
 					iCoverValue += CalcCoverValue(pSoldier,sGridNo,iMyThreatValue,
 						(pSoldier->bActionPoints - iPathCost),
-						uiLoop,iThreatRange,morale,&iCoverScale);
+						uiLoop,iThreatRange,morale,&iCoverScale, timing);
 				}
 			}
 

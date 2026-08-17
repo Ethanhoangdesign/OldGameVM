@@ -191,6 +191,10 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
     protected static int mCurrentOrientation;
     protected static Locale mCurrentLocale;
     protected static boolean mSecondaryMouseModifierDown;
+    protected static boolean mCtrlKeyDown;
+    protected static boolean mAltKeyDown;
+    protected static boolean mSyntheticCtrlDown;
+    protected static boolean mSyntheticAltDown;
 
     // Handle the state of the native layer
     public enum NativeState {
@@ -379,27 +383,6 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
 
         mLayout = new RelativeLayout(this);
         mLayout.addView(mSurface);
-
-        // OGVM-ANDROID: right-click overlay button for emulator testing
-        Button rmbBtn = new Button(this);
-        rmbBtn.setText("RMB");
-        rmbBtn.setAlpha(0.6f);
-        rmbBtn.setTextSize(10);
-        RelativeLayout.LayoutParams rp = new RelativeLayout.LayoutParams(
-            RelativeLayout.LayoutParams.WRAP_CONTENT,
-            RelativeLayout.LayoutParams.WRAP_CONTENT);
-        rp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-        rp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-        rp.setMargins(0, 80, 8, 0);
-        rmbBtn.setLayoutParams(rp);
-        rmbBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                SDLActivity.mSecondaryMouseModifierDown = !SDLActivity.mSecondaryMouseModifierDown;
-                rmbBtn.setAlpha(SDLActivity.mSecondaryMouseModifierDown ? 1.0f : 0.6f);
-            }
-        });
-        mLayout.addView(rmbBtn);
 
         // Get our current screen orientation and pass it down.
         mCurrentOrientation = SDLActivity.getCurrentOrientation();
@@ -1309,10 +1292,55 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         return mSingleton.commandHandler.post(new ShowTextInputTask(x, y, w, h));
     }
 
-    public static boolean isTextInputEvent(KeyEvent event) {
+    public static boolean isCtrlKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT;
+    }
 
-        // Key pressed with Ctrl should be sent as SDL_KEYDOWN/SDL_KEYUP and not SDL_TEXTINPUT
-        if (event.isCtrlPressed()) {
+    public static boolean isAltKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT;
+    }
+
+    public static void updateModifierKeyState(int keyCode, boolean down) {
+        if (isCtrlKey(keyCode)) {
+            mCtrlKeyDown = down;
+        } else if (isAltKey(keyCode)) {
+            mAltKeyDown = down;
+        }
+    }
+
+    public static void pressMissingModifiers(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        if (event.getAction() != KeyEvent.ACTION_DOWN || isCtrlKey(keyCode) || isAltKey(keyCode)) {
+            return;
+        }
+        if (event.isCtrlPressed() && !mCtrlKeyDown && !mSyntheticCtrlDown) {
+            onNativeKeyDown(KeyEvent.KEYCODE_CTRL_LEFT);
+            mSyntheticCtrlDown = true;
+        }
+        if (event.isAltPressed() && !mAltKeyDown && !mSyntheticAltDown) {
+            onNativeKeyDown(KeyEvent.KEYCODE_ALT_LEFT);
+            mSyntheticAltDown = true;
+        }
+    }
+
+    public static void releaseSyntheticModifiers(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        if (event.getAction() != KeyEvent.ACTION_UP || isCtrlKey(keyCode) || isAltKey(keyCode)) {
+            return;
+        }
+        if (mSyntheticCtrlDown) {
+            onNativeKeyUp(KeyEvent.KEYCODE_CTRL_LEFT);
+            mSyntheticCtrlDown = false;
+        }
+        if (mSyntheticAltDown) {
+            onNativeKeyUp(KeyEvent.KEYCODE_ALT_LEFT);
+            mSyntheticAltDown = false;
+        }
+    }
+
+    public static boolean isTextInputEvent(KeyEvent event) {
+        // Modified keys must reach SDL as key events so game hotkeys can handle them.
+        if (event.isCtrlPressed() || event.isAltPressed()) {
             return false;
         }
 
@@ -2009,8 +2037,7 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
 
         int deviceId = event.getDeviceId();
         int source = event.getSource();
-        if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT ||
-            keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT) {
+        if (SDLActivity.isCtrlKey(keyCode) || SDLActivity.isAltKey(keyCode)) {
             SDLActivity.mSecondaryMouseModifierDown = event.getAction() == KeyEvent.ACTION_DOWN;
         }
 
@@ -2052,10 +2079,14 @@ class SDLSurface extends SurfaceView implements SurfaceHolder.Callback,
                 if (SDLActivity.isTextInputEvent(event)) {
                     SDLInputConnection.nativeCommitText(String.valueOf((char) event.getUnicodeChar()), 1);
                 }
+                SDLActivity.updateModifierKeyState(keyCode, true);
+                SDLActivity.pressMissingModifiers(event);
                 SDLActivity.onNativeKeyDown(keyCode);
                 return true;
             } else if (event.getAction() == KeyEvent.ACTION_UP) {
                 SDLActivity.onNativeKeyUp(keyCode);
+                SDLActivity.releaseSyntheticModifiers(event);
+                SDLActivity.updateModifierKeyState(keyCode, false);
                 return true;
             }
         }
@@ -2320,10 +2351,14 @@ class DummyEdit extends View implements View.OnKeyListener {
                 ic.commitText(String.valueOf((char) event.getUnicodeChar()), 1);
                 return true;
             }
+            SDLActivity.updateModifierKeyState(keyCode, true);
+            SDLActivity.pressMissingModifiers(event);
             SDLActivity.onNativeKeyDown(keyCode);
             return true;
         } else if (event.getAction() == KeyEvent.ACTION_UP) {
             SDLActivity.onNativeKeyUp(keyCode);
+            SDLActivity.releaseSyntheticModifiers(event);
+            SDLActivity.updateModifierKeyState(keyCode, false);
             return true;
         }
         return false;
