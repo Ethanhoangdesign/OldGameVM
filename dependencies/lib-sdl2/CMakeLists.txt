@@ -27,6 +27,11 @@ execute_process(COMMAND ${CMAKE_COMMAND} --build "${CMAKE_CURRENT_BINARY_DIR}/bu
 
 # interface library
 include("${INSTALL_PREFIX}/lib/cmake/SDL2/SDL2Config.cmake")
+foreach(SDL2_TARGET SDL2::SDL2 SDL2::SDL2-static SDL2::SDL2main)
+    if(TARGET ${SDL2_TARGET})
+        set_property(TARGET ${SDL2_TARGET} PROPERTY IMPORTED_GLOBAL TRUE)
+    endif()
+endforeach()
 
 set(SDL2_INCLUDE_DIR "${INSTALL_PREFIX}/include/SDL2" PARENT_SCOPE)
 

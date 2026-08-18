@@ -910,11 +910,10 @@ bool DefaultContentManager::loadGameData(TranslatableString::Loader& stringLoade
 	loadExplosives(stringLoader, m_explosionAnimations);
 	loadArmours(stringLoader);
 
-	// WF-ITEMART: JA2 Wildfire ships a BigItems.slf whose gun artwork is
-	// numbered independently of the item index -- gun00.sti is the mortar, and
-	// the pistol block is shifted as a result.  The original executable carried
-	// that mapping internally, so data-driven builds show the wrong picture for
-	// 14 items.  Repoint them once the item table is loaded.  Detection follows
+	// WF-ITEMART: JA2 Wildfire reorders the .357/5.45 magazine block and ships a
+	// BigItems.slf whose gun artwork is numbered independently of the item index.
+	// Repoint both small and big inventory artwork once the item table is loaded.
+	// Detection follows
 	// UsesWildfireInterfaceArt() in UILayout.cc: Wildfire replaces vanilla's
 	// 8-bit b_map.pcx with a 16-bit b_map.sti.
 	if (doesGameResExists("interface/b_map.sti") &&
@@ -930,6 +929,14 @@ bool DefaultContentManager::loadGameData(TranslatableString::Loader& stringLoade
 
 		static const WildfireBigItemFixup wildfireBigItemFixups[] =
 		{
+			// Wildfire ITEMDESC.edt shifts the .357 ammo semantics two slots earlier;
+			// frames 11 and 17 are pants artwork in Wildfire's Mdp1Items.sti.
+			{ 86, "bigitems/p1item12.sti", 12, ".357 Speed Loader, AP" },
+			{ 87, "bigitems/p1item18.sti", 18, ".357 Magazine, AP"    },
+			{ 88, "bigitems/p1item13.sti", 13, ".357 Speed Loader, HP" },
+			{ 89, "bigitems/p1item19.sti", 19, ".357 Magazine, HP"    },
+			{ 90, "bigitems/p1item09.sti",  9, "5.45mm Magazine"       },
+			{ 91, "bigitems/p1item10.sti", 10, "5.45mm Magazine, HP"   },
 			{  1, "bigitems/gun04.sti",  4, "Calico M950"    },
 			{  4, "bigitems/gun01.sti",  1, "Beretta 92F"    },
 			{ 40, "bigitems/gun37.sti", 37, "M79"            },
@@ -951,8 +958,7 @@ bool DefaultContentManager::loadGameData(TranslatableString::Loader& stringLoade
 		{
 			ItemModel* item = const_cast<ItemModel*>(m_items.optionalById(fixup.itemIndex));
 			if (item == NULL) continue;
-			item->overrideInventoryGraphicBig(fixup.path, 0);
-			item->overrideInventoryGraphicSmallSubImage(fixup.smallSubImage);
+			item->overrideInventoryGraphics(fixup.path, fixup.smallSubImage);
 			++numRepointed;
 		}
 

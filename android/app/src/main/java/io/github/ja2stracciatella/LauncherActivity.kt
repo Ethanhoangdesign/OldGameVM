@@ -6,6 +6,9 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -30,7 +33,11 @@ class LauncherActivity : AppCompatActivity() {
         prettyPrint = true
     }
     private val ja2JsonFilename = ".ja2/ja2.json"
+    private val launcherPreferencesName = "launcher"
+    private val selectedGamePreference = "selected_game"
     private lateinit var configurationModel: ConfigurationModel
+    private var selectedGame = GameId.JA
+    private var tabLayoutMediator: TabLayoutMediator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Portrait + landscape theo cam bien / user (khong khoa).
@@ -45,17 +52,64 @@ class LauncherActivity : AppCompatActivity() {
         loadJA2Json()
 
         setContentView(view)
-        val sectionsPagerAdapter = SectionsPagerAdapter(this)
-        binding.viewPager.adapter = sectionsPagerAdapter
-
-        TabLayoutMediator(binding.tabs, binding.viewPager) { tab, position ->
-            tab.text =
-                applicationContext.resources.getString(SectionsPagerAdapter.getTabTitle(position))
-        }.attach()
+        selectedGame = loadSelectedGame()
+        setupGameSelector()
+        showSelectedGame()
 
         binding.fab.setOnClickListener {
-            startGame()
+            startSelectedGame()
         }
+    }
+
+    private fun setupGameSelector() {
+        val games = GameId.values()
+        val labels = listOf(
+            getString(R.string.game_selector_ja),
+            getString(R.string.game_selector_zeus)
+        )
+        binding.gameSelector.adapter = ArrayAdapter(
+            this,
+            R.layout.launcher_spinner_item,
+            labels
+        ).apply {
+            setDropDownViewResource(R.layout.launcher_spinner_dropdown_item)
+        }
+        binding.gameSelector.setSelection(games.indexOf(selectedGame))
+        binding.gameSelector.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val game = games[position]
+                if (game != selectedGame) {
+                    selectedGame = game
+                    getSharedPreferences(launcherPreferencesName, MODE_PRIVATE)
+                        .edit()
+                        .putString(selectedGamePreference, game.name)
+                        .apply()
+                    showSelectedGame()
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+    }
+
+    private fun loadSelectedGame(): GameId {
+        val name = getSharedPreferences(launcherPreferencesName, MODE_PRIVATE)
+            .getString(selectedGamePreference, null)
+        return GameId.values().firstOrNull { it.name == name } ?: GameId.JA
+    }
+
+    private fun showSelectedGame() {
+        tabLayoutMediator?.detach()
+        binding.viewPager.adapter = SectionsPagerAdapter(this, selectedGame)
+        tabLayoutMediator = TabLayoutMediator(binding.tabs, binding.viewPager) { tab, position ->
+            tab.text = getString(SectionsPagerAdapter.getTabTitle(selectedGame, position))
+        }.also { it.attach() }
+        binding.fab.contentDescription = getString(
+            when (selectedGame) {
+                GameId.JA -> R.string.start_ja_description
+                GameId.ZEUS -> R.string.start_zeus_description
+            }
+        )
     }
 
     override fun onResume() {
@@ -100,7 +154,7 @@ class LauncherActivity : AppCompatActivity() {
     ) {
         if (requestCode == requestPermissionsCode) {
             if (grantResults.all { r -> r == PackageManager.PERMISSION_GRANTED }) {
-                startGame()
+                if (selectedGame == GameId.JA) startJA()
             } else {
                 Toast.makeText(
                     this,
@@ -136,7 +190,14 @@ class LauncherActivity : AppCompatActivity() {
         return Resolution(width - (width % 2u), base.height)
     }
 
-    private fun startGame() {
+    private fun startSelectedGame() {
+        when (selectedGame) {
+            GameId.JA -> startJA()
+            GameId.ZEUS -> startZeus()
+        }
+    }
+
+    private fun startJA() {
         try {
             getPermissionsIfNecessaryForAction {
                 GameDir.checkGameDirectoryForCommonMistakes(
@@ -145,8 +206,7 @@ class LauncherActivity : AppCompatActivity() {
                 ) {
                     saveJA2Json()
                     NativeExceptionContainer.resetException()
-                    val intent = Intent(this@LauncherActivity, StracciatellaActivity::class.java)
-                    startActivity(intent)
+                    startActivity(Intent(this@LauncherActivity, StracciatellaActivity::class.java))
                 }
             }
         } catch (e: IOException) {
@@ -154,6 +214,15 @@ class LauncherActivity : AppCompatActivity() {
             Log.e(activityLogTag, message)
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun startZeus() {
+        val library = File(applicationInfo.nativeLibraryDir, "libezeus.so")
+        if (!library.isFile) {
+            Toast.makeText(this, R.string.ezeus_library_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(Intent(this, EZeusActivity::class.java))
     }
 
     private val ja2JsonPath: String

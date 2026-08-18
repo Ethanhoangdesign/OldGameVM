@@ -37,6 +37,12 @@
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|keyboardHidden">
         </activity>
+        <activity
+            android:name=".EZeusActivity"
+            android:process=":ezeus"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+        </activity>
     </application>
 
 </manifest>

@@ -146,6 +146,9 @@ set(GAME_VERSION "v${ja2-stracciatella_VERSION}")
 message(STATUS "Setting directory for libraries to: ${INSTALL_LIB_DIR}")
 add_definitions(-DINSTALL_LIB_DIR="${INSTALL_LIB_DIR}")
 
+option(BUILD_EZEUS "Build the eZeus Android target" OFF)
+set(EZEUS_SOURCE_DIR "" CACHE PATH "Local eZeus source checkout")
+
 if(BUILD_SDL_LIB)
     set(SDL2_LIBRARY "")
     set(SDL2_INCLUDE_DIR "")
@@ -159,6 +162,9 @@ else()
 endif()
 message(STATUS "SDL2 Libraries: ${SDL2_LIBRARY}; SDL2 Include Dir: ${SDL2_INCLUDE_DIR}")
 
+if(BUILD_EZEUS)
+    include(ezeus)
+endif()
 
 # Dependencies must be processed first so the src directory can reliably use them.
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/dependencies/lib-magic_enum")

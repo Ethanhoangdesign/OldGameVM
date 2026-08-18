@@ -2,6 +2,15 @@
     <string name="app_name">JA2 Stracciatella</string>
     <string name="title_activity_launcher">Jagged Alliance 2 Stracciatella</string>
     <string name="floating_action_button_start_text">Start the game</string>
+    <string name="game_selector_label">Game</string>
+    <string name="game_selector_ja">JA</string>
+    <string name="game_selector_zeus">Zeus</string>
+    <string name="start_ja_description">Start JA</string>
+    <string name="start_zeus_description">Start Zeus smoke test</string>
+    <string name="ezeus_tab_status">Status</string>
+    <string name="ezeus_status_title">Zeus native smoke test</string>
+    <string name="ezeus_status_description">The Zeus option currently tests native library loading only. Gameplay and game-data loading are not implemented yet. The local android/Zeus + Poseidon folder is not bundled in this APK and is not automatically copied to the emulator.</string>
+    <string name="ezeus_library_unavailable">Zeus native smoke library is not included in this APK. Rebuild with -PezeusSourceDir=/tmp/eZeus.</string>
     <string name="tab_text_data">Data</string>
     <string name="tab_text_settings">Settings</string>
     <string name="tab_text_controller">Controller / Gamepad</string>

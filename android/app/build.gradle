@@ -30,12 +30,17 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                 "-std=c++17"
+                def ezeusSourceDir = project.findProperty('ezeusSourceDir') ?: ''
+                def buildEZeus = ezeusSourceDir ? 'ON' : 'OFF'
+
+                "-std=c++17"
                 // CMAKE_MAKE_PROGRAM required for nested ExternalProject/execute_process (SDL2)
                 arguments '-DBUILD_SDL_LIB=ON',
                           '-DBUILD_LAUNCHER=OFF',
                           '-DWITH_UNITTESTS=OFF',
                           '-DWITH_RUST_BINARIES=OFF',
+                          "-DBUILD_EZEUS=${buildEZeus}",
+                          "-DEZEUS_SOURCE_DIR=${ezeusSourceDir}",
                           '-DCMAKE_CXX_FLAGS=-fPIC',
                           '-DCMAKE_C_FLAGS=-fPIC',
                           "-DCMAKE_MAKE_PROGRAM=${System.getenv('ANDROID_HOME') ?: System.getenv('ANDROID_SDK_ROOT') ?: "${System.getProperty('user.home')}/Library/Android/sdk"}/cmake/3.22.1/bin/ninja"

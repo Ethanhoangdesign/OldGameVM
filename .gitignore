@@ -50,3 +50,8 @@ src/externalized/editiondetector/detector_test
 *.obj
 *.lib
 *.ogvm-bak
+
+# OGVM: commercial data dirs - lon, ban quyen, KHONG commit
+android/GOG/
+android/Zeus + Poseidon/
+android/ezeus/

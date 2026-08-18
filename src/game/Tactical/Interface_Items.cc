@@ -670,11 +670,12 @@ static void INVRenderINVPanelItem(SOLDIERTYPE const& s, INT16 const pocket, Dirt
 
 	bool   hatch_out = false;
 	UINT16 outline   = SGP_TRANSPARENT;
+
+	// Keep hover text tied to the object currently rendered in this slot.
+	r.SetFastHelpText(GetHelpTextForItem(o));
+
 	if (dirty_level == DIRTYLEVEL2)
 	{
-		ST::string buf = GetHelpTextForItem(o);
-		r.SetFastHelpText(buf);
-
 		// If it's the second hand and this hand cannot contain anything, remove the
 		// second hand position graphic
 		if (pocket == SECONDHANDPOS && GCM->getItem(s.inv[HANDPOS].usItem)->isTwoHanded())
@@ -1446,7 +1447,14 @@ void INVRenderItem(SGPVSurface* const buffer, SOLDIERTYPE const* const s, OBJECT
 		{
 			BltVideoObjectOutlineShadow(buffer, item_vo, gfx_idx, cx - 2, cy + 2);
 		}
-		BltVideoObjectOutline(buffer, item_vo, gfx_idx, cx,     cy, outline_colour);
+		if (outline_colour == SGP_TRANSPARENT)
+		{
+			BltVideoObject(buffer, item_vo, gfx_idx, cx, cy);
+		}
+		else
+		{
+			BltVideoObjectOutline(buffer, item_vo, gfx_idx, cx, cy, outline_colour);
+		}
 
 		if (buffer == FRAME_BUFFER)
 		{
