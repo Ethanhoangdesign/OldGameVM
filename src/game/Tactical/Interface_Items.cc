@@ -1447,14 +1447,8 @@ void INVRenderItem(SGPVSurface* const buffer, SOLDIERTYPE const* const s, OBJECT
 		{
 			BltVideoObjectOutlineShadow(buffer, item_vo, gfx_idx, cx - 2, cy + 2);
 		}
-		if (outline_colour == SGP_TRANSPARENT)
-		{
-			BltVideoObject(buffer, item_vo, gfx_idx, cx, cy);
-		}
-		else
-		{
-			BltVideoObjectOutline(buffer, item_vo, gfx_idx, cx, cy, outline_colour);
-		}
+		// Palette index 254 is an outline mask in vanilla and Wildfire item sheets.
+		BltVideoObjectOutline(buffer, item_vo, gfx_idx, cx, cy, outline_colour);
 
 		if (buffer == FRAME_BUFFER)
 		{

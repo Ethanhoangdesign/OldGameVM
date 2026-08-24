@@ -17,6 +17,7 @@ public:
 	static DefaultContentManagerUT* createDefaultCMForTesting();
 
 	bool loadGameData() override;
+	using DefaultContentManager::applyWildfireMagazineFixup;
 
 #ifdef WITH_UNITTESTS
 
