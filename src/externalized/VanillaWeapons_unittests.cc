@@ -256,6 +256,7 @@ TEST(Items, WildfireMp7MagazineCompatibility)
 	EXPECT_EQ(magazine46->capacity, 20);
 	EXPECT_EQ(p90->calibre->internalName, ST::string("AMMO57"));
 	EXPECT_EQ(p90->ubMagSize, 50);
+	EXPECT_EQ(DefaultMagazine(ITEMDEFINE::AUTOMAG_III), ITEMDEFINE::CLIP38_6);
 	EXPECT_TRUE(ValidAmmoType(ITEMDEFINE::AUTOMAG_III, ITEMDEFINE::CLIP38_6));
 	EXPECT_FALSE(ValidAmmoType(ITEMDEFINE::__ITEM_15, ITEMDEFINE::CLIP38_6));
 	EXPECT_TRUE(ValidAmmoType(ITEMDEFINE::__ITEM_15, ITEMDEFINE::__ITEM_106));
