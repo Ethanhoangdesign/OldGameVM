@@ -32,8 +32,9 @@ object NativeExceptionContainer {
     fun markGameRunning(context: android.content.Context) {
         val dir = reportDirectory(context)
         dir.mkdirs()
-        java.io.File(dir, "game-running.tmp").writeText("running\n")
-            .renameTo(runningFile(context))
+        val temp = java.io.File(dir, "game-running.tmp")
+        temp.writeText("running\n")
+        temp.renameTo(runningFile(context))
     }
 
     fun clearGameRunning(context: android.content.Context) {

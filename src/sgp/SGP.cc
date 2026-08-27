@@ -109,6 +109,11 @@ void InstallCrashSignalHandlers(const char* home)
 	signal(SIGFPE, WriteSignalReport);
 }
 
+void RemoveGameRunningMarker()
+{
+	if (g_gameRunningPath[0] != '\0') std::remove(g_gameRunningPath);
+}
+
 void WriteCrashReport(const ST::string& message)
 {
 	if (g_crashReportPath[0] == '\0') return;
@@ -117,7 +122,7 @@ void WriteCrashReport(const ST::string& message)
 		std::ofstream report(g_crashReportPath, std::ios::trunc);
 		if (!report) return;
 		report << "kind=cpp_exception\nmessage=" << message.c_str()
-			<< "\nscreen=" << guiCurrentScreen << "\n";
+			<< "\nscreen=" << guiPendingScreen << "\n";
 		report.flush();
 	}
 	catch (...)

@@ -481,6 +481,7 @@ static void EnterSaveLoadScreen()
 
 	guiSaveLoadExitScreen = SAVE_LOAD_SCREEN;
 	InitSaveGameArray();
+	if (!gfSaveGame) gCurrentScrollTop = 0;
 	EmptyBackgroundRects();
 
 	// If the user has asked to load the selected save
