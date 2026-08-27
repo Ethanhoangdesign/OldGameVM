@@ -106,46 +106,52 @@ struct WildfireMagazineFixup
 	const char* ammoType;
 	const char* bigPath;
 	uint16_t    smallSubImage;
+	bool        overrideSmallArt;
+	bool        overrideBigArt;
 	const char* comment;
+	const char* smallPath = nullptr;
 };
 
 // Wildfire keeps the item IDs but changes the magazine identities behind them.
-// Reuse the closest existing magazine artwork where Wildfire has no distinct
-// frame.  Replace these approximations when a lawful native item table exists.
+// Metadata (calibre/capacity/ammoType) is always corrected for a matched row.
+// Artwork is overridden only when overrideSmallArt/overrideBigArt is set; rows
+// whose native small/big art is not yet proven keep the base JSON graphics and
+// leave the flag(s) false rather than pointing at an unverified frame.
 static const WildfireMagazineFixup wildfireMagazineFixups[] =
 {
-	{  71, "AMMO9",    15, "AMMO_AP",      "bigitems/p1item33.sti", 33, "9mm Pistol Magazine, AP"       },
-	{  72, "AMMO9",    30, "AMMO_AP",      "bigitems/p1item36.sti", 36, "9mm SMG Magazine, AP"          },
-	{  73, "AMMO9",    50, "AMMO_AP",      "bigitems/p1item36.sti", 36, "9mm Magazine, 50 AP"          },
-	{  74, "AMMO9",    15, "AMMO_HP",      "bigitems/p1item34.sti", 34, "9mm Pistol Magazine, HP"       },
-	{  75, "AMMO9",    30, "AMMO_HP",      "bigitems/p1item37.sti", 37, "9mm SMG Magazine, HP"          },
-	{  76, "AMMO9",    50, "AMMO_HP",      "bigitems/p1item37.sti", 37, "9mm Magazine, 50 HP"          },
-	{  77, "AMMO57",   20, "AMMO_REGULAR", "bigitems/p1item20.sti", 20, "4.6mm Magazine (MP7 fallback)" },
-	{  78, "AMMO762W", 10, "AMMO_AP",      "bigitems/p1item22.sti", 22, "7.62x54mm Magazine, 10 AP"     },
-	{  79, "AMMO762W", 10, "AMMO_HP",      "bigitems/p1item23.sti", 23, "7.62x54mm Magazine, 10 HP"     },
-	{  86, "AMMO357",   6, "AMMO_AP",      "bigitems/p1item12.sti", 12, ".357 Speed Loader, AP"         },
-	{  87, "AMMO357",   9, "AMMO_AP",      "bigitems/p1item18.sti", 18, ".357 Magazine, AP"             },
-	{  88, "AMMO357",   6, "AMMO_HP",      "bigitems/p1item13.sti", 13, ".357 Speed Loader, HP"         },
-	{  89, "AMMO357",   9, "AMMO_HP",      "bigitems/p1item19.sti", 19, ".357 Magazine, HP"             },
-	{  90, "AMMO545",  30, "AMMO_AP",      "bigitems/p1item09.sti",  9, "5.45mm Magazine"               },
-	{  91, "AMMO545",  30, "AMMO_HP",      "bigitems/p1item10.sti", 10, "5.45mm Magazine, HP"           },
-	{  92, "AMMO556",  30, "AMMO_AP",      "bigitems/p1item22.sti",  22, "5.56mm Magazine"               },
-	{  93, "AMMO556", 100, "AMMO_AP",      "bigitems/p1item22.sti",  22, "5.56mm Box, 100 AP"            },
-	{  94, "AMMO556",  30, "AMMO_HP",      "bigitems/p1item23.sti",  23, "5.56mm Magazine, HP"           },
-	{  95, "AMMO556", 100, "AMMO_HP",      "bigitems/p1item23.sti",  23, "5.56mm Box, 100 HP"            },
-	{  96, "AMMO762W", 30, "AMMO_AP",      "bigitems/p1item22.sti",  22, "7.62mm WP Magazine, 30 AP"     },
-	{  97, "AMMO762W", 75, "AMMO_AP",      "bigitems/p1item22.sti",  22, "7.62mm WP Drum, 75 AP"         },
-	{  98, "AMMO762W", 30, "AMMO_HP",      "bigitems/p1item23.sti",  23, "7.62mm WP Magazine, 30 HP"     },
-	{  99, "AMMO762W", 75, "AMMO_HP",      "bigitems/p1item23.sti",  23, "7.62mm WP Drum, 75 HP"         },
-	{ 100, "AMMO762N", 20, "AMMO_AP",      "bigitems/p1item22.sti",  22, "7.62mm NATO Magazine, 20 AP"   },
-	{ 101, "AMMO762N",100, "AMMO_AP",      "bigitems/p1item22.sti",  22, "7.62mm NATO Box, 100 AP"       },
-	{ 102, "AMMO762N", 20, "AMMO_HP",      "bigitems/p1item23.sti",  23, "7.62mm NATO Magazine, 20 HP"   },
-	{ 103, "AMMO762N",100, "AMMO_HP",      "bigitems/p1item23.sti",  23, "7.62mm NATO Box, 100 HP"       },
-	{ 104, "AMMO762W", 10, "AMMO_AP",      "bigitems/p1item22.sti",  22, "9x39mm Magazine, 10"           },
-	{ 105, "AMMO762W", 20, "AMMO_AP",      "bigitems/p1item22.sti",  22, "9x39mm Magazine, 20"           },
-	{ 111, "AMMO762N",  5, "AMMO_AP",      "bigitems/p1item110.sti",110, "12.7mm, AP"                    },
-	{ 112, "AMMO762N",  5, "AMMO_HE",      "bigitems/p1item115.sti",115, "12.7mm, HE"                    },
-	{ 113, "AMMO762N",  5, "AMMO_HEAT",    "bigitems/p1item114.sti",114, "12.7mm, HEAP"                  },
+	{  71, "AMMO9",    15, "AMMO_AP",      "bigitems/p1item33.sti", 33, true,  true,  "9mm Pistol Magazine, AP"       },
+	{  72, "AMMO9",    30, "AMMO_AP",      "bigitems/p1item36.sti", 36, true,  true,  "9mm SMG Magazine, AP"          },
+	{  73, "AMMO9",    50, "AMMO_AP",      "bigitems/p1item36.sti", 36, true,  true,  "9mm Magazine, 50 AP"          },
+	{  74, "AMMO9",    15, "AMMO_HP",      "bigitems/p1item34.sti", 34, true,  true,  "9mm Pistol Magazine, HP"       },
+	{  75, "AMMO9",    30, "AMMO_HP",      "bigitems/p1item37.sti", 37, true,  true,  "9mm SMG Magazine, HP"          },
+	{  76, "AMMO9",    50, "AMMO_HP",      "bigitems/p1item37.sti", 37, true,  true,  "9mm Magazine, 50 HP"          },
+	// Wildfire guns contact sheet identifies the native 4.6mm artwork as slot 73.
+	{  77, "AMMO46",   20, "AMMO_REGULAR", "bigitems/gun73.sti", 73, true,  true,  "4.6mm Magazine (Wildfire labeled guns contact sheet)", "interface/mdguns.sti" },
+	{  78, "AMMO762W", 10, "AMMO_AP",      "bigitems/p1item22.sti", 22, true,  true,  "7.62x54mm Magazine, 10 AP"     },
+	{  79, "AMMO762W", 10, "AMMO_HP",      "bigitems/p1item23.sti", 23, true,  true,  "7.62x54mm Magazine, 10 HP"     },
+	{  86, "AMMO357",   6, "AMMO_AP",      "bigitems/p1item12.sti", 12, true,  true,  ".357 Speed Loader, AP"         },
+	{  87, "AMMO357",   9, "AMMO_AP",      "bigitems/p1item18.sti", 18, true,  true,  ".357 Magazine, AP"             },
+	{  88, "AMMO357",   6, "AMMO_HP",      "bigitems/p1item13.sti", 13, true,  true,  ".357 Speed Loader, HP"         },
+	{  89, "AMMO357",   9, "AMMO_HP",      "bigitems/p1item19.sti", 19, true,  true,  ".357 Magazine, HP"             },
+	{  90, "AMMO545",  30, "AMMO_AP",      "bigitems/p1item09.sti",  9, true,  true,  "5.45mm Magazine"               },
+	{  91, "AMMO545",  30, "AMMO_HP",      "bigitems/p1item10.sti", 10, true,  true,  "5.45mm Magazine, HP"           },
+	{  92, "AMMO556",  30, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "5.56mm Magazine"               },
+	{  93, "AMMO556", 100, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "5.56mm Box, 100 AP"            },
+	{  94, "AMMO556",  30, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "5.56mm Magazine, HP"           },
+	{  95, "AMMO556", 100, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "5.56mm Box, 100 HP"            },
+	{  96, "AMMO762W", 30, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "7.62mm WP Magazine, 30 AP"     },
+	{  97, "AMMO762W", 75, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "7.62mm WP Drum, 75 AP"         },
+	{  98, "AMMO762W", 30, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm WP Magazine, 30 HP"     },
+	{  99, "AMMO762W", 75, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm WP Drum, 75 HP"         },
+	{ 100, "AMMO762N", 20, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "7.62mm NATO Magazine, 20 AP"   },
+	{ 101, "AMMO762N",100, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "7.62mm NATO Box, 100 AP"       },
+	{ 102, "AMMO762N", 20, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm NATO Magazine, 20 HP"   },
+	{ 103, "AMMO762N",100, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm NATO Box, 100 HP"       },
+	{ 104, "AMMO762W", 10, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "9x39mm Magazine, 10"           },
+	{ 105, "AMMO762W", 20, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "9x39mm Magazine, 20"           },
+	{ 111, "AMMO762N",  5, "AMMO_AP",      "bigitems/p1item110.sti",110, true,  true,  "12.7mm, AP"                    },
+	{ 112, "AMMO762N",  5, "AMMO_HE",      "bigitems/p1item115.sti",115, true,  true,  "12.7mm, HE"                    },
+	{ 113, "AMMO762N",  5, "AMMO_HEAT",    "bigitems/p1item114.sti",114, true,  true,  "12.7mm, HEAP"                  },
 };
 
 const WildfireMagazineFixup* findWildfireMagazineFixup(uint16_t itemIndex)
@@ -582,11 +588,23 @@ const ExplosionAnimationModel* DefaultContentManager::getExplosionAnimation(uint
 	return *it;
 }
 
+bool DefaultContentManager::applyWildfireWeaponFixup(JsonObject& obj)
+{
+	if (obj.GetUInt("itemIndex") != 56) return false;
+	obj.set("calibre", "AMMO46");
+	obj.set("ubMagSize", 20);
+	return true;
+}
+
 bool DefaultContentManager::loadWeapons(TranslatableString::Loader& stringLoader)
 {
 	auto json = readJsonDataFileWithSchema("weapons.json");
+	bool const isWildfire = doesGameResExists("interface/b_map.sti") &&
+		!doesGameResExists("interface/b_map.pcx");
 	for (auto& element : json.toVec()) {
-		auto w = WeaponModel::deserialize(element, m_calibres, m_explosiveCalibres, stringLoader);
+		auto obj = element.toObject();
+		if (isWildfire) applyWildfireWeaponFixup(obj);
+		auto w = WeaponModel::deserialize(obj.toValue(), m_calibres, m_explosiveCalibres, stringLoader);
 
 		if (w->getItemIndex() >= MAXITEMS)
 		{
@@ -759,15 +777,24 @@ bool DefaultContentManager::applyWildfireMagazineFixup(JsonObject& obj)
 	obj.set("capacity", fixup->capacity);
 	obj.set("ammoType", fixup->ammoType);
 
-	auto graphics = obj["inventoryGraphics"].toObject();
-	auto small = graphics["small"].toObject();
-	small.set("subImageIndex", fixup->smallSubImage);
-	graphics.set("small", small.toValue());
-
-	JsonObject big;
-	big.set("path", fixup->bigPath);
-	graphics.set("big", big.toValue());
-	obj.set("inventoryGraphics", graphics.toValue());
+	if (fixup->overrideSmallArt || fixup->overrideBigArt)
+	{
+		auto graphics = obj["inventoryGraphics"].toObject();
+		if (fixup->overrideSmallArt)
+		{
+			auto small = graphics["small"].toObject();
+			if (fixup->smallPath != nullptr) small.set("path", fixup->smallPath);
+			small.set("subImageIndex", fixup->smallSubImage);
+			graphics.set("small", small.toValue());
+		}
+		if (fixup->overrideBigArt)
+		{
+			JsonObject big;
+			big.set("path", fixup->bigPath);
+			graphics.set("big", big.toValue());
+		}
+		obj.set("inventoryGraphics", graphics.toValue());
+	}
 	return true;
 }
 
@@ -1026,7 +1053,8 @@ bool DefaultContentManager::loadGameData(TranslatableString::Loader& stringLoade
 			{ 61, "bigitems/gun46.sti", 46, "Dart Gun"       },
 			{ 63, "bigitems/gun49.sti", 49, "Flamethrower"   },
 			{ 65, "bigitems/gun48.sti", 48, "AS Val"         },
-			{ 66, "bigitems/gun41.sti", 41, "VSS Vintorez"   },
+			{ 54, "bigitems/gun47.sti", 47, "Machete (Wildfire labeled contact sheet)" },
+			// ID 66 VSS Vintorez: frozen pending native artwork evidence
 			{ 67, "bigitems/gun45.sti", 45, "V-94"           },
 			{ 68, "bigitems/gun50.sti", 50, "F2000"          },
 		};
@@ -1036,7 +1064,7 @@ bool DefaultContentManager::loadGameData(TranslatableString::Loader& stringLoade
 		{
 			ItemModel* item = const_cast<ItemModel*>(m_items.optionalById(fixup.itemIndex));
 			if (item == NULL) continue;
-			item->overrideInventoryGraphics(fixup.path, fixup.smallSubImage);
+			item->overrideInventoryGraphics("interface/mdguns.sti", fixup.smallSubImage, fixup.path);
 			++numRepointed;
 		}
 

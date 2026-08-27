@@ -775,7 +775,7 @@ static bool CompatibleAmmoForGun(const OBJECTTYPE* pTryObject, const OBJECTTYPE*
 {
 	if ( ( GCM->getItem(pTryObject->usItem)->isAmmo() ) )
 	{
-		return GCM->getWeapon( pTestObject->usItem )->matches(GCM->getItem(pTryObject->usItem)->asAmmo()->calibre);
+		return ValidAmmoType(pTestObject->usItem, pTryObject->usItem);
 	}
 	return false;
 }
@@ -785,7 +785,7 @@ static bool CompatibleGunForAmmo(const OBJECTTYPE* pTryObject, const OBJECTTYPE*
 {
 	if ( ( GCM->getItem(pTryObject->usItem)->isGun()) )
 	{
-		return GCM->getWeapon( pTryObject->usItem )->matches(GCM->getItem(pTestObject->usItem)->asAmmo()->calibre);
+		return ValidAmmoType(pTryObject->usItem, pTestObject->usItem);
 	}
 	return false;
 }
@@ -1432,6 +1432,7 @@ void INVRenderItem(SGPVSurface* const buffer, SOLDIERTYPE const* const s, OBJECT
 	const ItemModel * item =
 		ubStatusIndex < RENDER_ITEM_ATTACHMENT1 ? GCM->getItem(o.usItem) :
 		GCM->getItem(o.usAttachItem[ubStatusIndex - RENDER_ITEM_ATTACHMENT1]);
+
 
 	if (dirty_level == DIRTYLEVEL2)
 	{
@@ -3993,7 +3994,8 @@ CSubVObject GetSmallInventoryGraphicForItem(const ItemModel *item)
 
 UINT16 GetTileGraphicForItem(const ItemModel * item)
 {
-	return GetTileIndexFromTypeSubIndex(item->getTileGraphic().tileType, item->getTileGraphic().subIndex);
+	auto const& tile = item->getTileGraphic();
+	return GetTileIndexFromTypeSubIndex(tile.tileType, tile.subIndex);
 }
 
 CSubVObject GetFallbackBigInventoryGraphic() {

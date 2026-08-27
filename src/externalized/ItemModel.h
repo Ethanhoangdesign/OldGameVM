@@ -122,8 +122,7 @@ public:
 	};
 
 	/** Repoint both inventory artwork variants for an edition-specific item ID. */
-	void overrideInventoryGraphics(const ST::string& bigPath, uint16_t smallSubImageIndex);
-
+	void overrideInventoryGraphics(const ST::string& smallPath, uint16_t smallSubImageIndex, const ST::string& bigPath);
 	virtual JsonValue serialize() const;
 	static std::unique_ptr<ItemModel> deserialize(const JsonValue &json, TranslatableString::Loader& stringLoader);
 

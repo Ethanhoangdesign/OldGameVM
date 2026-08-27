@@ -49,8 +49,6 @@
 #include <set>
 #include <stdexcept>
 
-constexpr UINT8 ANY_MAGSIZE = 255; // magic number for FindAmmo's mag_size parameter
-
 struct AttachmentInfoStruct
 {
 	UINT16 usItem;
@@ -764,7 +762,7 @@ bool ValidAmmoType( UINT16 usItem, UINT16 usAmmoType )
 {
 	if (GCM->getItem(usItem)->getItemClass() == IC_GUN && GCM->getItem(usAmmoType)->getItemClass() == IC_AMMO)
 	{
-		return GCM->getWeapon(usItem)->matches(GCM->getItem(usAmmoType)->asAmmo()->calibre);
+		return GCM->getWeapon(usItem)->matches(GCM->getItem(usAmmoType)->asAmmo());
 	}
 	return false;
 }
@@ -1117,6 +1115,32 @@ BOOLEAN PlaceObjectAtObjectIndex( OBJECTTYPE * pSourceObj, OBJECTTYPE * pTargetO
 #define RELOAD_TOPOFF		3
 #define RELOAD_AUTOPLACE_OLD	4
 
+static void NormalizeGunAmmo(OBJECTTYPE& gun)
+{
+	if (gun.ubGunShotsLeft == 0) return;
+
+	auto const* item = GCM->getItem(gun.usItem, ItemSystem::nothrow);
+	if (!item || item->getItemClass() != IC_GUN) return;
+
+	auto const* weapon = GCM->getWeapon(gun.usItem);
+	if (!weapon->calibre || weapon->ubWeaponClass == MONSTERCLASS || EXPLOSIVE_GUN(gun.usItem)) return;
+
+	auto const* cachedItem = GCM->getItem(gun.usGunAmmoItem, ItemSystem::nothrow);
+	auto const* cachedMagazine = cachedItem ? cachedItem->asAmmo() : nullptr;
+	if (cachedMagazine && weapon->matches(cachedMagazine) &&
+		cachedMagazine->ammoType->index == gun.ubGunAmmoType)
+	{
+		return;
+	}
+
+	UINT16 magazine = FindReplacementMagazine(weapon->calibre, weapon->ubMagSize, gun.ubGunAmmoType);
+	if (magazine == NOTHING) magazine = DefaultMagazine(gun.usItem);
+
+	auto const* normalizedMagazine = GCM->getItem(magazine)->asAmmo();
+	gun.usGunAmmoItem = magazine;
+	gun.ubGunAmmoType = normalizedMagazine->ammoType->index;
+}
+
 BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo )
 {
 	OBJECTTYPE OldAmmo;
@@ -1129,6 +1153,11 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 	UINT16  usNewAmmoItem;
 
 	if (pGun->usItem == ROCKET_LAUNCHER) return( FALSE ); // IC_GUN but uses no ammo (LAW)
+	if (GCM->getItem(pGun->usItem)->getItemClass() == IC_GUN)
+	{
+		if (!ValidAmmoType(pGun->usItem, pAmmo->usItem)) return FALSE;
+		NormalizeGunAmmo(*pGun);
+	}
 
 	INT8 bAPs = 0; // XXX HACK000E
 	if (gTacticalStatus.uiFlags & INCOMBAT)
@@ -1206,44 +1235,16 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 			}
 		}
 
-		if (fSameMagazineSize)
-		{
-			// record new ammo item for gun
-			usNewAmmoItem = pAmmo->usItem;
+		if (!fSameMagazineSize) return FALSE;
 
-			if (bReloadType == RELOAD_TOPOFF)
-			{
-				ubBulletsToMove = std::min(int(pAmmo->ubShotsLeft[0]), GCM->getWeapon(pGun->usItem)->ubMagSize - pGun->ubGunShotsLeft);
-			}
-			else
-			{
-				ubBulletsToMove = pAmmo->ubShotsLeft[0];
-			}
-
-		}
-		else if (GCM->getItem(pAmmo->usItem)->asAmmo()->capacity > GCM->getWeapon(pGun->usItem)->ubMagSize)
+		usNewAmmoItem = pAmmo->usItem;
+		if (bReloadType == RELOAD_TOPOFF)
 		{
-			usNewAmmoItem = pAmmo->usItem - 1;
-			if (bReloadType == RELOAD_TOPOFF)
-			{
-				ubBulletsToMove = std::min(int(pAmmo->ubShotsLeft[0]), GCM->getWeapon(pGun->usItem)->ubMagSize - pGun->ubGunShotsLeft);
-			}
-			else
-			{
-				ubBulletsToMove = std::min(pAmmo->ubShotsLeft[0], GCM->getWeapon(pGun->usItem)->ubMagSize);
-			}
+			ubBulletsToMove = std::min(int(pAmmo->ubShotsLeft[0]), GCM->getWeapon(pGun->usItem)->ubMagSize - pGun->ubGunShotsLeft);
 		}
-		else // mag is smaller than weapon mag
+		else
 		{
-			usNewAmmoItem = pAmmo->usItem + 1;
-			if (bReloadType == RELOAD_TOPOFF)
-			{
-				ubBulletsToMove = std::min(int(pAmmo->ubShotsLeft[0]), GCM->getWeapon(pGun->usItem)->ubMagSize - pGun->ubGunShotsLeft);
-			}
-			else
-			{
-				ubBulletsToMove = std::min(pAmmo->ubShotsLeft[0], GCM->getWeapon(pGun->usItem)->ubMagSize);
-			}
+			ubBulletsToMove = pAmmo->ubShotsLeft[0];
 		}
 
 
@@ -1356,6 +1357,8 @@ BOOLEAN EmptyWeaponMagazine( OBJECTTYPE * pWeapon, OBJECTTYPE *pAmmo )
 
 	if ( pWeapon->ubGunShotsLeft > 0 )
 	{
+		NormalizeGunAmmo(*pWeapon);
+
 		// start by erasing ammo item, just in case...
 		DeleteObj( pAmmo );
 
@@ -1393,7 +1396,7 @@ INT8 FindAmmo(const SOLDIERTYPE* s, const CalibreModel * calibre, UINT8 const ma
 		if (!item->isAmmo()) continue;
 		const MagazineModel * m = item->asAmmo();
 		if (m->calibre->index != calibre->index) continue;
-		if (m->capacity != mag_size && mag_size != ANY_MAGSIZE) continue;
+		if (m->capacity != mag_size) continue;
 		return slot;
 	}
 	return NO_SLOT;
@@ -1419,22 +1422,14 @@ INT8 FindAmmoToReload( const SOLDIERTYPE * pSoldier, INT8 bWeaponIn, INT8 bExclu
 	{
 		// look for same ammo as before
 		bSlot = FindObjExcludingSlot( pSoldier, pObj->usGunAmmoItem, bExcludeSlot );
-		if (bSlot != NO_SLOT)
+		if (bSlot != NO_SLOT && ValidAmmoType(pObj->usItem, pSoldier->inv[bSlot].usItem))
 		{
 			// reload using this ammo!
 			return( bSlot );
 		}
 		// look for any ammo that matches which is of the same calibre and magazine size
 		bSlot = FindAmmo( pSoldier, weapon->calibre, weapon->ubMagSize, bExcludeSlot );
-		if (bSlot != NO_SLOT)
-		{
-			return( bSlot );
-		}
-		else
-		{
-			// look for any ammo that matches which is of the same calibre (different size okay)
-			return( FindAmmo( pSoldier, weapon->calibre, ANY_MAGSIZE, bExcludeSlot ) );
-		}
+		return( bSlot );
 	}
 	else if (weapon->shootsExplosiveCalibre())
 	{
@@ -2034,7 +2029,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 				case IC_GUN:
 					if (item->isAmmo())
 					{
-						if (GCM->getWeapon(pInSlot->usItem)->matches(item->asAmmo()->calibre))
+						if (ValidAmmoType(pInSlot->usItem, pObj->usItem))
 						{
 							// reload...
 							return( ReloadGun( pSoldier, pInSlot, pObj ) );
@@ -2478,22 +2473,16 @@ UINT16 DefaultMagazine(UINT16 const gun)
 
 UINT16 FindReplacementMagazine(const CalibreModel * calibre, UINT8 const mag_size, UINT8 const ammo_type)
 {
-	UINT16 default_mag = NOTHING;
 	const auto& magazines = GCM->getMagazines();
 	for (const MagazineModel* mag : magazines)
 	{
 		if (!mag->calibre) break;
-		if (mag->calibre->index != calibre->index)  continue;
+		if (mag->calibre->index != calibre->index) continue;
 		if (mag->capacity != mag_size) continue;
-
-		if (mag->ammoType->index == ammo_type) return mag->getItemIndex();
-
-		if (default_mag == NOTHING)
-		{ // Store this one to use if all else fails
-			default_mag = mag->getItemIndex();
-		}
+		if (mag->ammoType->index != ammo_type) continue;
+		return mag->getItemIndex();
 	}
-	return default_mag;
+	return NOTHING;
 }
 
 

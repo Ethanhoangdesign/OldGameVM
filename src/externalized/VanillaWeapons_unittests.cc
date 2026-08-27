@@ -11,6 +11,7 @@
 #include "GamePolicy.h"
 #include "Items.h"
 #include "MagazineModel.h"
+#include "Soldier.h"
 #include "Weapons.h"
 #include "WeaponModels.h"
 #include <utility>
@@ -83,6 +84,49 @@ TEST(Items, bug120_cawsDefaultMag)
 	EXPECT_EQ(FindReplacementMagazine(sapClip->calibre, 10, AMMO_SUPER_AP), sapClip->getItemIndex());
 
 	delete cm;
+}
+
+TEST(Items, vanillaClip38ApCreation)
+{
+	std::unique_ptr<DefaultContentManager> cm(DefaultContentManagerUT::createDefaultCMForTesting());
+	ASSERT_TRUE(cm->loadGameData());
+	const auto oldGCM = std::exchange(GCM, cm.release());
+
+	OBJECTTYPE object{};
+	CreateItem(ITEMDEFINE::__ITEM_78, 100, &object);
+
+	EXPECT_EQ(object.usItem, ITEMDEFINE::__ITEM_78);
+	EXPECT_EQ(object.ubNumberOfObjects, 1);
+	EXPECT_EQ(object.ubShotsLeft[0], 6);
+	const auto* magazine = GCM->getMagazineByItemIndex(ITEMDEFINE::__ITEM_78);
+	ASSERT_NE(magazine, nullptr);
+	EXPECT_EQ(magazine->calibre->internalName, ST::string("AMMO38"));
+	EXPECT_EQ(magazine->capacity, 6);
+	EXPECT_EQ(magazine->ammoType->getInternalName(), ST::string("AMMO_AP"));
+
+	delete GCM;
+	GCM = oldGCM;
+}
+
+TEST(Items, vanillaP90KeepsApMagazine)
+{
+	std::unique_ptr<DefaultContentManager> cm(DefaultContentManagerUT::createDefaultCMForTesting());
+	ASSERT_TRUE(cm->loadGameData());
+	auto const oldGCM = std::exchange(GCM, cm.release());
+
+	OBJECTTYPE p90{};
+	CreateItem(ITEMDEFINE::__ITEM_15, 100, &p90);
+	ASSERT_EQ(p90.usGunAmmoItem, ITEMDEFINE::__ITEM_105);
+	ASSERT_EQ(p90.ubGunAmmoType, AMMO_AP);
+	p90.ubGunShotsLeft = 7;
+
+	OBJECTTYPE unloaded{};
+	EXPECT_TRUE(EmptyWeaponMagazine(&p90, &unloaded));
+	EXPECT_EQ(unloaded.usItem, ITEMDEFINE::__ITEM_105);
+	EXPECT_EQ(unloaded.ubShotsLeft[0], 7);
+
+	delete GCM;
+	GCM = oldGCM;
 }
 
 TEST(Items, bug120_spas15DefaultMag)
@@ -186,6 +230,102 @@ TEST(Items, ValidAttachment)
 	EXPECT_FALSE(ValidAttachment(ITEMDEFINE::SUNGOGGLES, ITEMDEFINE::SPECTRA_VEST));;
 	EXPECT_FALSE(ValidAttachment(ITEMDEFINE::AUTO_ROCKET_RIFLE, ITEMDEFINE::BRASS_KNUCKLES));
 	EXPECT_FALSE(ValidAttachment(0xf083, 0x8c12));
+
+	delete GCM;
+	GCM = oldGCM;
+}
+
+TEST(Items, WildfireMp7MagazineCompatibility)
+{
+	std::unique_ptr<DefaultContentManager> cm(DefaultContentManagerUT::createWildfireCMForTesting());
+	ASSERT_TRUE(cm->loadGameData());
+	auto const oldGCM = std::exchange(GCM, cm.release());
+
+	const auto* mp7 = GCM->getWeapon(ITEMDEFINE::AUTOMAG_III);
+	const auto* p90 = GCM->getWeapon(ITEMDEFINE::__ITEM_15);
+	const auto* magazine46 = GCM->getMagazineByItemIndex(ITEMDEFINE::CLIP38_6);
+	const auto* magazine57 = GCM->getMagazineByItemIndex(ITEMDEFINE::__ITEM_106);
+	ASSERT_NE(mp7, nullptr);
+	ASSERT_NE(p90, nullptr);
+	ASSERT_NE(magazine46, nullptr);
+	ASSERT_NE(magazine57, nullptr);
+
+	EXPECT_EQ(mp7->calibre->internalName, ST::string("AMMO46"));
+	EXPECT_EQ(mp7->ubMagSize, 20);
+	EXPECT_EQ(magazine46->calibre->internalName, ST::string("AMMO46"));
+	EXPECT_EQ(magazine46->capacity, 20);
+	EXPECT_EQ(p90->calibre->internalName, ST::string("AMMO57"));
+	EXPECT_EQ(p90->ubMagSize, 50);
+	EXPECT_TRUE(ValidAmmoType(ITEMDEFINE::AUTOMAG_III, ITEMDEFINE::CLIP38_6));
+	EXPECT_FALSE(ValidAmmoType(ITEMDEFINE::__ITEM_15, ITEMDEFINE::CLIP38_6));
+	EXPECT_TRUE(ValidAmmoType(ITEMDEFINE::__ITEM_15, ITEMDEFINE::__ITEM_106));
+
+	OBJECTTYPE p90Object{};
+	CreateItem(ITEMDEFINE::__ITEM_15, 100, &p90Object);
+	EXPECT_EQ(p90Object.usGunAmmoItem, ITEMDEFINE::__ITEM_106);
+	EXPECT_EQ(GCM->getMagazineByItemIndex(p90Object.usGunAmmoItem)->calibre->internalName, ST::string("AMMO57"));
+	EXPECT_EQ(GCM->getMagazineByItemIndex(p90Object.usGunAmmoItem)->capacity, 50);
+	EXPECT_EQ(FindReplacementMagazine(p90->calibre, 50, AMMO_AP), ITEMDEFINE::NOTHING);
+
+	SOLDIERTYPE soldier{};
+	soldier.bVisible = -1;
+	soldier.bTeam = ENEMY_TEAM;
+
+	OBJECTTYPE magazine57Object{};
+	CreateItem(ITEMDEFINE::__ITEM_106, 100, &magazine57Object);
+	p90Object.usGunAmmoItem = ITEMDEFINE::__ITEM_105;
+	p90Object.ubGunAmmoType = AMMO_AP;
+	p90Object.ubGunShotsLeft = 18;
+	EXPECT_TRUE(ReloadGun(&soldier, &p90Object, &magazine57Object));
+	EXPECT_EQ(p90Object.usGunAmmoItem, ITEMDEFINE::__ITEM_106);
+	EXPECT_EQ(p90Object.ubGunAmmoType, AMMO_HP);
+	EXPECT_EQ(p90Object.ubGunShotsLeft, 50);
+	EXPECT_EQ(magazine57Object.usItem, ITEMDEFINE::__ITEM_106);
+	EXPECT_EQ(magazine57Object.ubShotsLeft[0], 18);
+
+	OBJECTTYPE unloadedP90{};
+	EXPECT_TRUE(EmptyWeaponMagazine(&p90Object, &unloadedP90));
+	EXPECT_EQ(unloadedP90.usItem, ITEMDEFINE::__ITEM_106);
+	EXPECT_EQ(unloadedP90.ubShotsLeft[0], 50);
+	EXPECT_NE(unloadedP90.usItem, ITEMDEFINE::__ITEM_105);
+
+	CreateItem(ITEMDEFINE::__ITEM_15, 100, &p90Object);
+	p90Object.usGunAmmoItem = ITEMDEFINE::__ITEM_78;
+	p90Object.ubGunAmmoType = AMMO_AP;
+	p90Object.ubGunShotsLeft = 10;
+	EXPECT_TRUE(EmptyWeaponMagazine(&p90Object, &unloadedP90));
+	EXPECT_EQ(unloadedP90.usItem, ITEMDEFINE::__ITEM_106);
+	EXPECT_EQ(unloadedP90.ubShotsLeft[0], 10);
+	EXPECT_NE(unloadedP90.usItem, ITEMDEFINE::__ITEM_78);
+
+	CreateItem(ITEMDEFINE::__ITEM_15, 100, &p90Object);
+	p90Object.ubGunShotsLeft = 7;
+	EXPECT_TRUE(EmptyWeaponMagazine(&p90Object, &unloadedP90));
+	EXPECT_EQ(unloadedP90.usItem, ITEMDEFINE::__ITEM_106);
+	EXPECT_EQ(unloadedP90.ubShotsLeft[0], 7);
+
+	OBJECTTYPE mp7Object{};
+	OBJECTTYPE magazine46Object{};
+	CreateItem(ITEMDEFINE::AUTOMAG_III, 100, &mp7Object);
+	EXPECT_EQ(mp7Object.usGunAmmoItem, ITEMDEFINE::CLIP38_6);
+	EXPECT_EQ(mp7Object.ubGunShotsLeft, 20);
+
+	OBJECTTYPE unloaded{};
+	EXPECT_TRUE(EmptyWeaponMagazine(&mp7Object, &unloaded));
+	EXPECT_EQ(unloaded.usItem, ITEMDEFINE::CLIP38_6);
+	EXPECT_EQ(unloaded.ubShotsLeft[0], 20);
+
+	CreateItem(ITEMDEFINE::CLIP38_6, 100, &magazine46Object);
+	EXPECT_EQ(magazine46Object.usItem, ITEMDEFINE::CLIP38_6);
+	EXPECT_EQ(magazine46Object.ubShotsLeft[0], 20);
+	EXPECT_NE(mp7Object.usGunAmmoItem, ITEMDEFINE::__ITEM_78);
+
+	EXPECT_TRUE(ReloadGun(&soldier, &mp7Object, &magazine46Object));
+	EXPECT_EQ(mp7Object.usGunAmmoItem, ITEMDEFINE::CLIP38_6);
+	EXPECT_EQ(mp7Object.ubGunShotsLeft, 20);
+	EXPECT_TRUE(EmptyWeaponMagazine(&mp7Object, &unloaded));
+	EXPECT_EQ(unloaded.usItem, ITEMDEFINE::CLIP38_6);
+	EXPECT_NE(unloaded.usItem, ITEMDEFINE::__ITEM_78);
 
 	delete GCM;
 	GCM = oldGCM;

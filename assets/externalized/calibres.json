@@ -145,5 +145,17 @@
         "silencedSound": "sounds/weapons/silencer 03.wav",
         "showInHelpText": true,
         "monsterWeapon": false
+    },
+    {
+        "index": 17,
+        "internalName": "AMMO46",
+        "name": "4.6mm",
+        "bobbyRaysName": "4.6mm",
+        "sound": "sounds/weapons/5,7 single shot.wav",
+        "burstSound": "sounds/weapons/5,7 burst %d.wav",
+        "silencedSound": "sounds/weapons/silencer 02.wav",
+        "silencedBurstSound": "sounds/weapons/silencer burst %d.wav",
+        "showInHelpText": true,
+        "monsterWeapon": false
     }
 ]

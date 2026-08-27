@@ -119,10 +119,10 @@ int8_t          ItemModel::getReliability() const      { return bReliability;   
 int8_t          ItemModel::getRepairEase() const       { return bRepairEase;           }
 uint16_t        ItemModel::getFlags() const            { return fFlags;                }
 const GraphicModel& ItemModel::getInventoryGraphicSmall() const { return inventoryGraphics.small; }
-void ItemModel::overrideInventoryGraphics(const ST::string& bigPath, uint16_t smallSubImageIndex)
+void ItemModel::overrideInventoryGraphics(const ST::string& smallPath, uint16_t smallSubImageIndex, const ST::string& bigPath)
 {
+	inventoryGraphics.small = GraphicModel(smallPath, smallSubImageIndex);
 	inventoryGraphics.big = GraphicModel(bigPath, 0);
-	inventoryGraphics.small = GraphicModel(inventoryGraphics.small.getPath(), smallSubImageIndex);
 }
 
 const GraphicModel& ItemModel::getInventoryGraphicBig() const { return inventoryGraphics.big; }

@@ -304,6 +304,7 @@ protected:
 	friend class DefaultContentManagerUT;
 #endif
 	static bool applyWildfireMagazineFixup(JsonObject& obj);
+	static bool applyWildfireWeaponFixup(JsonObject& obj);
 	bool loadMagazines(TranslatableString::Loader& stringLoader);
 	bool loadExplosiveCalibres();
 	bool loadCalibres(TranslatableString::Loader& stringLoader);

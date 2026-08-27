@@ -4124,7 +4124,7 @@ static bool IsGunOrAmmoOfSameTypeSelected(OBJECTTYPE const& o)
 	if (highlighted_item->getItemClass() == IC_AMMO)
 	{
 		if (o_item->getItemClass() == IC_GUN &&
-				GCM->getWeapon(o.usItem)->matches(highlighted_item->asAmmo()->calibre))
+				ValidAmmoType(o.usItem, highlighted_o.usItem))
 		{
 			return true;
 		}
@@ -4132,7 +4132,7 @@ static bool IsGunOrAmmoOfSameTypeSelected(OBJECTTYPE const& o)
 	else if (highlighted_item->getItemClass() == IC_GUN)
 	{
 		if (o_item->getItemClass() == IC_AMMO &&
-				GCM->getWeapon(highlighted_o.usItem)->matches(o_item->asAmmo()->calibre))
+				ValidAmmoType(highlighted_o.usItem, o.usItem))
 		{
 			return true;
 		}
