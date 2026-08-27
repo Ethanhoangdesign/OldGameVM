@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import io.github.ja2stracciatella.NativeExceptionContainer
 import io.github.ja2stracciatella.R
 import io.github.ja2stracciatella.databinding.FragmentLauncherLogsTabBinding
 import java.io.File
@@ -38,10 +39,17 @@ class LogsTabFragment : Fragment() {
     override fun onResume() {
         super.onResume()
 
-        val logFile = File(activity?.cacheDir, "ja2.log")
-        if (logFile.exists()) {
-            val content = logFile.readText()
-            binding.logsText.text = content
-        }
+        val context = activity ?: return
+        val home = NativeExceptionContainer.reportDirectory(context)
+        val sections = listOf(
+            "CRASH REPORT" to NativeExceptionContainer.readReport(context),
+            "NATIVE SIGNAL" to NativeExceptionContainer.readSignal(context),
+            "CURRENT LOG" to File(home, "ja2.log").takeIf { it.isFile }?.readText(),
+            "PREVIOUS LOG" to File(home, "ja2.log.last").takeIf { it.isFile }?.readText()
+        )
+        binding.logsText.text = sections
+            .filter { it.second != null }
+            .joinToString("\n\n") { "===== ${it.first} =====\n${it.second}" }
+            .ifEmpty { "No logs available." }
     }
 }

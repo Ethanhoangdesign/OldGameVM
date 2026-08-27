@@ -1,9 +1,16 @@
 package io.github.ja2stracciatella
 
-import android.app.AlertDialog
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -11,6 +18,8 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.tabs.TabLayoutMediator
@@ -35,6 +44,9 @@ class LauncherActivity : AppCompatActivity() {
     private val ja2JsonFilename = ".ja2/ja2.json"
     private val launcherPreferencesName = "launcher"
     private val selectedGamePreference = "selected_game"
+    private val crashChannelId = "game-crashes"
+    private val crashNotificationId = 27
+    private val notifiedCrashId = "notified_crash_id"
     private lateinit var configurationModel: ConfigurationModel
     private var selectedGame = GameId.JA
     private var tabLayoutMediator: TabLayoutMediator? = null
@@ -55,6 +67,7 @@ class LauncherActivity : AppCompatActivity() {
         selectedGame = loadSelectedGame()
         setupGameSelector()
         showSelectedGame()
+        reportPreviousCrash()
 
         binding.fab.setOnClickListener {
             startSelectedGame()
@@ -116,16 +129,54 @@ class LauncherActivity : AppCompatActivity() {
         super.onResume()
         // Sau StracciatellaActivity (sensorLandscape) — mo khoa xoay lai.
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+        reportPreviousCrash()
+    }
 
-        val exception = NativeExceptionContainer.getException()
-        Log.i(activityLogTag, "Resuming LauncherActivity, previous exception: $exception")
-        if (exception != null) {
-            Toast.makeText(
-                this,
-                "A exception occurred when running the game: $exception",
-                Toast.LENGTH_LONG
-            ).show()
-            NativeExceptionContainer.resetException()
+    private fun reportPreviousCrash() {
+        val report = NativeExceptionContainer.readReport(this)
+        val signal = NativeExceptionContainer.readSignal(this)
+        if (report == null && signal == null && !NativeExceptionContainer.hasUncleanRun(this)) return
+
+        val details = report ?: signal?.let { "kind=native_signal\nsignal=${it.trim()}" }
+            ?: "kind=process_death\nmessage=The previous game run ended unexpectedly."
+        val id = details.hashCode().toString()
+        val prefs = getSharedPreferences(launcherPreferencesName, MODE_PRIVATE)
+        if (prefs.getString(notifiedCrashId, null) == id) return
+
+        createCrashChannel()
+        val summary = details.lineSequence().firstOrNull { it.startsWith("message=") }
+            ?.removePrefix("message=") ?: "Previous game run ended unexpectedly."
+        if (Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            val intent = Intent(this, LauncherActivity::class.java).apply {
+                putExtra("open_logs", true)
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this, crashNotificationId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            NotificationManagerCompat.from(this).notify(
+                crashNotificationId,
+                NotificationCompat.Builder(this, crashChannelId)
+                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                    .setContentTitle("JA2 crash detected")
+                    .setContentText(summary.take(100))
+                    .setStyle(NotificationCompat.BigTextStyle().bigText("$summary\nOpen Logs to copy the report."))
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .build()
+            )
+        }
+        prefs.edit().putString(notifiedCrashId, id).apply()
+        NativeExceptionContainer.clearGameRunning(this)
+        Toast.makeText(this, "Previous game crash detected. Check Logs.", Toast.LENGTH_LONG).show()
+    }
+
+    private fun createCrashChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(crashChannelId, "Game crashes", NotificationManager.IMPORTANCE_HIGH)
+            )
         }
     }
 
@@ -206,6 +257,7 @@ class LauncherActivity : AppCompatActivity() {
                 ) {
                     saveJA2Json()
                     NativeExceptionContainer.resetException()
+                    NativeExceptionContainer.markGameRunning(this)
                     startActivity(Intent(this@LauncherActivity, StracciatellaActivity::class.java))
                 }
             }

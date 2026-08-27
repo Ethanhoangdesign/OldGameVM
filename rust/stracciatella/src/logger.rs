@@ -124,7 +124,7 @@ impl Logger {
         #[cfg(not(target_os = "android"))]
         let dir = std::env::temp_dir();
         #[cfg(target_os = "android")]
-        let dir = crate::android::get_android_cache_dir().expect("cache dir not found");
+        let dir = crate::android::get_android_app_dir().expect("app dir not found");
 
         dir.join(log_file_name)
     }
@@ -142,6 +142,11 @@ impl Logger {
         use std::fs::File;
 
         let log_file = Self::get_log_file_path(log_file_name);
+        #[cfg(target_os = "android")]
+        if log_file.exists() {
+            let previous_log = log_file.with_file_name(format!("{}.last", log_file_name));
+            let _ = std::fs::copy(&log_file, previous_log);
+        }
         let mut config = ConfigBuilder::default();
         config.set_target_level(LevelFilter::Error);
         config.set_thread_mode(ThreadLogMode::IDs);
