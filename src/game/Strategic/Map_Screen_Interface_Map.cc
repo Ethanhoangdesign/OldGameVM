@@ -1422,19 +1422,14 @@ static void ShowUncertainNumberEnemiesInSector(INT16 const sec_x, INT16 const se
 {
 	INT16 const x = MAP_VIEW_START_X + sec_x * MAP_GRID_X;
 	INT16 const y = MAP_VIEW_START_Y + sec_y * MAP_GRID_Y;
-	/* QMARK-ALL: the Roboto question-mark glyph used to be gated behind the
-	 * large-screen zoom path, so locking that path off brought the old bitmap
-	 * question mark back at 1024x768 and 1366x768. The glyph scales itself to
-	 * whatever the cell size is, so the gate is simply lowered instead of
-	 * removed. At the 42px grid used by 1024/1366 the glyph is drawn; at the 21px
-	 * grid of the original 640x480 layout the vanilla question mark is kept, so
-	 * the Gold/vanilla look is untouched. Set QMARK_MIN_GRID back to 60 to undo. */
-#define QMARK_MIN_GRID 24
-#define QMARK_PCT      92
-	if (MAP_GRID_X >= QMARK_MIN_GRID)
+	/* Wide Wildfire layouts must use the complete glyph.  The legacy boxes.sti
+	 * frame contains only half the mark in some Wildfire data sets.  Keep that
+	 * frame for the original 640x480 layout only. */
+#define QMARK_PCT 92
+	if (g_ui.isMapFullSize() || g_ui.isWidescreenLayout())
 		DrawQuestionMarkInCell(guiSAVEBUFFER, x, y, FONT_MCOLOR_RED, QMARK_PCT);
 	else
-		BltMapIconFitCell(guiSAVEBUFFER, guiCHARICONS, SMALL_QUESTION_MARK, x, y, 92);
+		BltMapIconFitCell(guiSAVEBUFFER, guiCHARICONS, SMALL_QUESTION_MARK, x, y, QMARK_PCT);
 	InvalidateRegion(x, y, x + DMAP_GRID_X, y + DMAP_GRID_Y);
 }
 
