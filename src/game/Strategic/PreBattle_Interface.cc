@@ -176,6 +176,25 @@ void InitPreBattleInterface(GROUP* const battle_group, bool const persistent_pbi
 
 	if (gfPreBattleInterfaceActive) return;
 
+	bool const stale_enemy_locator =
+		!battle_group && gfBlitBattleSectorLocator && gubPBSector.IsValid() && !gubPBSector.z &&
+		(gubEnemyEncounterCode == ENEMY_ENCOUNTER_CODE || gubEnemyEncounterCode == ENEMY_INVASION_CODE) &&
+		NumHostilesInSector(gubPBSector) == 0 && HostileCiviliansPresent();
+	if (stale_enemy_locator)
+	{
+		gfBlitBattleSectorLocator = FALSE;
+		gpBattleGroup = NULL;
+		SectorInfo[gubPBSector.AsByte()].uiFlags &= ~SF_PLAYER_KNOWS_ENEMIES_ARE_HERE;
+		gubEnemyEncounterCode = NO_ENCOUNTER_CODE;
+		gubExplicitEnemyEncounterCode = NO_ENCOUNTER_CODE;
+		gfPersistantPBI = FALSE;
+		SLOGW("Ignoring stale prebattle locator in sector {} without hostiles", gubPBSector);
+		fMapPanelDirty = TRUE;
+		fMapScreenBottomDirty = TRUE;
+
+		if (persistent_pbi) return;
+	}
+
 	gfPersistantPBI = persistent_pbi;
 	if (persistent_pbi)
 	{

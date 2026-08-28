@@ -590,10 +590,19 @@ const ExplosionAnimationModel* DefaultContentManager::getExplosionAnimation(uint
 
 bool DefaultContentManager::applyWildfireWeaponFixup(JsonObject& obj)
 {
-	if (obj.GetUInt("itemIndex") != 56) return false;
-	obj.set("calibre", "AMMO46");
-	obj.set("ubMagSize", 20);
-	return true;
+	switch (obj.GetUInt("itemIndex"))
+	{
+		case 5: // Wildfire Colt 1991 uses the vanilla M1911's .45 ACP profile.
+			obj.set("calibre", "AMMO45");
+			obj.set("ubMagSize", 7);
+			return true;
+		case 56: // Wildfire MP7 uses a dedicated 4.6mm calibre.
+			obj.set("calibre", "AMMO46");
+			obj.set("ubMagSize", 20);
+			return true;
+		default:
+			return false;
+	}
 }
 
 bool DefaultContentManager::loadWeapons(TranslatableString::Loader& stringLoader)

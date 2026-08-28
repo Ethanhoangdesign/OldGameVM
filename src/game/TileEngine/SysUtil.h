@@ -8,5 +8,6 @@ extern SGPVSurface* guiSAVEBUFFER;
 extern SGPVSurface* guiEXTRABUFFER;
 
 void InitializeGameVideoObjects(void);
+void ShutdownGameVideoObjects(void);
 
 #endif

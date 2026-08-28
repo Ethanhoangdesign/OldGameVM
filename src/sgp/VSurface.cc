@@ -217,9 +217,19 @@ void BltVideoSurface(SGPVSurface* const dst, SGPVSurface* const src, INT32 const
 {
 	Assert(dst);
 	Assert(src);
+	if (!dst || !src) return;
 
-	const UINT8 src_bpp = src->BPP();
-	const UINT8 dst_bpp = dst->BPP();
+	SDL_Surface const* const src_surface = src->surface_.get();
+	SDL_Surface* const dst_surface = dst->surface_.get();
+	if (!src_surface || !dst_surface || !src_surface->format || !dst_surface->format ||
+		!src_surface->pixels || !dst_surface->pixels)
+	{
+		SLOGE("Skipping blit with invalid video surface");
+		return;
+	}
+
+	const UINT8 src_bpp = src_surface->format->BitsPerPixel;
+	const UINT8 dst_bpp = dst_surface->format->BitsPerPixel;
 	if (src_bpp == dst_bpp)
 	{
 		SDL_Rect* src_rect = 0;

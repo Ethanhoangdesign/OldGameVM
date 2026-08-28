@@ -2467,7 +2467,14 @@ UINT16 DefaultMagazine(UINT16 const gun)
 		return mag->getItemIndex();
 	}
 
-	throw std::logic_error("Found no default ammo for gun");
+	const WeaponModel* const weapon = GCM->getWeapon(gun);
+	throw std::logic_error(ST::format(
+		"Found no default ammo for gun {} ({}, calibre={}, capacity={})",
+		gun,
+		weapon->getInternalName(),
+		weapon->calibre ? weapon->calibre->getInternalName() : "none",
+		weapon->ubMagSize
+	).to_std_string());
 }
 
 

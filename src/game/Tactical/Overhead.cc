@@ -320,6 +320,7 @@ void InitTacticalEngine()
 
 void ShutdownTacticalEngine(void)
 {
+	ShutdownGameVideoObjects();
 	DeleteSpreadBurstGraphics();
 	DeleteFacesGraphics();
 	DeleteDialogueControlGraphics();

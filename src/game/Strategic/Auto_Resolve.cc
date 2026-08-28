@@ -412,6 +412,22 @@ static void DoTransitionFromPreBattleInterfaceToAutoResolve(void)
 
 void EnterAutoResolveMode(const SGPSector& ubSector)
 {
+	if (ubSector.IsValid() && !ubSector.z &&
+		(gubEnemyEncounterCode == ENEMY_ENCOUNTER_CODE || gubEnemyEncounterCode == ENEMY_INVASION_CODE) &&
+		NumHostilesInSector(ubSector) == 0)
+	{
+		gfBlitBattleSectorLocator = FALSE;
+		gpBattleGroup = NULL;
+		SectorInfo[ubSector.AsByte()].uiFlags &= ~SF_PLAYER_KNOWS_ENEMIES_ARE_HERE;
+		gubEnemyEncounterCode = NO_ENCOUNTER_CODE;
+		gubExplicitEnemyEncounterCode = NO_ENCOUNTER_CODE;
+		gfPersistantPBI = FALSE;
+		SLOGW("Ignoring autoresolve request in sector {} without hostiles", ubSector);
+		KillPreBattleInterface();
+		fMapPanelDirty = TRUE;
+		return;
+	}
+
 	//fix empty creatures' lair bug
 	gubCreatureBattleCode = CREATURE_BATTLE_CODE_NONE;
 	//Set up mapscreen for removal
