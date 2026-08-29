@@ -2940,7 +2940,7 @@ static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 	// Log stats every 1000 calls
 	if (guiCTGT_TotalCalls % 1000 == 0)
 	{
-		SLOGI("CTGT stats: calls={}, tiles/call={:.1f}, structs/tile={:.1f}, empty={}%, ground={}, roof={}, outofworld={}, max_tiles={}, max_structs={}",
+		SLOGI("CTGT stats: calls={}, tiles/call={.1f}, structs/tile={.1f}, empty={}%, ground={}, roof={}, outofworld={}, max_tiles={}, max_structs={}",
 			guiCTGT_TotalCalls,
 			guiCTGT_TotalCalls > 0 ? (float)guiCTGT_TotalTileIterations / guiCTGT_TotalCalls : 0.0f,
 			guiCTGT_TotalTileIterations > 0 ? (float)guiCTGT_TotalStructureIterations / guiCTGT_TotalTileIterations : 0.0f,

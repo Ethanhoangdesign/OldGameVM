@@ -1381,7 +1381,7 @@ void DebugStructurePage1()
 		STRUCTURE const* const base   = FindBaseStructure(s);
 		UINT8            const armour = gubMaterialArmour[s->pDBStructureRef->pDBStructure->ubArmour];
 		MHeader(DEBUG_PAGE_FIRST_COLUMN, y += h, "Structure info:");
-		MPrint(DEBUG_PAGE_FIRST_COLUMN+DEBUG_PAGE_LABEL_WIDTH, y, ST::format("Structure height {}, cube offset {}, armour {}, HP {}}", height, s->sCubeOffset, armour, base->ubHitPoints));
+		MPrint(DEBUG_PAGE_FIRST_COLUMN+DEBUG_PAGE_LABEL_WIDTH, y, ST::format("Structure height {}, cube offset {}, armour {}, HP {}", height, s->sCubeOffset, armour, base->ubHitPoints));
 
 		UINT8 dens0;
 		UINT8 dens1;

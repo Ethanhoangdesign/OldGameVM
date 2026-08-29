@@ -2940,7 +2940,12 @@ static void HandleDefiniteUnloadingOfWorld(UINT8 const ubUnloadCode)
 		//@@@Evaluate
 		SetupProfileInsertionDataForCivilians();
 
-		gfBlitBattleSectorLocator = FALSE;
+		// Keep the map warning while strategic enemies remain after leaving tactical.
+		if (NumHostilesInSector(gWorldSector) == 0 &&
+				!HostileCiviliansPresent() && !HostileBloodcatsPresent())
+		{
+			gfBlitBattleSectorLocator = FALSE;
+		}
 	}
 
 	//Handle cases for both types of unloading

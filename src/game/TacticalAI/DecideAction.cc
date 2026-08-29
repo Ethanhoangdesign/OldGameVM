@@ -3416,7 +3416,7 @@ static INT8 DecideActionBlack(SOLDIERTYPE* pSoldier)
 
 	if (sBestCover != NOWHERE)
 	{
-		SLOGD("{} - taking cover at gridno {} ({}% better)",
+		SLOGD("{} - taking cover at gridno {} ({} percent better)",
 			pSoldier->name, sBestCover, iCoverPercentBetter);
 		pSoldier->usActionData = sBestCover;
 		return(AI_ACTION_TAKE_COVER);
