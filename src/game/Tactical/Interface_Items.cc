@@ -1424,6 +1424,12 @@ UINT8 GetAttachmentHintColor(const OBJECTTYPE* o) {
 }
 
 
+static bool IsWildfire556Magazine(const ItemModel* item);
+static void BlitWildfire556MagazineSmall(SGPVSurface* buffer,
+	const ItemModel* item, SGPVObject const* item_vo, UINT16 gfx_idx,
+	INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, INT16 outline_colour);
+
+
 void INVRenderItem(SGPVSurface* const buffer, SOLDIERTYPE const* const s, OBJECTTYPE const& o, INT16 const sX, INT16 const sY, INT16 const sWidth, INT16 const sHeight, DirtyLevel const dirty_level, UINT8 const ubStatusIndex, INT16 const outline_colour)
 {
 	if (o.usItem    == NOTHING)     return;
@@ -1444,12 +1450,20 @@ void INVRenderItem(SGPVSurface* const buffer, SOLDIERTYPE const* const s, OBJECT
 		INT16       const  cx      = sX + (sWidth  - e.usWidth)  / 2 - e.sOffsetX;
 		INT16       const  cy      = sY + (sHeight - e.usHeight) / 2 - e.sOffsetY;
 
-		if (gamepolicy(f_draw_item_shadow))
+		if (gamepolicy(f_draw_item_shadow) && !IsWildfire556Magazine(item))
 		{
 			BltVideoObjectOutlineShadow(buffer, item_vo, gfx_idx, cx - 2, cy + 2);
 		}
 		// Palette index 254 is an outline mask in vanilla and Wildfire item sheets.
-		BltVideoObjectOutline(buffer, item_vo, gfx_idx, cx, cy, outline_colour);
+		if (IsWildfire556Magazine(item))
+		{
+			BlitWildfire556MagazineSmall(buffer, item, item_vo, gfx_idx,
+				sX, sY, sWidth, sHeight, outline_colour);
+		}
+		else
+		{
+			BltVideoObjectOutline(buffer, item_vo, gfx_idx, cx, cy, outline_colour);
+		}
 
 		if (buffer == FRAME_BUFFER)
 		{
@@ -3969,6 +3983,42 @@ CSubVObject GetFallbackSmallInventoryGraphicForItem(const ItemModel *item) {
 		return { guiSmallInventoryGraphicMissingSmallPocket, 0 };
 	}
 	return { guiSmallInventoryGraphicMissingBigPocket, 0 };
+}
+
+static bool IsWildfire556Magazine(const ItemModel* item)
+{
+	const auto itemIndex = item->getItemIndex();
+	return itemIndex >= 92 && itemIndex <= 95;
+}
+
+static void BlitWildfire556MagazineSmall(SGPVSurface* const buffer,
+	const ItemModel* const item, SGPVObject const* const item_vo, const UINT16 gfx_idx,
+	const INT16 sX, const INT16 sY, const INT16 sWidth, const INT16 sHeight,
+	const INT16 outline_colour)
+{
+	ETRLEObject const& e = item_vo->SubregionProperties(gfx_idx);
+	SGPVSurface tmp(e.usWidth, e.usHeight, 16);
+	tmp.SetTransparency(0);
+
+	SGPRect tmpClip;
+	tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+	SGPRect const oldClip = SetClippingRect(tmpClip);
+	BltVideoObjectOutline(&tmp, item_vo, gfx_idx, -e.sOffsetX, -e.sOffsetY, outline_colour);
+	SetClippingRect(oldClip);
+
+	float const scale = std::min(
+		static_cast<float>(sWidth) / e.usWidth,
+		static_cast<float>(sHeight) / e.usHeight);
+	UINT16 const dstWidth = static_cast<UINT16>(std::max(1.0f, e.usWidth * scale));
+	UINT16 const dstHeight = static_cast<UINT16>(std::max(1.0f, e.usHeight * scale));
+	SGPBox const src{ 0, 0, e.usWidth, e.usHeight };
+	SGPBox const dst{
+		static_cast<UINT16>(sX + (sWidth - dstWidth) / 2),
+		static_cast<UINT16>(sY + (sHeight - dstHeight) / 2),
+		dstWidth,
+		dstHeight
+	};
+	BltStretchVideoSurface(buffer, &tmp, &src, &dst);
 }
 
 CSubVObject GetSmallInventoryGraphicForItem(const ItemModel *item)

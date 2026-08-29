@@ -1939,7 +1939,7 @@ static void UpdateEnemyTurnSpeedButton()
 			return;
 	}
 
-	ShowButton(gEnemyTurnSpeedButton);
+	HideButton(gEnemyTurnSpeedButton);
 	gEnemyTurnSpeedButton->SpecifyText(ST::format("{}x", gubEnemyTurnAnimationSpeed));
 	gEnemyTurnSpeedButton->SetFastHelpText(ST::format("Turn animations: {}x (F8)", gubEnemyTurnAnimationSpeed));
 	MarkAButtonDirty(gEnemyTurnSpeedButton);

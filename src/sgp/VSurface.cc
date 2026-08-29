@@ -325,10 +325,11 @@ void BltStretchVideoSurface(SGPVSurface* const dst, SGPVSurface const* const src
 	UINT const dx     = src_rect->w;
 	UINT const dy     = src_rect->h;
 	UINT py = 0;
-	if (ssurface->flags & SDL_TRUE)
+	UINT32 key = 0;
+	bool const has_colorkey = SDL_HasColorKey(const_cast<SDL_Surface*>(ssurface)) == SDL_TRUE;
+	if (has_colorkey)
 	{
-//		const UINT16 key = ssurface->format->colorkey;
-		const UINT16 key = 0;
+		SDL_GetColorKey(const_cast<SDL_Surface*>(ssurface), &key);
 		for (UINT iy = 0; iy < height; ++iy)
 		{
 			const UINT16* s = os;

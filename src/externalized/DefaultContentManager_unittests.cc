@@ -135,10 +135,10 @@ TEST(WildfireMagazineFixups, CorrectAffectedDefinitions)
 		{  89, "AMMO357",   9, "AMMO_HP",      "bigitems/p1item19.sti", 19 },
 		{  90, "AMMO545",  30, "AMMO_AP",      "bigitems/p1item09.sti",  9 },
 		{  91, "AMMO545",  30, "AMMO_HP",      "bigitems/p1item10.sti", 10 },
-		{  92, "AMMO556",  30, "AMMO_AP",      "bigitems/p1item22.sti", 22 },
-		{  93, "AMMO556", 100, "AMMO_AP",      "bigitems/p1item22.sti", 22 },
-		{  94, "AMMO556",  30, "AMMO_HP",      "bigitems/p1item23.sti", 23 },
-		{  95, "AMMO556", 100, "AMMO_HP",      "bigitems/p1item23.sti", 23 },
+		{  92, "AMMO556",  30, "AMMO_AP",      "bigitems/p1item29.sti",  0 },
+		{  93, "AMMO556", 100, "AMMO_AP",      "bigitems/p1item29.sti",  0 },
+		{  94, "AMMO556",  30, "AMMO_HP",      "bigitems/p1item30.sti",  0 },
+		{  95, "AMMO556", 100, "AMMO_HP",      "bigitems/p1item30.sti",  0 },
 		{  96, "AMMO762W", 30, "AMMO_AP",      "bigitems/p1item22.sti", 22 },
 		{  97, "AMMO762W", 75, "AMMO_AP",      "bigitems/p1item22.sti", 22 },
 		{  98, "AMMO762W", 30, "AMMO_HP",      "bigitems/p1item23.sti", 23 },
@@ -178,6 +178,10 @@ TEST(WildfireMagazineFixups, CorrectAffectedDefinitions)
 		auto fixedGraphics = obj["inventoryGraphics"].toObject();
 		EXPECT_STREQ(fixedGraphics["big"].toObject().GetString("path").c_str(), e.bigPath);
 		EXPECT_EQ(fixedGraphics["small"].toObject().GetUInt("subImageIndex"), e.smallSubImage);
+		if (e.itemIndex >= 92 && e.itemIndex <= 95)
+		{
+			EXPECT_STREQ(fixedGraphics["small"].toObject().GetString("path").c_str(), e.bigPath);
+		}
 	}
 
 	// ID 77: metadata and evidence-backed Wildfire artwork must be corrected.

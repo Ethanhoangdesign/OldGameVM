@@ -1,7 +1,65 @@
+# OGVM — Handoff: Wildfire 5.56 Magazine Inventory (29/08/2026)
+
+Repo: `Ethanhoangdesign/OldGameVM`
+Branch: `feature/multi-edition-detector`
+Local: `/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella`
+
+## 0. TRANG THAI — DONE
+
+Wildfire IDs `92–95` now use the exact curved magazine artwork:
+
+- `92–93`: `bigitems/p1item29.sti`
+- `94–95`: `bigitems/p1item30.sti`
+- Inventory slots: scaled to small-slot bounds, transparent background, no oversized shadow.
+- Item description/Bobby Ray: big artwork unchanged.
+- Other editions/items: existing rendering unchanged.
+
+### Files changed
+
+- `src/externalized/DefaultContentManager.cc`
+- `src/externalized/DefaultContentManager_unittests.cc`
+- `src/game/Tactical/Interface_Items.cc`
+- `src/sgp/VSurface.cc`
+- `src/game/Tactical/Interface.cc` — existing enemy-turn button visibility change retained.
+
+### Technical notes
+
+`INVRenderItem()` detects only item IDs `92–95`, renders the source VObject into a transparent 16-bit temporary surface, then scales it through `BltStretchVideoSurface()`. `BltStretchVideoSurface()` now reads SDL color-key state with `SDL_HasColorKey()` / `SDL_GetColorKey()`; black transparent pixels are skipped. The affected items bypass the normal big-art shadow.
+
+### Validation
+
+```bash
+./android/gradlew -p android assembleDebug
+adb -s R5GL31H83QX install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb -s R5GL31H83QX shell am force-stop io.github.ja2stracciatella
+adb -s R5GL31H83QX shell am start -n io.github.ja2stracciatella/.LauncherActivity
+git diff --check
+```
+
+Build/install/start completed successfully. Visual check target: Wildfire Sector Inventory, IDs `92–95`; confirm no black square, correct small curved magazine, no large shadow, big item-description art intact.
+
+## USB ANDROID RULE — ALWAYS APPLY
+
+When an Android phone is connected by USB and appears under `adb devices`, automatically build, install, and launch Android before visual verification. Do not wait for a separate request.
+
+```bash
+adb devices
+./tools/build-android-debug.sh
+APK="android/app/build/outputs/apk/debug/app-debug.apk"
+DEVICE="$(adb devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
+adb -s "$DEVICE" install -r "$APK"
+adb -s "$DEVICE" shell am force-stop io.github.ja2stracciatella
+adb -s "$DEVICE" shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+Use the physical USB device when available; start an emulator only when no USB device is connected. Current device: `R5GL31H83QX`.
+
+---
+
 # OGVM — Handoff: Controller / Gamepad (05/08/2026, session 3)
 
-Repo: `Ethanhoangdesign/OldGameVM`  
-Branch: `feature/multi-edition-detector`  
+Repo: `Ethanhoangdesign/OldGameVM`
+Branch: `feature/multi-edition-detector`
 Local: `/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella`  
 Build: `cmake --build build -j8 --target ja2-launcher ja2` → `./build/ja2-launcher` / `./build/ja2`  
 May: macOS arm64. Dich: Mac + Windows + Linux.
