@@ -20,6 +20,7 @@
 #include "Items.h"
 #include "Local.h"
 #include "Map_Information.h"
+#include "Map_Screen_Interface_Bottom.h"
 #include "MapScreen.h"
 #include "Meanwhile.h"
 #include "MercPortrait.h"
@@ -1650,6 +1651,7 @@ static void DeleteAutoResolveSoldier(SOLDIERTYPE *const s)
 static void RemoveAutoResolveInterface()
 {
 	AUTORESOLVE_STRUCT& ar = *gpAR;
+	bool const victory = ar.ubBattleStatus == BATTLE_VICTORY;
 
 	MSYS_RemoveRegion(&ar.AutoResolveRegion);
 	DeleteVideoObject(ar.iPanelImages);
@@ -1797,7 +1799,7 @@ static void RemoveAutoResolveInterface()
 	{	/* Get rid of any extra enemies that could be here. It is possible for the
 			* number of total enemies to exceed 32, but autoresolve can only process
 			* 32. We basically cheat by eliminating the rest of them. */
-		if (NumEnemiesInSector(arSector))
+		if (NumHostilesInSector(arSector))
 		{
 			SLOGI("Eliminating remaining enemies after Autoresolve in ({})", arSector);
 			EliminateAllEnemies(arSector);
@@ -1806,6 +1808,16 @@ static void RemoveAutoResolveInterface()
 	else
 	{ // The enemy won, so repoll movement.
 		ResetMovementForEnemyGroupsInLocation();
+	}
+
+	if (ar.ubBattleStatus == BATTLE_VICTORY)
+	{
+		// Victory cleanup above may have removed the last enemy before EliminateAllEnemies ran.
+		SetThisSectorAsPlayerControlled(arSector, TRUE);
+		gfBlitBattleSectorLocator = FALSE;
+		SectorInfo[arSector.AsByte()].uiFlags &= ~SF_PLAYER_KNOWS_ENEMIES_ARE_HERE;
+		fMapPanelDirty = TRUE;
+		fMapScreenBottomDirty = TRUE;
 	}
 
 	// Physically delete the soldiers now.
@@ -1844,6 +1856,13 @@ static void RemoveAutoResolveInterface()
 	{
 		gubNumCreaturesAttackingTown = 0;
 		gubSectorIDOfCreatureAttack  = 0;
+	}
+
+	if (victory)
+	{
+		gubEnemyEncounterCode = NO_ENCOUNTER_CODE;
+		gubExplicitEnemyEncounterCode = NO_ENCOUNTER_CODE;
+		gfPersistantPBI = FALSE;
 	}
 }
 
