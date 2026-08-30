@@ -1036,6 +1036,7 @@ void LoadSavedGame(const ST::string &saveName)
 
 	// Update the mercs in the sector with the new soldier info
 	UpdateMercsInSector();
+	AddProfilesUsingProfileInsertionData();
 
 	PostSchedules();
 

@@ -5,6 +5,9 @@
 #include "LoadSaveSoldierCreate.h"
 #include "Types.h"
 #include "StrategicMap.h"
+#include "Strategic.h"
+#include "Strategic_Mines.h"
+#include "MineModel.h"
 #include "Overhead.h"
 #include "Soldier_Add.h"
 #include "Soldier_Create.h"
@@ -1641,9 +1644,8 @@ static SOLDIERINITNODE* FindSoldierInitListNodeByProfile(UINT8 ubProfile)
 }
 
 
-// Loop through the profiles starting at the RPCs, add them using strategic
-// insertion information and not editor placements. The key flag involved for
-// doing it this way is the GetProfile(i).fUseProfileInsertionInfo.
+// Loop through profiles and add them using strategic insertion information
+// rather than editor placements. Missing head-miner map slots use the same path.
 void AddProfilesUsingProfileInsertionData()
 {
 	for (const MercProfile* prof : GCM->listMercProfiles())
@@ -1651,32 +1653,48 @@ void AddProfilesUsingProfileInsertionData()
 		if (!prof->isNPCorRPC() && !prof->isVehicle())   continue;
 
 		// Perform various checks to make sure the soldier is actually in the same
-		// sector, alive and so on. More importantly, the flag to use profile
-		// insertion data must be set.
+		// sector, alive and so on.
 		ProfileID                i = prof->getID();
 		MERCPROFILESTRUCT const& p = prof->getStruct();
 		if (p.sSector != gWorldSector)                   continue;
 		if (p.ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED) continue;
 		if (p.ubMiscFlags & PROFILE_MISC_FLAG_EPCACTIVE) continue;
 		if (p.bLife == 0)                                continue;
-		if (!p.fUseProfileInsertionInfo)                 continue;
 
+		/* Head miners are assigned before the map loads. A malformed map may
+		 * lack their detailed civilian slot; place the missing miner using the
+		 * existing strategic-insertion path instead of dropping the NPC. */
+		INT8 const mine_id = GetIdOfMineForSector(gWorldSector);
+		bool const head_miner_fallback = IsProfileAHeadMiner(i) &&
+			gWorldSector.z == 0 && mine_id != -1 && !GCM->getMine(mine_id)->isAbandoned();
 		SOLDIERTYPE* ps = FindSoldierByProfileID(i);
+		if ((gTacticalStatus.uiFlags & LOADING_SAVED_GAME) && ps) continue;
+		if (!p.fUseProfileInsertionInfo && (!head_miner_fallback || ps)) continue;
 		if (!ps)
 		{
 			// Create a new soldier, as this one doesn't exist
 			SOLDIERCREATE_STRUCT c{};
-			c.bTeam     = CIV_TEAM;
-			c.ubProfile = i;
-			c.sSector  = gWorldSector;
+			c.bTeam          = CIV_TEAM;
+			c.ubProfile      = i;
+			c.ubSoldierClass = SOLDIER_CLASS_MINER;
+			c.sSector        = gWorldSector;
 			ps = TacticalCreateSoldier(c);
 			if (!ps) continue; // XXX exception?
 		}
 		SOLDIERTYPE& s = *ps;
+		if (head_miner_fallback) s.ubSoldierClass = SOLDIER_CLASS_MINER;
 
 		// Insert the soldier
-		s.ubStrategicInsertionCode = p.ubStrategicInsertionCode;
-		s.usStrategicInsertionData = p.usStrategicInsertionData;
+		if (head_miner_fallback)
+		{
+			s.ubStrategicInsertionCode = INSERTION_CODE_CENTER;
+			s.usStrategicInsertionData = 0;
+		}
+		else
+		{
+			s.ubStrategicInsertionCode = p.ubStrategicInsertionCode;
+			s.usStrategicInsertionData = p.usStrategicInsertionData;
+		}
 		UpdateMercInSector(s, gWorldSector);
 
 		// check action ID values
