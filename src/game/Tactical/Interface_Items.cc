@@ -1424,8 +1424,8 @@ UINT8 GetAttachmentHintColor(const OBJECTTYPE* o) {
 }
 
 
-static bool IsWildfire556Magazine(const ItemModel* item);
-static void BlitWildfire556MagazineSmall(SGPVSurface* buffer,
+static bool IsWildfireMagazine(const ItemModel* item);
+static void BlitWildfireMagazineSmall(SGPVSurface* buffer,
 	const ItemModel* item, SGPVObject const* item_vo, UINT16 gfx_idx,
 	INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, INT16 outline_colour);
 
@@ -1450,14 +1450,14 @@ void INVRenderItem(SGPVSurface* const buffer, SOLDIERTYPE const* const s, OBJECT
 		INT16       const  cx      = sX + (sWidth  - e.usWidth)  / 2 - e.sOffsetX;
 		INT16       const  cy      = sY + (sHeight - e.usHeight) / 2 - e.sOffsetY;
 
-		if (gamepolicy(f_draw_item_shadow) && !IsWildfire556Magazine(item))
+		if (gamepolicy(f_draw_item_shadow) && !IsWildfireMagazine(item))
 		{
 			BltVideoObjectOutlineShadow(buffer, item_vo, gfx_idx, cx - 2, cy + 2);
 		}
 		// Palette index 254 is an outline mask in vanilla and Wildfire item sheets.
-		if (IsWildfire556Magazine(item))
+		if (IsWildfireMagazine(item))
 		{
-			BlitWildfire556MagazineSmall(buffer, item, item_vo, gfx_idx,
+			BlitWildfireMagazineSmall(buffer, item, item_vo, gfx_idx,
 				sX, sY, sWidth, sHeight, outline_colour);
 		}
 		else
@@ -3985,13 +3985,13 @@ CSubVObject GetFallbackSmallInventoryGraphicForItem(const ItemModel *item) {
 	return { guiSmallInventoryGraphicMissingBigPocket, 0 };
 }
 
-static bool IsWildfire556Magazine(const ItemModel* item)
+static bool IsWildfireMagazine(const ItemModel* item)
 {
 	const auto itemIndex = item->getItemIndex();
-	return itemIndex >= 92 && itemIndex <= 95;
+	return itemIndex >= 90 && itemIndex <= 95;
 }
 
-static void BlitWildfire556MagazineSmall(SGPVSurface* const buffer,
+static void BlitWildfireMagazineSmall(SGPVSurface* const buffer,
 	const ItemModel* const item, SGPVObject const* const item_vo, const UINT16 gfx_idx,
 	const INT16 sX, const INT16 sY, const INT16 sWidth, const INT16 sHeight,
 	const INT16 outline_colour)
