@@ -7,7 +7,16 @@
 #include <vector>
 
 // number of inventory slots
-#define MAP_INVENTORY_POOL_SLOT_COUNT 45
+/* SECTORINV-GRID: so o moi trang phu thuoc bo art dang dung.
+ * Art vanilla (379x360) co 5x9 = 45 o; art Wildfire (763x647)
+ * co 5x10 = 50 o. Mang tinh cap phat theo so TOI DA, con vong
+ * lap va phep chia trang dung gia tri runtime ben duoi. */
+#define MAP_INVENTORY_POOL_SLOT_COUNT_MAX 50
+
+// so o thuc te cua bo art dang dung (45 hoac 50)
+INT32 GetMapInventoryPoolSlotCount(void);
+
+#define MAP_INVENTORY_POOL_SLOT_COUNT (GetMapInventoryPoolSlotCount())
 
 // whether we are showing the inventory pool graphic
 extern BOOLEAN fShowMapInventoryPool;

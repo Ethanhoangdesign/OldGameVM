@@ -453,7 +453,18 @@ try
 	AddManToTeam(team_id);
 	return s;
 }
-catch (...) { return 0; }
+catch (const std::exception& e)
+{
+	SLOGE("TacticalCreateSoldier failed: {}", e.what());
+	if (guiCurrentScreen == AUTORESOLVE_SCREEN) throw;
+	return 0;
+}
+catch (...)
+{
+	SLOGE("TacticalCreateSoldier failed with unknown exception");
+	if (guiCurrentScreen == AUTORESOLVE_SCREEN) throw;
+	return 0;
+}
 
 
 SOLDIERTYPE* TacticalCreateSoldierFromExisting(const SOLDIERTYPE* const existing)
@@ -1750,8 +1761,13 @@ SOLDIERTYPE* TacticalCreateEnemySoldier(SoldierClass const sc)
 {
 	if (guiCurrentScreen == AUTORESOLVE_SCREEN && !gfPersistantPBI)
 	{
-		return ReserveTacticalSoldierForAutoresolve(sc);
+		if (SOLDIERTYPE* const reserved = ReserveTacticalSoldierForAutoresolve(sc))
+		{
+			return reserved;
+		}
+		// Strategic-only battles may not have tactical soldiers to reserve.
 	}
+
 
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	bp = BASIC_SOLDIERCREATE_STRUCT{};

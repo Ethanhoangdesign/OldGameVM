@@ -83,7 +83,7 @@ void HandleTacticalEndTurn()
 
 	UINT32 const now = GetWorldTotalSeconds();
 
-	if (uiTimeSinceLastStrategicUpdate - now > 1200)
+	if (now - uiTimeSinceLastStrategicUpdate > 1200)
 	{
 		HandleRottingCorpses();
 		uiTimeSinceLastStrategicUpdate = now;

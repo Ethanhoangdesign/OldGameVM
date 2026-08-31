@@ -46,8 +46,32 @@ class Resolution(
     val width: UInt,
     val height: UInt
 ) {
+    fun label(): String = "${width}x${height}"
+
     companion object {
-        val DEFAULT = Resolution(640u, 480u)
+        /** Base for Detect math (menu/map layout reference). */
+        val VANILLA = Resolution(640u, 480u)
+        // OGVM desktop default (Launcher.cc defaultResolution)
+        val DEFAULT = Resolution(1024u, 768u)
+
+        /**
+         * Mobile presets. Desktop RESLIST-LOCK stays 1024+1366 only.
+         * 1664x768: ultra-wide mobile — engine UILayout expands sides
+         * (STD_SCREEN_X center, map wood grow, bottom pin-right). Height 768.
+         * Freeform WxH still allowed via edit fields.
+         */
+        val PRESETS = listOf(
+            Resolution(934u, 480u),  // widescreen at minimum height, narrower than 1280
+            Resolution(1366u, 768u), // mobile-recommended 16:9 HD (Big Map)
+            Resolution(1280u, 768u), // mobile-recommended 5:3 HD (Big Map)
+            Resolution(1024u, 768u),
+            Resolution(1280u, 600u), // widescreen at 600 height — same zoom as 800x600
+            Resolution(1280u, 480u), // widescreen at minimum height
+            Resolution(1024u, 600u), // medium-wide at 600 height — same zoom as 800x600
+            Resolution(800u, 600u),
+            Resolution(640u, 480u),  // original 4:3
+            Resolution(1664u, 768u)  // mobile-only ultra-wide
+        )
     }
 }
 
@@ -105,6 +129,11 @@ class ConfigurationModel : ViewModel() {
     val resolution = MutableLiveData(Resolution.DEFAULT)
     val scalingQuality = MutableLiveData(ScalingQuality.DEFAULT)
     val debug = MutableLiveData(false)
+    // OGVM-CONTROLLER — stored in controller.ini, not ja2.json
+    val controllerConfig = MutableLiveData(ControllerIni.Config())
+    val controllerEnabled = MutableLiveData(false)
+    val leftStickMode = MutableLiveData("cursor")
+    val rightStickMode = MutableLiveData("none")
 
     fun setVanillaGameDir(vanillaGameDirSet: String?) {
         vanillaGameDir.value = vanillaGameDirSet
@@ -128,5 +157,31 @@ class ConfigurationModel : ViewModel() {
 
     fun setDebug(enabled: Boolean) {
         debug.value = enabled
+    }
+
+    fun setControllerConfig(config: ControllerIni.Config) {
+        controllerConfig.value = config
+        controllerEnabled.value = config.enabled
+        leftStickMode.value = config.leftStick
+        rightStickMode.value = config.rightStick
+    }
+
+    fun updateController(config: ControllerIni.Config) {
+        setControllerConfig(config)
+    }
+
+    fun setControllerEnabled(enabled: Boolean) {
+        controllerEnabled.value = enabled
+        controllerConfig.value = (controllerConfig.value ?: ControllerIni.Config()).copy(enabled = enabled)
+    }
+
+    fun setLeftStickMode(mode: String) {
+        leftStickMode.value = mode
+        controllerConfig.value = (controllerConfig.value ?: ControllerIni.Config()).copy(leftStick = ControllerIni.sanitizeStick(mode))
+    }
+
+    fun setRightStickMode(mode: String) {
+        rightStickMode.value = mode
+        controllerConfig.value = (controllerConfig.value ?: ControllerIni.Config()).copy(rightStick = ControllerIni.sanitizeStick(mode))
     }
 }

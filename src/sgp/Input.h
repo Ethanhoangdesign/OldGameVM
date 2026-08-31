@@ -40,6 +40,8 @@ struct InputAtom
 	UINT16 usKeyState;
 	UINT16 usEvent;
 	UINT32 usParam;
+	UINT16 usMouseXPos;
+	UINT16 usMouseYPos;
 	ST::utf32_buffer codepoints;
 };
 
@@ -66,6 +68,7 @@ bool IsMouseButtonDown(UINT32 mouseButton);
 bool IsMainFingerDown();
 // TRUE = Last pointer device that was used was a touch device, FALSE = Last pointer device that was used was a mouse
 bool IsUsingTouch();
+void SetUsingTouch(bool usingTouch);
 
 void DequeueAllInputEvents(void);
 extern BOOLEAN DequeueEvent(InputAtom *Event);
@@ -74,6 +77,8 @@ extern BOOLEAN DequeueSpecificEvent(InputAtom *Event, UINT32 uiMaskFlags );
 extern void					RestrictMouseToXYXY(UINT16 usX1, UINT16 usY1, UINT16 usX2, UINT16 usY2);
 void RestrictMouseCursor(const SGPRect* pRectangle);
 extern void					SetSafeMousePosition(int x, int y);
+// Set controller-generated logical coordinates without Android screen-to-logical remapping.
+void SetSafeMousePositionLogical(int x, int y);
 extern void					FreeMouseCursor(void);
 extern BOOLEAN			IsCursorRestricted( void );
 extern void					GetRestrictedClipCursor( SGPRect *pRectangle );
@@ -86,5 +91,11 @@ extern UINT16    gusMouseXPos;       // X position of the mouse on screen
 extern UINT16    gusMouseYPos;       // y position of the mouse on screen
 
 void HandleSingleClicksAndButtonRepeats();
+
+/* OGVM-PAD: cau noi cho module gamepad (GameController.cc). Tai dung state
+ * machine chuot co san thay vi ve lai. sdlButton = SDL_BUTTON_LEFT/RIGHT/... */
+void PadInjectMouseButton(UINT8 sdlButton, bool down);
+void PadInjectWheel(bool up);
+void PadInjectMousePos(int x, int y);
 
 bool _KeyDown(SDL_Keycode);

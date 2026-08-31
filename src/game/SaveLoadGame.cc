@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "AI.h"
 #include "Ambient_Control.h"
 #include "Animated_ProgressBar.h"
@@ -1032,6 +1036,7 @@ void LoadSavedGame(const ST::string &saveName)
 
 	// Update the mercs in the sector with the new soldier info
 	UpdateMercsInSector();
+	AddProfilesUsingProfileInsertionData();
 
 	PostSchedules();
 
@@ -1868,7 +1873,7 @@ static void SaveGeneralInfo(HWFILE const f)
 	INJ_SKIP_U8(d)
 	INJ_BOOL( d, gfPersistantPBI)
 	INJ_U8(   d, gubEnemyEncounterCode)
-	INJ_BOOL( d, gubExplicitEnemyEncounterCode)
+	INJ_U8(   d, gubExplicitEnemyEncounterCode)
 	INJ_BOOL( d, gfBlitBattleSectorLocator)
 	INJ_U8(   d, gubPBSector.x)
 	INJ_U8(   d, gubPBSector.y)
@@ -2025,7 +2030,7 @@ static void LoadGeneralInfo(HWFILE const f, UINT32 const savegame_version)
 	EXTR_SKIP_U8(d)
 	EXTR_BOOL( d, gfPersistantPBI)
 	EXTR_U8(   d, gubEnemyEncounterCode)
-	EXTR_BOOL( d, gubExplicitEnemyEncounterCode)
+	EXTR_U8(   d, gubExplicitEnemyEncounterCode)
 	EXTR_BOOL( d, gfBlitBattleSectorLocator)
 	EXTR_U8(   d, gubPBSector.x)
 	EXTR_U8(   d, gubPBSector.y)
@@ -2113,7 +2118,7 @@ void GetBestPossibleSectorXYZValues(SGPSector& sSector)
 		return;
 	}
 
-	if (iCurrentTacticalSquad != NO_CURRENT_SQUAD)
+	if (iCurrentTacticalSquad != NO_CURRENT_SQUAD && !Squad[iCurrentTacticalSquad].empty()) // empty-squad guard (boot/multi-edition)
 	{
 		const SOLDIERTYPE* const s = Squad[iCurrentTacticalSquad][0];
 		if (s != NULL && s->bAssignment != IN_TRANSIT)

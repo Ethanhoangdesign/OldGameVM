@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #ifndef __MAPSCREEN_H
 #define __MAPSCREEN_H
 
@@ -117,29 +121,31 @@ void MakeDialogueEventEnterMapScreen();
 
 void SetMapCursorItem();
 
-#define NAME_X                (STD_SCREEN_X + 11)
-#define NAME_WIDTH            (STD_SCREEN_X + 62 - NAME_X)
-#define ASSIGN_X              (STD_SCREEN_X + 67)
-#define ASSIGN_WIDTH          (STD_SCREEN_X + 118 - ASSIGN_X)
-#define SLEEP_X               (STD_SCREEN_X + 123)
-#define SLEEP_WIDTH           (STD_SCREEN_X + 142 - SLEEP_X)
-#define LOC_X                 (STD_SCREEN_X + 147)
-#define LOC_WIDTH             (STD_SCREEN_X + 179 - LOC_X)
-#define DEST_ETA_X            (STD_SCREEN_X + 184)
-#define DEST_ETA_WIDTH        (STD_SCREEN_X + 217 - DEST_ETA_X)
-#define TIME_REMAINING_X      (STD_SCREEN_X + 222)
-#define TIME_REMAINING_WIDTH  (STD_SCREEN_X + 250 - TIME_REMAINING_X)
-#define CLOCK_Y_START         (STD_SCREEN_Y + 298)
-#define CLOCK_ETA_X           (STD_SCREEN_X + 463 - 15 + 6 + 30)
-#define CLOCK_HOUR_X_START    (STD_SCREEN_X + 463 + 25 + 30)
-#define CLOCK_MIN_X_START     (STD_SCREEN_X + 463 + 45 + 30)
+/* The character list and contract box belong to the map screen left column;
+ * the ETA clock belongs to the bottom panel (see UILayout). */
+#define NAME_X                (g_ui.get_MAP_LEFT_COL_X() + 11)
+#define NAME_WIDTH            (g_ui.get_MAP_LEFT_COL_X() + 62 - NAME_X)
+#define ASSIGN_X              (g_ui.get_MAP_LEFT_COL_X() + 67)
+#define ASSIGN_WIDTH          (g_ui.get_MAP_LEFT_COL_X() + 118 - ASSIGN_X)
+#define SLEEP_X               (g_ui.get_MAP_LEFT_COL_X() + 123)
+#define SLEEP_WIDTH           (g_ui.get_MAP_LEFT_COL_X() + 142 - SLEEP_X)
+#define LOC_X                 (g_ui.get_MAP_LEFT_COL_X() + 147)
+#define LOC_WIDTH             (g_ui.get_MAP_LEFT_COL_X() + 179 - LOC_X)
+#define DEST_ETA_X            (g_ui.get_MAP_LEFT_COL_X() + 184)
+#define DEST_ETA_WIDTH        (g_ui.get_MAP_LEFT_COL_X() + 217 - DEST_ETA_X)
+#define TIME_REMAINING_X      (g_ui.get_MAP_LEFT_COL_X() + 222)
+#define TIME_REMAINING_WIDTH  (g_ui.get_MAP_LEFT_COL_X() + 250 - TIME_REMAINING_X)
+#define CLOCK_Y_START         (g_ui.get_MAP_BOTTOM_BASE_Y() + (g_ui.isMapFullSize() ? 456 : 298))
+#define CLOCK_ETA_X           (g_ui.get_MAP_BOTTOM_BASE_X() + 463 - 15 + 6 + 30)
+#define CLOCK_HOUR_X_START    (g_ui.get_MAP_BOTTOM_BASE_X() + (g_ui.isMapFullSize() ? 677 : (463 + 25 + 30)))
+#define CLOCK_MIN_X_START     (g_ui.get_MAP_BOTTOM_BASE_X() + (g_ui.isMapFullSize() ? 725 : (463 + 45 + 30)))
 
 // contract
-#define CONTRACT_X            (STD_SCREEN_X + 185)
-#define CONTRACT_Y            (STD_SCREEN_Y + 50)
+#define CONTRACT_X            (g_ui.get_MAP_LEFT_COL_X() + 185)
+#define CONTRACT_Y            (g_ui.get_MAP_LEFT_COL_Y() + 50)
 
 // trash can
-#define TRASH_CAN_X           (STD_SCREEN_X + 176)
+#define TRASH_CAN_X           (g_ui.get_MAP_LEFT_COL_X() + 176)
 #define TRASH_CAN_Y           (211 + PLAYER_INFO_Y)
 #define TRASH_CAN_WIDTH       193 - 165
 #define TRASH_CAN_HEIGHT      239 - 217

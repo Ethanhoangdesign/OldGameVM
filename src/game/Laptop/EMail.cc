@@ -2403,6 +2403,8 @@ static void PreProcessEmail(Email* const m)
 
 static void ModifyInsuranceEmails(UINT16 usMessageId, Email* pMail, UINT8 ubNumberOfRecords)
 {
+	if (pMessageRecordList != NULL) return;
+
 	UINT8	ubCnt;
 
 	for( ubCnt=0; ubCnt<ubNumberOfRecords; ubCnt++)

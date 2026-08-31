@@ -22,11 +22,16 @@ configure_file(
 )
 
 # execute builder
-execute_process(COMMAND ${CMAKE_COMMAND} . "-G${CMAKE_GENERATOR}" WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/builder")
+execute_process(COMMAND ${CMAKE_COMMAND} . "-G${CMAKE_GENERATOR}" "-DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}" WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/builder")
 execute_process(COMMAND ${CMAKE_COMMAND} --build "${CMAKE_CURRENT_BINARY_DIR}/builder")
 
 # interface library
 include("${INSTALL_PREFIX}/lib/cmake/SDL2/SDL2Config.cmake")
+foreach(SDL2_TARGET SDL2::SDL2 SDL2::SDL2-static SDL2::SDL2main)
+    if(TARGET ${SDL2_TARGET})
+        set_property(TARGET ${SDL2_TARGET} PROPERTY IMPORTED_GLOBAL TRUE)
+    endif()
+endforeach()
 
 set(SDL2_INCLUDE_DIR "${INSTALL_PREFIX}/include/SDL2" PARENT_SCOPE)
 

@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "Cursor_Control.h"
 #include "Debug.h"
 #include "Fade_Screen.h"
@@ -12,7 +16,11 @@
 #include "VSurface.h"
 #include "Video.h"
 #include "UILayout.h"
+#ifdef __ANDROID__
+#include "Laptop.h"
+#endif
 #include "Icon.h"
+#include "Input.h"
 #include <algorithm>
 #include <chrono>
 #include <stdexcept>
@@ -111,6 +119,13 @@ void VideoSetBrightness(float brightness)
 	}
 }
 
+BOOLEAN VideoMapWindowToLogical(int windowX, int windowY, float* logicalX, float* logicalY)
+{
+	if (!GameRenderer || !logicalX || !logicalY) return FALSE;
+	SDL_RenderWindowToLogical(GameRenderer, windowX, windowY, logicalX, logicalY);
+	return TRUE;
+}
+
 
 static void GetRGBDistribution();
 
@@ -121,7 +136,7 @@ void InitializeVideoManager(const VideoScaleQuality quality,
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
 	ScaleQuality = quality;
-	g_window_flags |= SDL_WINDOW_RESIZABLE;
+	g_window_flags |= SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI; // HiDPI/Retina: dung kich thuoc pixel that de canh giua & scale dung
 
 	g_game_window = SDL_CreateWindow(APPLICATION_NAME,
 					SDL_WINDOWPOS_UNDEFINED,
@@ -454,19 +469,140 @@ static void ScrollJA2Background(INT16 sScrollXIncrement, INT16 sScrollYIncrement
 	ExecuteVideoOverlaysToAlternateBuffer(BACKBUFFER);
 }
 
+// Clamp rect to [0,w)×[0,h). Empty/out-of-bounds → false.
+static bool ClampSDLRectToSurface(SDL_Rect& r, int const w, int const h)
+{
+	if (w <= 0 || h <= 0) return false;
+	int left   = r.x;
+	int top    = r.y;
+	int right  = r.x + r.w;
+	int bottom = r.y + r.h;
+	if (left   < 0) left   = 0;
+	if (top    < 0) top    = 0;
+	if (right  > w) right = w;
+	if (bottom > h) bottom = h;
+	if (right <= left || bottom <= top)
+	{
+		r = { 0, 0, 0, 0 };
+		return false;
+	}
+	r.x = left;
+	r.y = top;
+	r.w = right - left;
+	r.h = bottom - top;
+	return true;
+}
+
+static void BlitSoftwareCursor(SDL_Surface* destination, bool saveBackground)
+{
+	if (IsUsingTouch())
+	{
+		if (saveBackground) MouseBackground = { 0, 0, 0, 0 };
+		return;
+	}
+
+	INT16 const cursorH = static_cast<INT16>(gusMouseCursorHeight + gsMouseSizeYModifier);
+	if (gusMouseCursorWidth == 0 || cursorH <= 0 || !MouseCursor || !MouseCursor->pixels)
+	{
+		if (saveBackground) MouseBackground = { 0, 0, 0, 0 };
+		return;
+	}
+
+	auto const cursorPos{ GetCursorPos() };
+	SDL_Rect src{ 0, 0, gusMouseCursorWidth, cursorH };
+	if (src.w > MouseCursor->w) src.w = MouseCursor->w;
+	if (src.h > MouseCursor->h) src.h = MouseCursor->h;
+	SDL_Rect dst{
+		cursorPos.iX - gsMouseCursorXOffset,
+		cursorPos.iY - gsMouseCursorYOffset,
+		src.w, src.h
+	};
+	SDL_Rect footprint = dst;
+	if (SDL_BlitSurface(MouseCursor, &src, destination, &dst) != 0)
+	{
+		SLOGW("OGVM-CURSOR: blit failed: {}", SDL_GetError());
+		return;
+	}
+	if (saveBackground)
+	{
+		if (ClampSDLRectToSurface(footprint, destination->w, destination->h))
+			MouseBackground = footprint;
+		else
+			MouseBackground = { 0, 0, 0, 0 };
+	}
+}
+
 void RefreshScreen(void)
 {
 	// Not initialised yet or already shut down?
-	if (!ScreenTexture) return;
+	if (!ScreenTexture || !ScreenBuffer || !FrameBuffer || !GameRenderer) return;
+	if (!ScreenBuffer->pixels || !FrameBuffer->pixels) return;
+	if (ScreenBuffer->w <= 0 || ScreenBuffer->h <= 0 || ScreenBuffer->pitch <= 0) return;
 
 	const BOOLEAN scrolling = (gsScrollXIncrement != 0 || gsScrollYIncrement != 0);
 
-	SDL_BlitSurface(FrameBuffer, &MouseBackground, ScreenBuffer, &MouseBackground);
+#ifdef __ANDROID__
+	// Android: composite cursor on clean ScreenBuffer and upload full texture.
+	// Dirty partial UpdateTexture + soft cursor SEGV (fault 0x1c) on GLES
+	// during GIO / MessageBox / fade.
+	if (gfFadeInitialized && gfFadeInVideo)
+	{
+		gFadeFunction();
+	}
+	if (scrolling)
+	{
+		// Scroll mutates ScreenBuffer — seed from FB first, then copy back.
+		SDL_BlitSurface(FrameBuffer, NULL, ScreenBuffer, NULL);
+		ScrollJA2Background(gsScrollXIncrement, gsScrollYIncrement);
+		SDL_BlitSurface(ScreenBuffer, NULL, FrameBuffer, NULL);
+		gsScrollXIncrement = 0;
+		gsScrollYIncrement = 0;
+	}
+	gfIgnoreScrollDueToCenterAdjust = FALSE;
+	MouseBackground = { 0, 0, 0, 0 };
+	SDL_BlitSurface(FrameBuffer, NULL, ScreenBuffer, NULL);
+		BlitSoftwareCursor(ScreenBuffer, false);
 
-	// This variable will hold the union of all modified regions.
-	struct rect : SDL_Rect {
-		void operator+=(SDL_Rect const& r) { SDL_UnionRect(this, &r, this); }
-	} ScreenTextureUpdateRect{ MouseBackground };
+	SDL_UpdateTexture(ScreenTexture, NULL, ScreenBuffer->pixels, ScreenBuffer->pitch);
+	SDL_SetRenderDrawColor(GameRenderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+	SDL_RenderClear(GameRenderer);
+	// Laptop fit only while scale active; else full screen (GIO/fade).
+	{
+		int nx, ny, nw, nh, dx, dy, dw, dh;
+		if (AndroidLaptopGetPresentRects(&nx, &ny, &nw, &nh, &dx, &dy, &dw, &dh)
+		    && nw > 0 && nh > 0 && dw > 0 && dh > 0
+		    && nx >= 0 && ny >= 0
+		    && nx + nw <= FrameBuffer->w && ny + nh <= FrameBuffer->h
+		    && dx >= 0 && dy >= 0)
+		{
+			SDL_Rect srcR = { nx, ny, nw, nh };
+			SDL_Rect dstR = { dx, dy, dw, dh };
+			SDL_RenderCopy(GameRenderer, ScreenTexture, &srcR, &dstR);
+		}
+		else
+		{
+			SDL_RenderCopy(GameRenderer, ScreenTexture, NULL, NULL);
+		}
+	}
+	if (FPS::RenderPresentPtr)
+		FPS::RenderPresentPtr(GameRenderer);
+	else
+		SDL_RenderPresent(GameRenderer);
+
+	gfForceFullScreenRefresh = FALSE;
+	guiDirtyRegionCount = 0;
+	guiDirtyRegionExCount = 0;
+	return;
+#else
+	// Restore previous cursor footprint only if on-screen.
+	if (ClampSDLRectToSurface(MouseBackground, ScreenBuffer->w, ScreenBuffer->h))
+	{
+		SDL_BlitSurface(FrameBuffer, &MouseBackground, ScreenBuffer, &MouseBackground);
+	}
+	else
+	{
+		MouseBackground = { 0, 0, 0, 0 };
+	}
 
 	if (gfForceFullScreenRefresh || guiDirtyRegionCount > 0 || guiDirtyRegionExCount > 0)
 	{
@@ -479,29 +615,28 @@ void RefreshScreen(void)
 			if (gfForceFullScreenRefresh)
 			{
 				SDL_BlitSurface(FrameBuffer, NULL, ScreenBuffer, NULL);
-				ScreenTextureUpdateRect = { 0, 0, ScreenBuffer->w, ScreenBuffer->h };
 			}
 			else
 			{
 				for (UINT32 i = 0; i < guiDirtyRegionCount; i++)
 				{
-					ScreenTextureUpdateRect += DirtyRegions[i];
-					SDL_BlitSurface(FrameBuffer, &DirtyRegions[i], ScreenBuffer, &DirtyRegions[i]);
+					SDL_Rect r = DirtyRegions[i];
+					if (!ClampSDLRectToSurface(r, ScreenBuffer->w, ScreenBuffer->h)) continue;
+					SDL_BlitSurface(FrameBuffer, &r, ScreenBuffer, &r);
 				}
 
 				for (UINT32 i = 0; i < guiDirtyRegionExCount; i++)
 				{
-					SDL_Rect* r = &DirtyRegionsEx[i];
+					SDL_Rect r = DirtyRegionsEx[i];
 					if (scrolling)
 					{
-						// Check if we are completely out of bounds
-						if (r->y <= gsVIEWPORT_WINDOW_END_Y && r->y + r->h <= gsVIEWPORT_WINDOW_END_Y)
+						if (r.y <= gsVIEWPORT_WINDOW_END_Y && r.y + r.h <= gsVIEWPORT_WINDOW_END_Y)
 						{
 							continue;
 						}
 					}
-					ScreenTextureUpdateRect += *r;
-					SDL_BlitSurface(FrameBuffer, r, ScreenBuffer, r);
+					if (!ClampSDLRectToSurface(r, ScreenBuffer->w, ScreenBuffer->h)) continue;
+					SDL_BlitSurface(FrameBuffer, &r, ScreenBuffer, &r);
 				}
 			}
 		}
@@ -510,36 +645,66 @@ void RefreshScreen(void)
 			ScrollJA2Background(gsScrollXIncrement, gsScrollYIncrement);
 			gsScrollXIncrement = 0;
 			gsScrollYIncrement = 0;
-			ScreenTextureUpdateRect += SDL_Rect{
-				gsVIEWPORT_START_X, gsVIEWPORT_WINDOW_START_Y,
-				gsVIEWPORT_END_X - gsVIEWPORT_START_X,
-				gsVIEWPORT_WINDOW_END_Y - gsVIEWPORT_WINDOW_START_Y };
 		}
 		gfIgnoreScrollDueToCenterAdjust = FALSE;
 	}
+#endif
 
-	auto const cursorPos{ GetCursorPos() };
-	SDL_Rect src;
-	src.x = 0;
-	src.y = 0;
-	src.w = gusMouseCursorWidth;
-	src.h = gusMouseCursorHeight + gsMouseSizeYModifier;
-	SDL_Rect dst;
-	dst.x = cursorPos.iX - gsMouseCursorXOffset;
-	dst.y = cursorPos.iY - gsMouseCursorYOffset;
-	SDL_BlitSurface(MouseCursor, &src, ScreenBuffer, &dst);
-	ScreenTextureUpdateRect += dst;
-	MouseBackground = dst;
+	if (!IsUsingTouch())
+	{
+	// Software cursor. Android touch skips this path; controller input renders it.
+	INT16 const cursorH = static_cast<INT16>(gusMouseCursorHeight + gsMouseSizeYModifier);
+	if (gusMouseCursorWidth > 0 && cursorH > 0 && MouseCursor && MouseCursor->pixels)
+	{
+		auto const cursorPos{ GetCursorPos() };
+		SDL_Rect src{ 0, 0, gusMouseCursorWidth, cursorH };
+		if (src.w > MouseCursor->w) src.w = MouseCursor->w;
+		if (src.h > MouseCursor->h) src.h = MouseCursor->h;
+		SDL_Rect dst{
+			cursorPos.iX - gsMouseCursorXOffset,
+			cursorPos.iY - gsMouseCursorYOffset,
+			src.w, src.h
+		};
+		// Pass unclipped dst; SDL clips. Only store footprint if on-screen.
+		SDL_Rect footprint = dst;
+		SDL_BlitSurface(MouseCursor, &src, ScreenBuffer, &dst);
+		if (ClampSDLRectToSurface(footprint, ScreenBuffer->w, ScreenBuffer->h))
+			MouseBackground = footprint;
+		else
+			MouseBackground = { 0, 0, 0, 0 };
+	}
+	else
+	{
+		MouseBackground = { 0, 0, 0, 0 };
+	}
+	}
 
-	uint8_t const * SrcPixels = static_cast<uint8_t *>(ScreenBuffer->pixels)
-		+ ScreenTextureUpdateRect.y * ScreenBuffer->pitch
-		+ ScreenTextureUpdateRect.x * ScreenBuffer->format->BytesPerPixel;
-	SDL_UpdateTexture(ScreenTexture, &ScreenTextureUpdateRect,
-	                  SrcPixels, ScreenBuffer->pitch);
+	// Full texture upload. Partial rect + pitched SrcPixels SEGV on Android GLES.
+	SDL_UpdateTexture(ScreenTexture, NULL, ScreenBuffer->pixels, ScreenBuffer->pitch);
 
+	SDL_SetRenderDrawColor(GameRenderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 	SDL_RenderClear(GameRenderer);
 
-	if (ScaleQuality == VideoScaleQuality::NEAR_PERFECT) {
+#ifdef __ANDROID__
+	// Laptop fit present only while scale active; else full-screen copy.
+	// No SDL_SetTextureScaleMode every frame (some GLES drivers crash).
+	int nx, ny, nw, nh, dx, dy, dw, dh;
+	if (AndroidLaptopGetPresentRects(&nx, &ny, &nw, &nh, &dx, &dy, &dw, &dh)
+	    && nw > 0 && nh > 0 && dw > 0 && dh > 0
+	    && nx >= 0 && ny >= 0
+	    && nx + nw <= ScreenBuffer->w && ny + nh <= ScreenBuffer->h
+	    && dx >= 0 && dy >= 0)
+	{
+		SDL_Rect srcR = { nx, ny, nw, nh };
+		SDL_Rect dstR = { dx, dy, dw, dh };
+		SDL_RenderCopy(GameRenderer, ScreenTexture, &srcR, &dstR);
+	}
+	else
+	{
+		SDL_RenderCopy(GameRenderer, ScreenTexture, NULL, NULL);
+	}
+#else
+	if (ScaleQuality == VideoScaleQuality::NEAR_PERFECT && ScaledScreenTexture) {
 		SDL_SetRenderTarget(GameRenderer, ScaledScreenTexture);
 		SDL_RenderCopy(GameRenderer, ScreenTexture, nullptr, nullptr);
 
@@ -549,8 +714,12 @@ void RefreshScreen(void)
 	else {
 		SDL_RenderCopy(GameRenderer, ScreenTexture, NULL, NULL);
 	}
+#endif
 
-	FPS::RenderPresentPtr(GameRenderer);
+	if (FPS::RenderPresentPtr)
+		FPS::RenderPresentPtr(GameRenderer);
+	else
+		SDL_RenderPresent(GameRenderer);
 
 	gfForceFullScreenRefresh = FALSE;
 	guiDirtyRegionCount = 0;

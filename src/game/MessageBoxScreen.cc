@@ -23,6 +23,7 @@
 #include "Overhead_Map.h"
 #include "Button_System.h"
 #include "JAScreens.h"
+#include "Logger.h"
 #include "Video.h"
 #include "UILayout.h"
 
@@ -37,6 +38,17 @@
 
 #define MSGBOX_SMALL_BUTTON_WIDTH  31
 #define MSGBOX_SMALL_BUTTON_X_SEP   8
+
+#ifdef __ANDROID__
+// Mobile: 2× box + dark modal behind popup. Desktop stays 1×.
+#define MSGBOX_UI_SCALE 2
+// ShadowRect multiplies light by ~0.48 each pass → 5× ≈ 97% dark (bg still peeks ~3%).
+#define MSGBOX_DIM_PASSES 5
+static UINT16 gMsgBoxNaturalW = 0;
+static UINT16 gMsgBoxNaturalH = 0;
+#else
+#define MSGBOX_UI_SCALE 1
+#endif
 
 // old mouse x and y positions
 static SGPPoint pOldMousePosition;
@@ -106,26 +118,45 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 	gMsgBox.fRenderBox   = TRUE;
 	gMsgBox.bHandled     = MSG_BOX_RETURN_NONE;
 
-	// Init message box
+	// Init message box (content rendered at 1×; display size may be scaled on Android)
 	UINT16 usTextBoxWidth;
 	UINT16 usTextBoxHeight;
 	gMsgBox.box = PrepareMercPopupBox(0, style.background, style.border, str, MSGBOX_DEFAULT_WIDTH, 40, 10, 30, &usTextBoxWidth, &usTextBoxHeight);
 
-	// Save height,width
-	gMsgBox.usWidth  = usTextBoxWidth;
-	gMsgBox.usHeight = usTextBoxHeight;
+#ifdef __ANDROID__
+	gMsgBoxNaturalW = usTextBoxWidth;
+	gMsgBoxNaturalH = usTextBoxHeight;
+#endif
+	// Fit 2× box on short screens (UINT16 wrap if usDispH > SCREEN_HEIGHT).
+	UINT16 usDispW = static_cast<UINT16>(usTextBoxWidth  * MSGBOX_UI_SCALE);
+	UINT16 usDispH = static_cast<UINT16>(usTextBoxHeight * MSGBOX_UI_SCALE);
+	if (usDispW > SCREEN_WIDTH)  usDispW = SCREEN_WIDTH;
+	if (usDispH > SCREEN_HEIGHT) usDispH = SCREEN_HEIGHT;
 
-	// Determine position (centered in rect)
+	// Save height,width (display size used for layout / restore rect on desktop)
+	gMsgBox.usWidth  = usDispW;
+	gMsgBox.usHeight = usDispH;
+
+	// Determine position (centered in rect); signed math avoids UINT16 underflow.
 	if (centering_rect)
 	{
-		gMsgBox.uX = centering_rect->x + (centering_rect->w  - usTextBoxWidth)  / 2;
-		gMsgBox.uY = centering_rect->y + (centering_rect->h  - usTextBoxHeight) / 2;
+		INT32 const x = (INT32)centering_rect->x + ((INT32)centering_rect->w - (INT32)usDispW) / 2;
+		INT32 const y = (INT32)centering_rect->y + ((INT32)centering_rect->h - (INT32)usDispH) / 2;
+		gMsgBox.uX = (UINT16)(x < 0 ? 0 : x);
+		gMsgBox.uY = (UINT16)(y < 0 ? 0 : y);
 	}
 	else
 	{
-		gMsgBox.uX = (SCREEN_WIDTH  - usTextBoxWidth)  / 2;
-		gMsgBox.uY = (SCREEN_HEIGHT - usTextBoxHeight) / 2;
+		INT32 const x = ((INT32)SCREEN_WIDTH  - (INT32)usDispW) / 2;
+		INT32 const y = ((INT32)SCREEN_HEIGHT - (INT32)usDispH) / 2;
+		gMsgBox.uX = (UINT16)(x < 0 ? 0 : x);
+		gMsgBox.uY = (UINT16)(y < 0 ? 0 : y);
 	}
+	// Keep box fully on-screen after clamp.
+	if ((INT32)gMsgBox.uX + (INT32)usDispW > SCREEN_WIDTH)
+		gMsgBox.uX = (UINT16)(SCREEN_WIDTH - usDispW);
+	if ((INT32)gMsgBox.uY + (INT32)usDispH > SCREEN_HEIGHT)
+		gMsgBox.uY = (UINT16)(SCREEN_HEIGHT - usDispH);
 
 	if (guiCurrentScreen == GAME_SCREEN)
 	{
@@ -141,12 +172,19 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 	// Set pending screen
 	SetPendingNewScreen(MSG_BOX_SCREEN);
 
+#ifdef __ANDROID__
+	// Full-screen save: restore clean bg each frame before re-applying dim (no stack).
+	gMsgBox.uiSaveBuffer = AddVideoSurface(SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_DEPTH);
+	BltVideoSurface(gMsgBox.uiSaveBuffer, FRAME_BUFFER, 0, 0, NULL);
+#else
 	// Init save buffer
-	gMsgBox.uiSaveBuffer = AddVideoSurface(usTextBoxWidth, usTextBoxHeight, PIXEL_DEPTH);
+	gMsgBox.uiSaveBuffer = AddVideoSurface(usDispW, usDispH, PIXEL_DEPTH);
 
 	//Save what we have under here...
-	SGPBox const r = { gMsgBox.uX, gMsgBox.uY, usTextBoxWidth, usTextBoxHeight };
+	SGPBox r;
+	r.set(gMsgBox.uX, gMsgBox.uY, usDispW, usDispH);
 	BltVideoSurface(gMsgBox.uiSaveBuffer, FRAME_BUFFER, 0, 0, &r);
+#endif
 
 	UINT16 const cursor = style.cursor;
 	// Create top-level mouse region
@@ -154,12 +192,12 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 
 	if (!gGameSettings.fOptions[TOPTION_DONT_MOVE_MOUSE])
 	{
-		UINT32 x = gMsgBox.uX + usTextBoxWidth / 2;
-		UINT32 y = gMsgBox.uY + usTextBoxHeight - 4;
+		UINT32 x = gMsgBox.uX + usDispW / 2;
+		UINT32 y = gMsgBox.uY + usDispH - 4 * MSGBOX_UI_SCALE;
 		if (usFlags == MSG_BOX_FLAG_OK)
 		{
-			x += 27;
-			y -=  6;
+			x += 27 * MSGBOX_UI_SCALE;
+			y -=  6 * MSGBOX_UI_SCALE;
 		}
 		SimulateMouseMovement(x, y);
 	}
@@ -173,23 +211,40 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 	}
 
 	UINT16       x = gMsgBox.uX;
-	const UINT16 y = gMsgBox.uY + usTextBoxHeight - MSGBOX_BUTTON_HEIGHT - 10;
+	const UINT16 y = static_cast<UINT16>(gMsgBox.uY + usDispH - MSGBOX_BUTTON_HEIGHT * MSGBOX_UI_SCALE - 10 * MSGBOX_UI_SCALE);
 
 	gMsgBox.iButtonImages = LoadButtonImage(style.btn_image, style.btn_off, style.btn_on);
 
-	INT16 const dx            = MSGBOX_BUTTON_WIDTH + MSGBOX_BUTTON_X_SEP;
+	INT16 const dx = static_cast<INT16>((MSGBOX_BUTTON_WIDTH + MSGBOX_BUTTON_X_SEP) * MSGBOX_UI_SCALE);
 
-	auto const MakeButton{ [style, y](ST::string const& text,
+	auto const MakeButton{ [style, y, usFlags](ST::string const& text,
 		int const x, MessageBoxReturnValue const returnValue)
 	{
+#ifdef __ANDROID__
+		// Bold-ish + white (match Options/SaveLoad popup chrome).
+		SGPFont const btnFont = FONT14HUMANIST;
+		INT16  const fore     = FONT_MCOLOR_WHITE;
+		INT16  const shadow   = DEFAULT_SHADOW;
+#else
+		SGPFont const btnFont = FONT12ARIAL;
+		INT16  const fore     = style.font_colour;
+		INT16  const shadow   = style.shadow_colour;
+#endif
 		auto const btn{ CreateIconAndTextButton(
-			gMsgBox.iButtonImages, text, FONT12ARIAL,
-			style.font_colour, style.shadow_colour,
-			style.font_colour, style.shadow_colour,
+			gMsgBox.iButtonImages, text, btnFont,
+			fore, shadow,
+			fore, shadow,
 			static_cast<INT16>(x), static_cast<INT16>(y),
 			MSYS_PRIORITY_HIGHEST,
-			[returnValue](GUI_BUTTON *, UINT32 const reason)
+			[returnValue, usFlags](GUI_BUTTON *, UINT32 const reason)
 			{
+#ifdef __ANDROID__
+				if (usFlags == MSG_BOX_FLAG_OK && (reason & MSYS_CALLBACK_REASON_POINTER_DWN))
+				{
+					gMsgBox.bHandled = returnValue;
+					return;
+				}
+#endif
 				if (reason & MSYS_CALLBACK_REASON_POINTER_UP)
 				{
 					gMsgBox.bHandled = returnValue;
@@ -197,6 +252,11 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 			})};
 
 		btn->SetCursor(style.cursor);
+#ifdef __ANDROID__
+		// Enlarge hit target under 2× layout (button art stays 1×).
+		btn->Area.RegionBottomRightX = btn->Area.RegionTopLeftX + MSGBOX_BUTTON_WIDTH  * MSGBOX_UI_SCALE;
+		btn->Area.RegionBottomRightY = btn->Area.RegionTopLeftY + MSGBOX_BUTTON_HEIGHT * MSGBOX_UI_SCALE;
+#endif
 		ForceButtonUnDirty(btn);
 		return btn;
 	}};
@@ -206,62 +266,63 @@ void DoMessageBox(MessageBoxStyleID ubStyle, const ST::string& str, ScreenID uiE
 		case MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS:
 		{
 			// This is exclusive of any other buttons... no ok, no cancel, no nothing
-			const INT16 dx = MSGBOX_SMALL_BUTTON_WIDTH + MSGBOX_SMALL_BUTTON_X_SEP;
-			x += (usTextBoxWidth - (MSGBOX_SMALL_BUTTON_WIDTH + dx * 3)) / 2;
+			const INT16 sdx = static_cast<INT16>((MSGBOX_SMALL_BUTTON_WIDTH + MSGBOX_SMALL_BUTTON_X_SEP) * MSGBOX_UI_SCALE);
+			const INT16 sw  = static_cast<INT16>(MSGBOX_SMALL_BUTTON_WIDTH * MSGBOX_UI_SCALE);
+			x += (usDispW - (sw + sdx * 3)) / 2;
 
 			for (UINT8 i = 0; i < 4; ++i)
 			{
 				ST::string text = ST::format("{}", i + 1);
-				gMsgBox.uiButton[i] = MakeButton(text, x + dx * i, static_cast<MessageBoxReturnValue>(i + 1));
+				gMsgBox.uiButton[i] = MakeButton(text, x + sdx * i, static_cast<MessageBoxReturnValue>(i + 1));
 			}
 			break;
 		}
 
 		case MSG_BOX_FLAG_OK:
-			x += (usTextBoxWidth - GetDimensionsOfButtonPic(gMsgBox.iButtonImages)->w) / 2;
+			x += (usDispW - GetDimensionsOfButtonPic(gMsgBox.iButtonImages)->w * MSGBOX_UI_SCALE) / 2;
 			gMsgBox.uiOKButton = MakeButton(pMessageStrings[MSG_OK], x, MSG_BOX_RETURN_OK);
 			break;
 
 		case MSG_BOX_FLAG_YESNO:
-			x += (usTextBoxWidth - (MSGBOX_BUTTON_WIDTH + dx)) / 2;
+			x += (usDispW - (MSGBOX_BUTTON_WIDTH * MSGBOX_UI_SCALE + dx)) / 2;
 			gMsgBox.uiYESButton = MakeButton(pMessageStrings[MSG_YES], x,      MSG_BOX_RETURN_YES);
 			gMsgBox.uiNOButton  = MakeButton(pMessageStrings[MSG_NO],  x + dx, MSG_BOX_RETURN_NO);
 			break;
 
 		case MSG_BOX_FLAG_CONTINUESTOP:
-			x += (usTextBoxWidth - (MSGBOX_BUTTON_WIDTH + dx)) / 2;
+			x += (usDispW - (MSGBOX_BUTTON_WIDTH * MSGBOX_UI_SCALE + dx)) / 2;
 			gMsgBox.uiYESButton = MakeButton(pUpdatePanelButtons[0], x,      MSG_BOX_RETURN_YES);
 			gMsgBox.uiNOButton  = MakeButton(pUpdatePanelButtons[1], x + dx, MSG_BOX_RETURN_NO);
 			break;
 
 		case MSG_BOX_FLAG_OKCONTRACT:
-			x += (usTextBoxWidth - (MSGBOX_BUTTON_WIDTH + dx)) / 2;
+			x += (usDispW - (MSGBOX_BUTTON_WIDTH * MSGBOX_UI_SCALE + dx)) / 2;
 			gMsgBox.uiYESButton = MakeButton(pMessageStrings[MSG_OK],     x,      MSG_BOX_RETURN_YES);
 			gMsgBox.uiNOButton  = MakeButton(pMessageStrings[MSG_REHIRE], x + dx, MSG_BOX_RETURN_CONTRACT);
 			break;
 
 		case MSG_BOX_FLAG_GENERICCONTRACT:
-			x += (usTextBoxWidth - (MSGBOX_BUTTON_WIDTH + dx * 2)) / 2;
+			x += (usDispW - (MSGBOX_BUTTON_WIDTH * MSGBOX_UI_SCALE + dx * 2)) / 2;
 			gMsgBox.uiYESButton = MakeButton(gzUserDefinedButton1,        x,          MSG_BOX_RETURN_YES);
 			gMsgBox.uiNOButton  = MakeButton(gzUserDefinedButton2,        x + dx,     MSG_BOX_RETURN_NO);
 			gMsgBox.uiOKButton  = MakeButton(pMessageStrings[MSG_REHIRE], x + dx * 2, MSG_BOX_RETURN_CONTRACT);
 			break;
 
 		case MSG_BOX_FLAG_GENERIC:
-			x += (usTextBoxWidth - (MSGBOX_BUTTON_WIDTH + dx)) / 2;
+			x += (usDispW - (MSGBOX_BUTTON_WIDTH * MSGBOX_UI_SCALE + dx)) / 2;
 			gMsgBox.uiYESButton = MakeButton(gzUserDefinedButton1, x,      MSG_BOX_RETURN_YES);
 			gMsgBox.uiNOButton  = MakeButton(gzUserDefinedButton2, x + dx, MSG_BOX_RETURN_NO);
 			break;
 
 		case MSG_BOX_FLAG_YESNOLIE:
-			x += (usTextBoxWidth - (MSGBOX_BUTTON_WIDTH + dx * 2)) / 2;
+			x += (usDispW - (MSGBOX_BUTTON_WIDTH * MSGBOX_UI_SCALE + dx * 2)) / 2;
 			gMsgBox.uiYESButton = MakeButton(pMessageStrings[MSG_YES], x,          MSG_BOX_RETURN_YES);
 			gMsgBox.uiNOButton  = MakeButton(pMessageStrings[MSG_NO],  x + dx,     MSG_BOX_RETURN_NO);
 			gMsgBox.uiOKButton  = MakeButton(pMessageStrings[MSG_LIE], x + dx * 2, MSG_BOX_RETURN_LIE);
 			break;
 
 		case MSG_BOX_FLAG_OKSKIP:
-			x += (usTextBoxWidth - (MSGBOX_BUTTON_WIDTH + dx)) / 2;
+			x += (usDispW - (MSGBOX_BUTTON_WIDTH * MSGBOX_UI_SCALE + dx)) / 2;
 			gMsgBox.uiYESButton = MakeButton(pMessageStrings[MSG_OK],   x,      MSG_BOX_RETURN_YES);
 			gMsgBox.uiNOButton  = MakeButton(pMessageStrings[MSG_SKIP], x + dx, MSG_BOX_RETURN_NO);
 			break;
@@ -339,9 +400,15 @@ static ScreenID ExitMsgBox(MessageBoxReturnValue const ubExitCode)
 	//if you are in a non gamescreen and DONT want the msg box to use the save buffer, unset gfDontOverRideSaveBuffer in your callback
 	if ((gMsgBox.uiExitScreen != GAME_SCREEN || fRestoreBackgroundForMessageBox) && gfDontOverRideSaveBuffer)
 	{
+#ifdef __ANDROID__
+		// Full-screen save buffer
+		BltVideoSurface(FRAME_BUFFER, gMsgBox.uiSaveBuffer, 0, 0, NULL);
+		InvalidateRegion(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+#else
 		// restore what we have under here...
 		BltVideoSurface(FRAME_BUFFER, gMsgBox.uiSaveBuffer, gMsgBox.uX, gMsgBox.uY, NULL);
 		InvalidateRegion(gMsgBox.uX, gMsgBox.uY, gMsgBox.uX + gMsgBox.usWidth, gMsgBox.uY + gMsgBox.usHeight);
+#endif
 	}
 
 	fRestoreBackgroundForMessageBox = FALSE;
@@ -444,7 +511,27 @@ ScreenID MessageBoxScreenHandle()
 				break;
 		}
 
+		#ifdef __ANDROID__
+		// Full-screen restore + dim, then 2× popup.
+		// Must InvalidateRegion full screen — dirty-only present dropped dim before.
+		BltVideoSurface(FRAME_BUFFER, gMsgBox.uiSaveBuffer, 0, 0, NULL);
+		for (int i = 0; i < MSGBOX_DIM_PASSES; ++i)
+		{
+			FRAME_BUFFER->ShadowRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		}
+		{
+			SGPVSurface tmp(gMsgBoxNaturalW, gMsgBoxNaturalH, PIXEL_DEPTH);
+			RenderMercPopUpBox(gMsgBox.box, 0, 0, &tmp);
+			SGPBox src;
+			src.set(0, 0, gMsgBoxNaturalW, gMsgBoxNaturalH);
+			SGPBox dst;
+			dst.set(gMsgBox.uX, gMsgBox.uY, gMsgBox.usWidth, gMsgBox.usHeight);
+			BltStretchVideoSurface(FRAME_BUFFER, &tmp, &src, &dst);
+			InvalidateRegion(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		}
+#else
 		RenderMercPopUpBox(gMsgBox.box, gMsgBox.uX, gMsgBox.uY, FRAME_BUFFER);
+#endif
 		//gMsgBox.fRenderBox = FALSE;
 		// ATE: Render each frame...
 	}

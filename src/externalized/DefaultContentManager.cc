@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "DefaultContentManager.h"
 
 #include "AIMListingModel.h"
@@ -74,6 +78,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <string_theory/format>
 #include <string_theory/string>
@@ -90,6 +95,72 @@
 #define DIALOGUESIZE 240
 
 const MercProfileInfo EMPTY_MERC_PROFILE_INFO;
+
+namespace
+{
+struct WildfireMagazineFixup
+{
+	uint16_t    itemIndex;
+	const char* calibre;
+	uint16_t    capacity;
+	const char* ammoType;
+	const char* bigPath;
+	uint16_t    smallSubImage;
+	bool        overrideSmallArt;
+	bool        overrideBigArt;
+	const char* comment;
+	const char* smallPath = nullptr;
+};
+
+// Wildfire keeps the item IDs but changes the magazine identities behind them.
+// Metadata (calibre/capacity/ammoType) is always corrected for a matched row.
+// Artwork is overridden only when overrideSmallArt/overrideBigArt is set; rows
+// whose native small/big art is not yet proven keep the base JSON graphics and
+// leave the flag(s) false rather than pointing at an unverified frame.
+static const WildfireMagazineFixup wildfireMagazineFixups[] =
+{
+	{  71, "AMMO9",    15, "AMMO_AP",      "bigitems/p1item33.sti", 33, true,  true,  "9mm Pistol Magazine, AP"       },
+	{  72, "AMMO9",    30, "AMMO_AP",      "bigitems/p1item36.sti", 36, true,  true,  "9mm SMG Magazine, AP"          },
+	{  73, "AMMO9",    50, "AMMO_AP",      "bigitems/p1item36.sti", 36, true,  true,  "9mm Magazine, 50 AP"          },
+	{  74, "AMMO9",    15, "AMMO_HP",      "bigitems/p1item34.sti", 34, true,  true,  "9mm Pistol Magazine, HP"       },
+	{  75, "AMMO9",    30, "AMMO_HP",      "bigitems/p1item37.sti", 37, true,  true,  "9mm SMG Magazine, HP"          },
+	{  76, "AMMO9",    50, "AMMO_HP",      "bigitems/p1item37.sti", 37, true,  true,  "9mm Magazine, 50 HP"          },
+	// Wildfire guns contact sheet identifies the native 4.6mm artwork as slot 73.
+	{  77, "AMMO46",   20, "AMMO_REGULAR", "bigitems/gun73.sti", 73, true,  true,  "4.6mm Magazine (Wildfire labeled guns contact sheet)", "interface/mdguns.sti" },
+	{  78, "AMMO762W", 10, "AMMO_AP",      "bigitems/p1item22.sti", 22, true,  true,  "7.62x54mm Magazine, 10 AP"     },
+	{  79, "AMMO762W", 10, "AMMO_HP",      "bigitems/p1item23.sti", 23, true,  true,  "7.62x54mm Magazine, 10 HP"     },
+	{  86, "AMMO357",   6, "AMMO_AP",      "bigitems/p1item12.sti", 12, true,  true,  ".357 Speed Loader, AP"         },
+	{  87, "AMMO357",   9, "AMMO_AP",      "bigitems/p1item18.sti", 18, true,  true,  ".357 Magazine, AP"             },
+	{  88, "AMMO357",   6, "AMMO_HP",      "bigitems/p1item13.sti", 13, true,  true,  ".357 Speed Loader, HP"         },
+	{  89, "AMMO357",   9, "AMMO_HP",      "bigitems/p1item19.sti", 19, true,  true,  ".357 Magazine, HP"             },
+	{  90, "AMMO545",  30, "AMMO_AP",      "bigitems/p1item09.sti",  9, true,  true,  "5.45mm Magazine"               },
+	{  91, "AMMO545",  30, "AMMO_HP",      "bigitems/p1item10.sti", 10, true,  true,  "5.45mm Magazine, HP"           },
+	{  92, "AMMO556",  30, "AMMO_AP",      "bigitems/p1item29.sti",  0, true,  true,  "5.56mm Magazine",              "bigitems/p1item29.sti" },
+	{  93, "AMMO556", 100, "AMMO_AP",      "bigitems/p1item29.sti",  0, true,  true,  "5.56mm Box, 100 AP",           "bigitems/p1item29.sti" },
+	{  94, "AMMO556",  30, "AMMO_HP",      "bigitems/p1item30.sti",  0, true,  true,  "5.56mm Magazine, HP",          "bigitems/p1item30.sti" },
+	{  95, "AMMO556", 100, "AMMO_HP",      "bigitems/p1item30.sti",  0, true,  true,  "5.56mm Box, 100 HP",           "bigitems/p1item30.sti" },
+	{  96, "AMMO762W", 30, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "7.62mm WP Magazine, 30 AP"     },
+	{  97, "AMMO762W", 75, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "7.62mm WP Drum, 75 AP"         },
+	{  98, "AMMO762W", 30, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm WP Magazine, 30 HP"     },
+	{  99, "AMMO762W", 75, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm WP Drum, 75 HP"         },
+	{ 100, "AMMO762N", 20, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "7.62mm NATO Magazine, 20 AP"   },
+	{ 101, "AMMO762N",100, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "7.62mm NATO Box, 100 AP"       },
+	{ 102, "AMMO762N", 20, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm NATO Magazine, 20 HP"   },
+	{ 103, "AMMO762N",100, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm NATO Box, 100 HP"       },
+	{ 104, "AMMO762W", 10, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "9x39mm Magazine, 10"           },
+	{ 105, "AMMO762W", 20, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "9x39mm Magazine, 20"           },
+	{ 111, "AMMO762N",  5, "AMMO_AP",      "bigitems/p1item110.sti",110, true,  true,  "12.7mm, AP"                    },
+	{ 112, "AMMO762N",  5, "AMMO_HE",      "bigitems/p1item115.sti",115, true,  true,  "12.7mm, HE"                    },
+	{ 113, "AMMO762N",  5, "AMMO_HEAT",    "bigitems/p1item114.sti",114, true,  true,  "12.7mm, HEAP"                  },
+};
+
+const WildfireMagazineFixup* findWildfireMagazineFixup(uint16_t itemIndex)
+{
+	auto const i = std::find_if(std::begin(wildfireMagazineFixups), std::end(wildfireMagazineFixups),
+		[itemIndex](const WildfireMagazineFixup& fixup) { return fixup.itemIndex == itemIndex; });
+	return i != std::end(wildfireMagazineFixups) ? i : nullptr;
+}
+}
 
 DefaultContentManager::DefaultContentManager(RustPointer<EngineOptions> engineOptions)
 	:m_schemaManager(SchemaManager_create()),
@@ -517,11 +588,32 @@ const ExplosionAnimationModel* DefaultContentManager::getExplosionAnimation(uint
 	return *it;
 }
 
+bool DefaultContentManager::applyWildfireWeaponFixup(JsonObject& obj)
+{
+	switch (obj.GetUInt("itemIndex"))
+	{
+		case 5: // Wildfire Colt 1991 uses the vanilla M1911's .45 ACP profile.
+			obj.set("calibre", "AMMO45");
+			obj.set("ubMagSize", 7);
+			return true;
+		case 56: // Wildfire MP7 uses a dedicated 4.6mm calibre.
+			obj.set("calibre", "AMMO46");
+			obj.set("ubMagSize", 20);
+			return true;
+		default:
+			return false;
+	}
+}
+
 bool DefaultContentManager::loadWeapons(TranslatableString::Loader& stringLoader)
 {
 	auto json = readJsonDataFileWithSchema("weapons.json");
+	bool const isWildfire = doesGameResExists("interface/b_map.sti") &&
+		!doesGameResExists("interface/b_map.pcx");
 	for (auto& element : json.toVec()) {
-		auto w = WeaponModel::deserialize(element, m_calibres, m_explosiveCalibres, stringLoader);
+		auto obj = element.toObject();
+		if (isWildfire) applyWildfireWeaponFixup(obj);
+		auto w = WeaponModel::deserialize(obj.toValue(), m_calibres, m_explosiveCalibres, stringLoader);
 
 		if (w->getItemIndex() >= MAXITEMS)
 		{
@@ -685,20 +777,56 @@ bool DefaultContentManager::loadItems(TranslatableString::Loader& stringLoader)
 	return true;
 }
 
+bool DefaultContentManager::applyWildfireMagazineFixup(JsonObject& obj)
+{
+	auto const fixup = findWildfireMagazineFixup(obj.GetUInt("itemIndex"));
+	if (fixup == nullptr) return false;
+
+	obj.set("calibre", fixup->calibre);
+	obj.set("capacity", fixup->capacity);
+	obj.set("ammoType", fixup->ammoType);
+
+	if (fixup->overrideSmallArt || fixup->overrideBigArt)
+	{
+		auto graphics = obj["inventoryGraphics"].toObject();
+		if (fixup->overrideSmallArt)
+		{
+			auto small = graphics["small"].toObject();
+			if (fixup->smallPath != nullptr) small.set("path", fixup->smallPath);
+			small.set("subImageIndex", fixup->smallSubImage);
+			graphics.set("small", small.toValue());
+		}
+		if (fixup->overrideBigArt)
+		{
+			JsonObject big;
+			big.set("path", fixup->bigPath);
+			graphics.set("big", big.toValue());
+		}
+		obj.set("inventoryGraphics", graphics.toValue());
+	}
+	return true;
+}
+
 bool DefaultContentManager::loadMagazines(TranslatableString::Loader& stringLoader)
 {
 	auto json = readJsonDataFileWithSchema("magazines.json");
+	bool const isWildfire = doesGameResExists("interface/b_map.sti") &&
+		!doesGameResExists("interface/b_map.pcx");
+	int numFixed = 0;
 	for (auto& element : json.toVec())
 	{
-		if (element.toObject().GetString("calibre") == "NOAMMO") {
+		auto obj = element.toObject();
+		if (isWildfire && applyWildfireMagazineFixup(obj)) ++numFixed;
+
+		if (obj.GetString("calibre") == "NOAMMO") {
 			SLOGW(
 				"Ignoring magazine {} because it has the calibre {}",
-				element.toObject().GetString("internalName"),
+				obj.GetString("internalName"),
 				"NOAMMO"
 			);
 			continue;
 		}
-		auto mag = MagazineModel::deserialize(element, m_calibres, m_ammoTypes, stringLoader);
+		auto mag = MagazineModel::deserialize(obj.toValue(), m_calibres, m_ammoTypes, stringLoader);
 		if (mag->getInternalName() == "CLIP_NOTHING") {
 
 		}
@@ -706,6 +834,7 @@ bool DefaultContentManager::loadMagazines(TranslatableString::Loader& stringLoad
 		m_items.add(std::move(mag));
 	}
 
+	if (isWildfire) SLOGI("WF-MAGAZINES: corrected {} Wildfire magazine definitions", numFixed);
 	return true;
 }
 
@@ -905,6 +1034,51 @@ bool DefaultContentManager::loadGameData(TranslatableString::Loader& stringLoade
 	loadWeapons(stringLoader);
 	loadExplosives(stringLoader, m_explosionAnimations);
 	loadArmours(stringLoader);
+
+	// WF-ITEMART: Wildfire numbers gun artwork independently of item IDs.
+	// Magazine metadata was already corrected while loading.  Repoint the guns
+	// after all item models are loaded.  Detection follows UsesWildfireInterfaceArt().
+	if (doesGameResExists("interface/b_map.sti") &&
+		!doesGameResExists("interface/b_map.pcx"))
+	{
+		struct WildfireItemFixup
+		{
+			uint16_t    itemIndex;
+			const char* path;
+			uint16_t    smallSubImage;
+			const char* comment;
+		};
+
+		static const WildfireItemFixup wildfireItemFixups[] =
+		{
+			{  1, "bigitems/gun04.sti",  4, "Calico M950"    },
+			{  4, "bigitems/gun01.sti",  1, "Beretta 92F"    },
+			{ 40, "bigitems/gun37.sti", 37, "M79"            },
+			{ 41, "bigitems/gun00.sti",  0, "Mortar"         },
+			{ 51, "bigitems/gun38.sti", 38, "M72 LAW"        },
+			{ 55, "bigitems/gun52.sti", 52, "SVU"            },
+			{ 56, "bigitems/gun40.sti", 40, "MP7"            },
+			{ 60, "bigitems/gun39.sti", 39, "Cannon"         },
+			{ 61, "bigitems/gun46.sti", 46, "Dart Gun"       },
+			{ 63, "bigitems/gun49.sti", 49, "Flamethrower"   },
+			{ 65, "bigitems/gun48.sti", 48, "AS Val"         },
+			{ 54, "bigitems/gun47.sti", 47, "Machete (Wildfire labeled contact sheet)" },
+			// ID 66 VSS Vintorez: frozen pending native artwork evidence
+			{ 67, "bigitems/gun45.sti", 45, "V-94"           },
+			{ 68, "bigitems/gun50.sti", 50, "F2000"          },
+		};
+
+		int numRepointed = 0;
+		for (const WildfireItemFixup& fixup : wildfireItemFixups)
+		{
+			ItemModel* item = const_cast<ItemModel*>(m_items.optionalById(fixup.itemIndex));
+			if (item == NULL) continue;
+			item->overrideInventoryGraphics("interface/mdguns.sti", fixup.smallSubImage, fixup.path);
+			++numRepointed;
+		}
+
+		SLOGI("WF-ITEMART: repointed {} Wildfire item pictures", numRepointed);
+	}
 
 	// Setup views
 	m_magazines = MagazinesContainer(m_items);

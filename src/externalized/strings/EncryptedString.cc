@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "EncryptedString.h"
 #include "GameRes.h"
 #include "SGPFile.h"
@@ -36,6 +40,18 @@ ST::string LoadEncryptedData(ST::string& err_msg, STRING_ENC_TYPE encType, SGPFi
 					case 128: c = 0x00C7; break; // Ç
 					case 130: c = 0x00E9; break; // é
 					case 135: c = 0x00E7; break; // ç
+
+					/* Some editions (e.g. JA2: Wildfire) store their English texts in
+					 * CP1252, so bytes 0x80-0x9F end up as C1 control codepoints in the
+					 * UTF-16 data. Map the typographic punctuation actually seen in the
+					 * data files to its proper Unicode equivalents. */
+					case 133: c = 0x2026; break; // …
+					case 145: c = 0x2018; break; // ‘
+					case 146: c = 0x2019; break; // ’
+					case 147: c = 0x201C; break; // “
+					case 148: c = 0x201D; break; // ”
+					case 150: c = 0x2013; break; // –
+					case 151: c = 0x2014; break; // —
 				}
 			}
 

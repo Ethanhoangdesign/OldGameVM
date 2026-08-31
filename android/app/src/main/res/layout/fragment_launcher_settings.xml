@@ -40,6 +40,23 @@
                     android:layout_marginBottom="10dp"
                     android:text="@string/resolution_info_text" />
 
+                <TextView
+                    android:id="@+id/resolutionPresetLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="6dp"
+                    android:text="@string/resolution_preset_label" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/LauncherOutlinedSpinner"
+                    android:hint="@string/resolution_preset_field_label">
+                    <Spinner
+                        android:id="@+id/resolutionPresetSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="@string/resolution_preset_label" />
+                </com.google.android.material.textfield.TextInputLayout>
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
@@ -100,12 +117,15 @@
                     android:layout_marginBottom="10dp"
                     android:text="@string/scaling_quality_info_text" />
 
-                <Spinner
-                    android:id="@+id/scalingQualitySpinner"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:contentDescription="@string/game_version_empty_text" />
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/LauncherOutlinedSpinner"
+                    android:hint="@string/scaling_quality_field_label">
+                    <Spinner
+                        android:id="@+id/scalingQualitySpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="@string/game_version_empty_text" />
+                </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <LinearLayout
@@ -115,27 +135,34 @@
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/debugModeInfoTitle"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:text="@string/debug_mode_info_title_text"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
+                    android:layout_marginTop="20dp"
+                    android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/debugModeInfoText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="10dp"
-                    android:text="@string/debug_mode_info_text" />
+                    <TextView
+                        android:id="@+id/debugModeInfoTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="@string/debug_mode_info_title_text"
+                        android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
-                <CheckBox
-                    android:id="@+id/debugModeChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/debug_mode_label" />
+                    <TextView
+                        android:id="@+id/debugModeInfoText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:text="@string/debug_mode_info_text" />
+
+                    <CheckBox
+                        android:id="@+id/debugModeChip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/debug_mode_label" />
+                </LinearLayout>
+
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

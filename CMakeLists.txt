@@ -146,6 +146,9 @@ set(GAME_VERSION "v${ja2-stracciatella_VERSION}")
 message(STATUS "Setting directory for libraries to: ${INSTALL_LIB_DIR}")
 add_definitions(-DINSTALL_LIB_DIR="${INSTALL_LIB_DIR}")
 
+option(BUILD_EZEUS "Build the eZeus Android target" OFF)
+set(EZEUS_SOURCE_DIR "" CACHE PATH "Local eZeus source checkout")
+
 if(BUILD_SDL_LIB)
     set(SDL2_LIBRARY "")
     set(SDL2_INCLUDE_DIR "")
@@ -159,6 +162,9 @@ else()
 endif()
 message(STATUS "SDL2 Libraries: ${SDL2_LIBRARY}; SDL2 Include Dir: ${SDL2_INCLUDE_DIR}")
 
+if(BUILD_EZEUS)
+    include(ezeus)
+endif()
 
 # Dependencies must be processed first so the src directory can reliably use them.
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/dependencies/lib-magic_enum")
@@ -272,22 +278,22 @@ set(CPACK_PACKAGE_VERSION ${ja2-stracciatella_VERSION})
 set(CPACK_PACKAGE_CONTACT ${CONTACT})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY ${DESCRIPTION})
 set(CPACK_PACKAGE_DESCRIPTION ${DESCRIPTION})
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "JA2 Stracciatella")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "OldGameVM")
 
 set(CPACK_DEBIAN_PACKAGE_SECTION "games")
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://ja2-stracciatella.github.io/")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsdl2-2.0-0, libstdc++6, libgcc1, libc6, libfltk1.3-dev, libfltk-images1.3")
 
-set(CPACK_BUNDLE_NAME "JA2 Stracciatella")
+set(CPACK_BUNDLE_NAME "OldGameVM")
 set(CPACK_BUNDLE_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/icons/logo.icns")
 set(CPACK_BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/assets/distr-files-mac/BundleInfo.plist")
 set(CPACK_BUNDLE_STARTUP_COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/assets/distr-files-mac/ja2-startup.sh")
 
-set(CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortcut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\JA2 Stracciatella.lnk' '$INSTDIR\\\\ja2-launcher.exe' '' '$INSTDIR\\\\logo.ico'")
+set(CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortcut '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\OldGameVM.lnk' '$INSTDIR\\\\ja2-launcher.exe' '' '$INSTDIR\\\\logo.ico'")
 set(CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
 set(CPACK_NSIS_MUI_FINISHPAGE_RUN "ja2-launcher.exe")
-set(CPACK_NSIS_DISPLAY_NAME "JA2 Stracciatella")
-set(CPACK_NSIS_PACKAGE_NAME "JA2 Stracciatella")
+set(CPACK_NSIS_DISPLAY_NAME "OldGameVM")
+set(CPACK_NSIS_PACKAGE_NAME "OldGameVM")
 set(CPACK_NSIS_URL_INFO_ABOUT "https://ja2-stracciatella.github.io/")
 
 if(UNIX AND NOT MINGW AND NOT APPLE)

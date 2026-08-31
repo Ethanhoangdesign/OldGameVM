@@ -23,6 +23,9 @@ void         InvalidateScreen(void);
 
 void VideoSetBrightness(float brightness);
 
+// Map window pixels through SDL's aspect-preserving logical viewport.
+BOOLEAN VideoMapWindowToLogical(int windowX, int windowY, float* logicalX, float* logicalY);
+
 /* Toggle between fullscreen and window mode after initialising the video
  * manager */
 void VideoToggleFullScreen(void);

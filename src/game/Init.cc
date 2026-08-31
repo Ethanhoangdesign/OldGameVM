@@ -27,6 +27,7 @@
 
 #include "EditScreen.h"
 #include "Logger.h"
+#include "UILayout.h"
 
 #include <string_theory/string>
 
@@ -56,6 +57,11 @@ try
 
 	//needs to be called here to init the SectorInfo struct
 	InitStrategicMovementCosts( );
+
+	// OGVM-UILAYOUT: set actual screen dimensions BEFORE InitTacticalEngine
+	// so InitializeTEAMPanel uses correct m_screenWidth for Wildfire 194px button box
+	g_ui.setScreenSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+	g_ui.recalculatePositions();
 
 	// Init tactical engine
 	InitTacticalEngine();

@@ -32,73 +32,118 @@
 #include "Map_Information.h"
 #include "SmokeEffects.h"
 #include "Button_System.h"
+#include "VObject_Blitters.h"
 #include "VSurface.h"
 #include "WorldMan.h"
 #include "UILayout.h"
+#include "HImage.h"
 
+#include <algorithm>
 #include <string_theory/string>
 
 
+#ifdef __ANDROID__
+// Fit 640×480 options chrome into screen (no cap — stretch full). Black under.
+// Desktop 1×. Matches the MainMenu/Options/SaveLoad GIO family so narrow presets
+// (e.g. 934x480) expand to fill the screen instead of leaving the panel offset.
+static float OptUiScale(void)
+{
+	float const sx = (float)SCREEN_WIDTH  / 640.f;
+	float const sy = (float)SCREEN_HEIGHT / 480.f;
+	return std::min(sx, sy);
+}
+static INT16 OptSX(INT32 x)
+{
+	float const sc = OptUiScale();
+	float const cx = (float)STD_SCREEN_X + 320.f;
+	return (INT16)((float)(SCREEN_WIDTH / 2) + ((float)x - cx) * sc);
+}
+static INT16 OptSY(INT32 y)
+{
+	float const sc = OptUiScale();
+	float const cy = (float)STD_SCREEN_Y + 240.f;
+	return (INT16)((float)(SCREEN_HEIGHT / 2) + ((float)y - cy) * sc);
+}
+// 934x480 keeps 640x480 geometry; 12pt prevents label overflow in narrow columns.
+#define OPT_MAIN_FONT				((SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480) ? FONT12ARIAL : FONT14ARIAL)
+// Bottom row: humanist = heavier than Arial (no 16pt bold STI).
+#define OPT_BTN_FONT				FONT14HUMANIST
+#else
+#define OptSX(x) ((INT16)(x))
+#define OptSY(y) ((INT16)(y))
 #define OPT_MAIN_FONT				FONT12ARIAL
-#define OPT_MAIN_COLOR				OPT_BUTTON_ON_COLOR//FONT_MCOLOR_WHITE
-#define OPT_HIGHLIGHT_COLOR			FONT_MCOLOR_WHITE//FONT_MCOLOR_LTYELLOW
+#define OPT_BTN_FONT				OPT_BUTTON_FONT
+#endif
+
+// Body labels stay gray; yellow reserved for bottom chrome buttons.
+#define OPT_MAIN_COLOR				73
+#define OPT_HIGHLIGHT_COLOR			FONT_MCOLOR_WHITE
 
 
 #define OPTIONS_SCREEN_WIDTH			440
 #define OPTIONS_SCREEN_HEIGHT			400
 
 
-#define OPTIONS__TOP_LEFT_X			(100 + STD_SCREEN_X)
-#define OPTIONS__TOP_LEFT_Y			(40  + STD_SCREEN_Y)
-#define OPTIONS__BOTTOM_RIGHT_X		OPTIONS__TOP_LEFT_X + OPTIONS_SCREEN_WIDTH
-#define OPTIONS__BOTTOM_RIGHT_Y		OPTIONS__TOP_LEFT_Y + OPTIONS_SCREEN_HEIGHT
+#define OPTIONS__TOP_LEFT_X			OptSX(100 + STD_SCREEN_X)
+#define OPTIONS__TOP_LEFT_Y			OptSY(40  + STD_SCREEN_Y)
+#define OPTIONS__BOTTOM_RIGHT_X		OptSX(100 + STD_SCREEN_X + OPTIONS_SCREEN_WIDTH)
+#define OPTIONS__BOTTOM_RIGHT_Y		OptSY(40  + STD_SCREEN_Y + OPTIONS_SCREEN_HEIGHT)
 
-#define OPT_SAVE_BTN_X				( 51 + STD_SCREEN_X)
-#define OPT_LOAD_BTN_X				(190 + STD_SCREEN_X)
-#define OPT_QUIT_BTN_X				(329 + STD_SCREEN_X)
-#define OPT_DONE_BTN_X				(469 + STD_SCREEN_X)
-#define OPT_BTN_Y				(438 + STD_SCREEN_Y)
+#define OPT_SAVE_BTN_X				OptSX( 51 + STD_SCREEN_X)
+#define OPT_LOAD_BTN_X				OptSX(190 + STD_SCREEN_X)
+#define OPT_QUIT_BTN_X				OptSX(329 + STD_SCREEN_X)
+#define OPT_DONE_BTN_X				OptSX(469 + STD_SCREEN_X)
+#define OPT_BTN_Y				OptSY(438 + STD_SCREEN_Y)
 
 
+#ifdef __ANDROID__
+#define OPT_GAP_BETWEEN_TOGGLE_BOXES		((INT16)(31 * OptUiScale()))
+#define OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX	((INT16)(30 * OptUiScale()))
+#define OPT_TOGGLE_TEXT_OFFSET_Y		((INT16)(2 * OptUiScale()))
+#define OPT_SLIDER_BAR_SIZE			((UINT16)(258 * OptUiScale()))
+#define OPT_SLIDER_TEXT_WIDTH			((UINT16)(45 * OptUiScale()))
+#else
 #define OPT_GAP_BETWEEN_TOGGLE_BOXES		31//40
+#define OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX	30//220
+#define OPT_TOGGLE_TEXT_OFFSET_Y		2//3
+#define OPT_SLIDER_BAR_SIZE			258
+#define OPT_SLIDER_TEXT_WIDTH			45
+#endif
 
 
 //Text
-#define OPT_TOGGLE_BOX_FIRST_COL_TEXT_X		OPT_TOGGLE_BOX_FIRST_COLUMN_X + OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX//350
-#define OPT_TOGGLE_BOX_SECOND_TEXT_X		OPT_TOGGLE_BOX_SECOND_COLUMN_X + OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX//350
+#define OPT_TOGGLE_BOX_FIRST_COL_TEXT_X		(OPT_TOGGLE_BOX_FIRST_COLUMN_X + OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX)//350
+#define OPT_TOGGLE_BOX_SECOND_TEXT_X		(OPT_TOGGLE_BOX_SECOND_COLUMN_X + OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX)//350
 
 
 //toggle boxes
-#define OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX	30//220
-#define OPT_TOGGLE_TEXT_OFFSET_Y		2//3
+#define OPT_TOGGLE_BOX_FIRST_COLUMN_X		OptSX(265 + STD_SCREEN_X)
+#define OPT_TOGGLE_BOX_SECOND_COLUMN_X		OptSX(428 + STD_SCREEN_X)
+#define   OPT_TOGGLE_BOX_START_Y		OptSY(89 + STD_SCREEN_Y)
 
-#define OPT_TOGGLE_BOX_FIRST_COLUMN_X		(265 + STD_SCREEN_X)
-#define OPT_TOGGLE_BOX_SECOND_COLUMN_X		(428 + STD_SCREEN_X)
-#define   OPT_TOGGLE_BOX_START_Y		(89 + STD_SCREEN_Y)
-
-#define OPT_TOGGLE_BOX_TEXT_WIDTH		OPT_TOGGLE_BOX_SECOND_COLUMN_X - OPT_TOGGLE_BOX_FIRST_COLUMN_X - 20
+#ifdef __ANDROID__
+#define OPT_TOGGLE_BOX_TEXT_WIDTH		(OPT_TOGGLE_BOX_SECOND_COLUMN_X - OPT_TOGGLE_BOX_FIRST_COLUMN_X - (INT16)(20 * OptUiScale()))
+#else
+#define OPT_TOGGLE_BOX_TEXT_WIDTH		(OPT_TOGGLE_BOX_SECOND_COLUMN_X - OPT_TOGGLE_BOX_FIRST_COLUMN_X - 20)
+#endif
 
 // Slider bar defines
-#define OPT_SLIDER_BAR_SIZE			258
+#define OPT_SOUND_FX_TEXT_X			OptSX(38 + STD_SCREEN_X)
+#define OPT_SOUND_FX_TEXT_Y			OptSY(87 + STD_SCREEN_Y)
 
-#define OPT_SLIDER_TEXT_WIDTH			45
-
-#define OPT_SOUND_FX_TEXT_X			(38 + STD_SCREEN_X)
-#define OPT_SOUND_FX_TEXT_Y			(87 + STD_SCREEN_Y)
-
-#define OPT_SPEECH_TEXT_X			(85 + STD_SCREEN_X)
+#define OPT_SPEECH_TEXT_X			OptSX(85 + STD_SCREEN_X)
 #define OPT_SPEECH_TEXT_Y			OPT_SOUND_FX_TEXT_Y
 
-#define OPT_MUSIC_TEXT_X			(137 + STD_SCREEN_X)
+#define OPT_MUSIC_TEXT_X			OptSX(137 + STD_SCREEN_X)
 #define OPT_MUSIC_TEXT_Y			OPT_SOUND_FX_TEXT_Y
 
-#define OPT_SOUND_EFFECTS_SLIDER_X		(56 + STD_SCREEN_X)
-#define OPT_SOUND_EFFECTS_SLIDER_Y		(126 + STD_SCREEN_Y)
+#define OPT_SOUND_EFFECTS_SLIDER_X		OptSX(56 + STD_SCREEN_X)
+#define OPT_SOUND_EFFECTS_SLIDER_Y		OptSY(126 + STD_SCREEN_Y)
 
-#define OPT_SPEECH_SLIDER_X			(107 + STD_SCREEN_X)
+#define OPT_SPEECH_SLIDER_X			OptSX(107 + STD_SCREEN_X)
 #define OPT_SPEECH_SLIDER_Y			OPT_SOUND_EFFECTS_SLIDER_Y
 
-#define OPT_MUSIC_SLIDER_X			(158 + STD_SCREEN_X)
+#define OPT_MUSIC_SLIDER_X			OptSX(158 + STD_SCREEN_X)
 #define OPT_MUSIC_SLIDER_Y			OPT_SOUND_EFFECTS_SLIDER_Y
 
 #define OPT_MUSIC_SLIDER_PLAY_SOUND_DELAY	75
@@ -187,6 +232,10 @@ ScreenID OptionsScreenHandle()
 	if( gfRedrawOptionsScreen )
 	{
 		RenderOptionsScreen();
+#ifdef __ANDROID__
+		// SAVEBUFFER = black+panel only (no thumbs). Slider restore needs clean underlay.
+		BltVideoSurface(guiSAVEBUFFER, FRAME_BUFFER, 0, 0, NULL);
+#endif
 		RenderButtons();
 
 		gfRedrawOptionsScreen = FALSE;
@@ -219,7 +268,26 @@ ScreenID OptionsScreenHandle()
 
 static GUIButtonRef MakeButton(INT16 x, GUI_CALLBACK click, const ST::string& text)
 {
-	return CreateIconAndTextButton(giOptionsButtonImages, text, OPT_BUTTON_FONT, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, OPT_BTN_Y, MSYS_PRIORITY_HIGH, click);
+	GUIButtonRef const btn = CreateIconAndTextButton(giOptionsButtonImages, text, OPT_BTN_FONT, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, OPT_BTN_Y, MSYS_PRIORITY_HIGH, click);
+#ifdef __ANDROID__
+	// Stretch art to ~2× hit (Button_System Android path when W/H > pic).
+	if (ButtonDimensions const* const d = GetDimensionsOfButtonPic(giOptionsButtonImages))
+	{
+		float const sc = OptUiScale();
+		INT32 const dw = (INT32)(d->w * sc);
+		INT32 const dh = (INT32)(d->h * sc);
+		btn->Area.RegionBottomRightX = btn->Area.RegionTopLeftX + dw;
+		btn->Area.RegionBottomRightY = btn->Area.RegionTopLeftY + dh;
+		// Keep bottom row on-screen if scale pushes past edge.
+		if (btn->Area.RegionBottomRightY > (INT32)SCREEN_HEIGHT)
+		{
+			INT32 const shift = btn->Area.RegionBottomRightY - (INT32)SCREEN_HEIGHT;
+			btn->Area.RegionTopLeftY     -= shift;
+			btn->Area.RegionBottomRightY -= shift;
+		}
+	}
+#endif
+	return btn;
 }
 
 
@@ -291,6 +359,16 @@ static void EnterOptionsScreen(void)
 		GUIButtonRef const check = CreateCheckBoxButton(pos_x, pos_y, INTERFACEDIR "/optionscheckboxes.sti", MSYS_PRIORITY_HIGH + 10, BtnOptionsTogglesCallback);
 		guiOptionsToggles[cnt] = check;
 		check->SetUserData(cnt);
+#ifdef __ANDROID__
+		// Match DrawCheckBoxButton Android stretch; 934x480 uses natural checkbox size.
+		{
+			INT32 const w = check->Area.RegionBottomRightX - check->Area.RegionTopLeftX;
+			INT32 const h = check->Area.RegionBottomRightY - check->Area.RegionTopLeftY;
+			INT32 const scale = (SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480) ? 1 : 2;
+			check->Area.RegionBottomRightX = check->Area.RegionTopLeftX + w * scale;
+			check->Area.RegionBottomRightY = check->Area.RegionTopLeftY + h * scale;
+		}
+#endif
 
 		UINT32 height;
 		UINT16 usTextWidth = StringPixLength(zOptionsToggleText[cnt], OPT_MAIN_FONT);
@@ -305,7 +383,12 @@ static void EnterOptionsScreen(void)
 			height = usTextHeight;
 		}
 		MOUSE_REGION* reg = &gSelectedOptionTextRegion[cnt];
-		MSYS_DefineRegion(reg, pos_x + 13, pos_y, pos_x + OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX + usTextWidth, pos_y + height, MSYS_PRIORITY_HIGH, CURSOR_NORMAL, SelectedOptionTextRegionMovementCallBack, SelectedOptionTextRegionCallBack);
+#ifdef __ANDROID__
+		INT16 const textOffX = (INT16)(13 * OptUiScale());
+#else
+		INT16 const textOffX = 13;
+#endif
+		MSYS_DefineRegion(reg, pos_x + textOffX, pos_y, pos_x + OPT_SPACE_BETWEEN_TEXT_AND_TOGGLE_BOX + usTextWidth, pos_y + height, MSYS_PRIORITY_HIGH, CURSOR_NORMAL, SelectedOptionTextRegionMovementCallBack, SelectedOptionTextRegionCallBack);
 		MSYS_SetRegionUserData(reg, 0, cnt);
 
 		reg->SetFastHelpText(zOptionsScreenHelpText[cnt]);
@@ -447,11 +530,45 @@ static void HandleOptionsScreen(void)
 
 static void RenderOptionsScreen(void)
 {
+#ifdef __ANDROID__
+	// Full black under panel (map still in SAVEBUFFER for slider restore / exit).
+	FRAME_BUFFER->Fill(Get16BPPColor(FROMRGB(0, 0, 0)));
+
+	// Stretch base + header/footer chrome from natural STI → display.
+	auto const StretchVO = [](SGPVObject* vo, UINT16 sub, INT32 natX, INT32 natY)
+	{
+		if (!vo) return;
+		ETRLEObject const& e = vo->SubregionProperties(sub);
+		if (e.usWidth == 0 || e.usHeight == 0) return;
+		float const sc = OptUiScale();
+		INT16 const dx = OptSX(natX);
+		INT16 const dy = OptSY(natY);
+		UINT16 const dw = (UINT16)std::max(1, (INT32)(e.usWidth  * sc));
+		UINT16 const dh = (UINT16)std::max(1, (INT32)(e.usHeight * sc));
+		// VO often 8bpp; stretch needs 16bpp temp.
+		SGPVSurface tmp(e.usWidth, e.usHeight, 16);
+		SGPRect tmpClip;
+		tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+		SGPRect const oldClip = SetClippingRect(tmpClip);
+		BltVideoObject(&tmp, vo, sub, 0, 0);
+		SetClippingRect(oldClip);
+		SGPBox src;
+		src.set(0, 0, e.usWidth, e.usHeight);
+		SGPBox dst;
+		dst.set((UINT16)dx, (UINT16)dy, dw, dh);
+		BltStretchVideoSurface(FRAME_BUFFER, &tmp, &src, &dst);
+	};
+	// optionscreenbase.sti / header drawn at STD_SCREEN origin in vanilla.
+	StretchVO(guiOptionBackGroundImage, 0, STD_SCREEN_X, STD_SCREEN_Y);
+	StretchVO(guiOptionsAddOnImages, 0, STD_SCREEN_X, STD_SCREEN_Y);
+	StretchVO(guiOptionsAddOnImages, 1, STD_SCREEN_X, STD_SCREEN_Y + 434);
+#else
 	BltVideoObject(FRAME_BUFFER, guiOptionBackGroundImage, 0, STD_SCREEN_X, STD_SCREEN_Y);
 
 	//Get and display the titla image
 	BltVideoObject(FRAME_BUFFER, guiOptionsAddOnImages, 0, STD_SCREEN_X + 0, STD_SCREEN_Y +   0);
 	BltVideoObject(FRAME_BUFFER, guiOptionsAddOnImages, 1, STD_SCREEN_X + 0, STD_SCREEN_Y + 434);
+#endif
 
 	//
 	// Text for the toggle boxes
@@ -492,7 +609,11 @@ static void RenderOptionsScreen(void)
 	DisplayWrappedString(OPT_MUSIC_TEXT_X, OPT_MUSIC_TEXT_Y, OPT_SLIDER_TEXT_WIDTH, 2, OPT_MAIN_FONT, OPT_MAIN_COLOR, zOptionsText[OPT_MUSIC], FONT_MCOLOR_BLACK, CENTER_JUSTIFIED);
 
 
+#ifdef __ANDROID__
+	InvalidateRegion(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+#else
 	InvalidateRegion( OPTIONS__TOP_LEFT_X, OPTIONS__TOP_LEFT_Y, OPTIONS__BOTTOM_RIGHT_X, OPTIONS__BOTTOM_RIGHT_Y);
+#endif
 }
 
 

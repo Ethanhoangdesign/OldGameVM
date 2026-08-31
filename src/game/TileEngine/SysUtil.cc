@@ -4,12 +4,21 @@
 #include "UILayout.h"
 
 
-SGPVSurface* guiSAVEBUFFER;
-SGPVSurface* guiEXTRABUFFER;
+SGPVSurface* guiSAVEBUFFER = nullptr;
+SGPVSurface* guiEXTRABUFFER = nullptr;
 
 
 void InitializeGameVideoObjects()
 {
 	guiSAVEBUFFER  = AddVideoSurface(SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_DEPTH);
 	guiEXTRABUFFER = AddVideoSurface(SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_DEPTH);
+}
+
+
+void ShutdownGameVideoObjects()
+{
+	DeleteVideoSurface(guiSAVEBUFFER);
+	DeleteVideoSurface(guiEXTRABUFFER);
+	guiSAVEBUFFER  = nullptr;
+	guiEXTRABUFFER = nullptr;
 }

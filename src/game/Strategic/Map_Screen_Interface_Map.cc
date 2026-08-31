@@ -1,4 +1,13 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
+#include <algorithm>
+#include <cstring>
+#include <cstdio>
 #include "Map_Screen_Interface_Map.h"
+#include <cstdlib>
+#include "Interface_Panels.h"
 
 #include "Assignments.h"
 #include "Button_System.h"
@@ -14,6 +23,7 @@
 #include "HImage.h"
 #include "Interface.h"
 #include "Line.h"
+#include "Logger.h"
 #include "Map_Information.h"
 #include "Map_Screen_Helicopter.h"
 #include "Map_Screen_Interface.h"
@@ -30,6 +40,7 @@
 #include "PreBattle_Interface.h"
 #include "Queen_Command.h"
 #include "Render_Dirty.h"
+#include "ResourceVariants.h"
 #include "SamSiteModel.h"
 #include "SGPStrings.h"
 #include "Soldier_Control.h"
@@ -91,8 +102,10 @@
 #define MAP_HELICOPTER_ETA_POPUP_WIDTH 120
 #define MAP_HELICOPTER_ETA_POPUP_HEIGHT 68
 
-#define MAP_LEVEL_STRING_X (STD_SCREEN_X + 432)
-#define MAP_LEVEL_STRING_Y (STD_SCREEN_Y + 305)
+/* Full-size map: rebase the "Sublevel" label into the enlarged view (2x the
+ * vanilla offset from the map view origin). */
+#define MAP_LEVEL_STRING_X (g_ui.isMapFullSize() ? (MAP_VIEW_START_X + 324) : (MAP_VIEW_START_X + 162))
+#define MAP_LEVEL_STRING_Y (g_ui.isMapFullSize() ? (MAP_VIEW_START_Y + 590) : (MAP_VIEW_START_Y + 295))
 
 // font
 #define MAP_FONT BLOCKFONT2
@@ -104,22 +117,24 @@
 #define MAX_VIEW_SECTORS      16
 
 
-//Map Location index regions
+/* Map Location index regions. Anchored to the map view so they follow the
+ * grid in both half-scale (vanilla: 292 = 270+21+1, 273 = 270+3, 31 = 10+18+3)
+ * and full-size map mode. */
 
 // x start of hort index
-#define MAP_HORT_INDEX_X (STD_SCREEN_X + 292)
+#define MAP_HORT_INDEX_X (MAP_VIEW_START_X + MAP_GRID_X + 1)
 
 // y position of hort index
-#define MAP_HORT_INDEX_Y  (STD_SCREEN_Y + 10)
+#define MAP_HORT_INDEX_Y  (MAP_VIEW_START_Y)
 
 // height of hort index
 #define MAP_HORT_HEIGHT  GetFontHeight(MAP_FONT)
 
 // vert index start x
-#define MAP_VERT_INDEX_X (STD_SCREEN_X + 273)
+#define MAP_VERT_INDEX_X (MAP_VIEW_START_X + 3)
 
 // vert index start y
-#define MAP_VERT_INDEX_Y  (STD_SCREEN_Y + 31)
+#define MAP_VERT_INDEX_Y  (MAP_VIEW_START_Y + MAP_GRID_Y + 3)
 
 // vert width
 #define MAP_VERT_WIDTH   GetFontHeight(MAP_FONT)
@@ -238,7 +253,17 @@ enum{
 	MAP_SHADE_DK_RED,
 };
 // the big map .pcx
+/* MAPZOOM: suy he so nguoc tu buoc luoi (63 khi phong, 42 khi khong). */
+#define MAPZOOM_NUM ((g_ui.get_MAP_GRID_X() >= 60) ? 3 : 2)
+
 static SGPVSurface* guiBIGMAP;
+
+/* LEVELART: the strategic map surface is private to this file, but the
+ * full-size level selector wants to reuse it as scenery for its four slots. */
+SGPVSurface* GetStrategicMapSurface(void)
+{
+	return guiBIGMAP;
+}
 
 
 // the max allowable towns militia in a sector
@@ -330,6 +355,629 @@ cache_key_t const guiCHARBETWEENSECTORICONSCLOSE{ INTERFACEDIR "/merc_mvt_green_
 
 // the map arrows graphics
 cache_key_t const guiMAPCURSORS{ INTERFACEDIR "/mapcursr.sti" };
+
+/* MAPZOOM-ICON: cua chung de dan mot bieu tuong len ban do.
+ * Khi khong phong thi chay y het cach cu. Khi phong thi mo dung anh con
+ * do thanh mat ve roi keo gian, giong cach da lam voi tranh tang ham. */
+
+/* MAPZOOM-BOOST: num van chinh co bieu tuong ban do.
+ * Dat bien JA2_ICONZOOM theo phan tram, vi du 150 la to gap ruoi tinh tren
+ * co da phong. Khong dat thi lay 100, tuc giu dung ti le goc. */
+static INT32 MapIconBoostPercent(void)
+{
+	static INT32 pct = -1;
+	if (pct < 0)
+	{
+		char const* const e = std::getenv("JA2_ICONZOOM");
+		pct = (e != NULL) ? std::atoi(e) : 100;
+		if (pct < 50 || pct > 400) pct = 150;
+	}
+	return pct;
+}
+
+/* MAPZOOM-CENTER: dan mot bieu tuong vao GIUA o, va khong cho no tran ra
+ * ngoai o. Nhan vao goc tren trai cua o chu khong phai toa do dan. */
+/* MAPZOOM-ALPHA: keo gian nhung BO QUA diem anh trong suot (mau 0),
+ * va canh giua theo BIEN THAT cua hinh chu khong theo khung bao ngoai. */
+static void BltMapIconCentered(SGPVSurface* const dst, cache_key_t const& key,
+	UINT16 const idx, INT32 const cellLeft, INT32 const cellTop)
+{
+	INT32 const boost = MapIconBoostPercent();
+
+	/* Khong phong: tra lai duong ve nguyen ban (man hinh nho khong doi mot diem anh) */
+	if (MAPZOOM_NUM == 2 && boost == 100)
+	{
+		BltVideoObject(dst, key, idx, cellLeft + MAP_X_ICON_OFFSET, cellTop + MAP_Y_ICON_OFFSET - 1);
+		return;
+	}
+
+	auto surf = CreateVideoSurfaceFromObjectFile(key, idx);
+	if (!surf || surf->BPP() != 16 || dst->BPP() != 16)
+	{
+		BltVideoObject(dst, key, idx, cellLeft, cellTop);
+		return;
+	}
+
+	INT32 const sw = (INT32)surf->Width();
+	INT32 const sh = (INT32)surf->Height();
+
+	/* Buoc 1: quet tim bien that (vung co diem anh khac 0) */
+	INT32 bx0 = sw, by0 = sh, bx1 = -1, by1 = -1;
+	{
+		SGPVSurface::Lock ls(surf.get());
+		UINT16 const* const sp = ls.Buffer<UINT16>();
+		UINT32 const spitch = ls.Pitch() >> 1;
+		for (INT32 yy = 0; yy < sh; ++yy)
+		{
+			for (INT32 xx = 0; xx < sw; ++xx)
+			{
+				if (sp[spitch * yy + xx] == 0) continue;
+				if (xx < bx0) bx0 = xx;
+				if (xx > bx1) bx1 = xx;
+				if (yy < by0) by0 = yy;
+				if (yy > by1) by1 = yy;
+			}
+		}
+	}
+	if (bx1 < bx0 || by1 < by0) { bx0 = 0; by0 = 0; bx1 = sw - 1; by1 = sh - 1; }
+
+	INT32 const cw = bx1 - bx0 + 1;
+	INT32 const ch = by1 - by0 + 1;
+
+	INT32 w = cw * MAPZOOM_NUM * boost / 200;
+	INT32 h = ch * MAPZOOM_NUM * boost / 200;
+	if (w > MAP_GRID_X - 2) w = MAP_GRID_X - 2;
+	if (h > MAP_GRID_Y - 2) h = MAP_GRID_Y - 2;
+	if (w < 1) w = 1;
+	if (h < 1) h = 1;
+
+	INT32 const px = cellLeft + (MAP_GRID_X - w) / 2;
+	INT32 const py = cellTop  + (MAP_GRID_Y - h) / 2;
+
+	/* Buoc 2: keo gian thu cong, bo qua diem anh trong suot */
+	INT32 const dstW = (INT32)dst->Width();
+	INT32 const dstH = (INT32)dst->Height();
+	SGPVSurface::Lock ld(dst);
+	SGPVSurface::Lock ls(surf.get());
+	UINT16 const* const sp = ls.Buffer<UINT16>();
+	UINT16* const dp = ld.Buffer<UINT16>();
+	UINT32 const spitch = ls.Pitch() >> 1;
+	UINT32 const dpitch = ld.Pitch() >> 1;
+	for (INT32 iy = 0; iy < h; ++iy)
+	{
+		INT32 const ty = py + iy;
+		if (ty < 0 || ty >= dstH) continue;
+		INT32 const sy = by0 + iy * ch / h;
+		for (INT32 ix = 0; ix < w; ++ix)
+		{
+			INT32 const tx = px + ix;
+			if (tx < 0 || tx >= dstW) continue;
+			INT32 const sx = bx0 + ix * cw / w;
+			UINT16 const v = sp[spitch * sy + sx];
+			if (v == 0) continue;
+			dp[dpitch * ty + tx] = v;
+		}
+	}
+}
+
+/* MAPZOOM-CLUSTER: giong BltMapIconCentered nhung neo goc tren trai,
+ * dung cho cac hop nho xep thanh luoi trong mot o. */
+static void BltMapIconAlpha(SGPVSurface* const dst, cache_key_t const& key,
+	UINT16 const idx, INT32 const x, INT32 const y)
+{
+	INT32 const boost = MapIconBoostPercent();
+
+	if (MAPZOOM_NUM == 2 && boost == 100)
+	{
+		BltVideoObject(dst, key, idx, x, y);
+		return;
+	}
+
+	auto surf = CreateVideoSurfaceFromObjectFile(key, idx);
+	if (!surf || surf->BPP() != 16 || dst->BPP() != 16)
+	{
+		BltVideoObject(dst, key, idx, x, y);
+		return;
+	}
+
+	INT32 const sw = (INT32)surf->Width();
+	INT32 const sh = (INT32)surf->Height();
+
+	INT32 bx0 = sw, by0 = sh, bx1 = -1, by1 = -1;
+	{
+		SGPVSurface::Lock lb(surf.get());
+		UINT16 const* const bp = lb.Buffer<UINT16>();
+		UINT32 const bpitch = lb.Pitch() >> 1;
+		for (INT32 yy = 0; yy < sh; ++yy)
+		{
+			for (INT32 xx = 0; xx < sw; ++xx)
+			{
+				if (bp[bpitch * yy + xx] == 0) continue;
+				if (xx < bx0) bx0 = xx;
+				if (xx > bx1) bx1 = xx;
+				if (yy < by0) by0 = yy;
+				if (yy > by1) by1 = yy;
+			}
+		}
+	}
+	if (bx1 < bx0 || by1 < by0) { bx0 = 0; by0 = 0; bx1 = sw - 1; by1 = sh - 1; }
+
+	INT32 const cw = bx1 - bx0 + 1;
+	INT32 const ch = by1 - by0 + 1;
+
+	INT32 w = cw * MAPZOOM_NUM * boost / 200;
+	INT32 h = ch * MAPZOOM_NUM * boost / 200;
+	if (w < 1) w = 1;
+	if (h < 1) h = 1;
+
+	INT32 const dstW = (INT32)dst->Width();
+	INT32 const dstH = (INT32)dst->Height();
+	SGPVSurface::Lock ld(dst);
+	SGPVSurface::Lock ls(surf.get());
+	UINT16 const* const sp = ls.Buffer<UINT16>();
+	UINT16* const dp = ld.Buffer<UINT16>();
+	UINT32 const spitch = ls.Pitch() >> 1;
+	UINT32 const dpitch = ld.Pitch() >> 1;
+	for (INT32 iy = 0; iy < h; ++iy)
+	{
+		INT32 const ty = y + iy;
+		if (ty < 0 || ty >= dstH) continue;
+		INT32 const sy = by0 + iy * ch / h;
+		for (INT32 ix = 0; ix < w; ++ix)
+		{
+			INT32 const tx = x + ix;
+			if (tx < 0 || tx >= dstW) continue;
+			INT32 const sx = bx0 + ix * cw / w;
+			UINT16 const v = sp[spitch * sy + sx];
+			if (v == 0) continue;
+			dp[dpitch * ty + tx] = v;
+		}
+	}
+}
+
+/* MAPZOOM-QFIT: phong hinh theo TI LE O (pctOfCell phan tram chieu cao o),
+ * giu ti le khung hinh, canh giua o, va bo qua diem anh trong suot. */
+/* MAPZOOM-QGLYPH2 : dau hoi tren ban do chien luoc, ban co do bong.
+   Nguon net: phong Roboto SemiBold (giay phep Apache License 2.0), dung o co 96 px
+   roi chuyen thanh mang muc do dam. Sinh tu dong boi make_qmark.py - KHONG sua tay mang.
+   Ve hai lop: lop bong toi lech xuong phai truoc, roi lop muc do dam len tren.
+   Ca hai lop deu thu nho co lay trung binh vung nen vien mem, khong rang cua.
+   Cac nut van: doi mau muc o QMARK_INK_*, do dam bong o QMARK_SHADOW_A. */
+#define QMARK_GLYPH_W 42
+#define QMARK_GLYPH_H 70
+#define QMARK_INK_R    205
+#define QMARK_INK_G      0
+#define QMARK_INK_B      0
+#define QMARK_SHADOW_A  70
+
+static unsigned char const gQMarkGlyph[QMARK_GLYPH_W * QMARK_GLYPH_H] = {
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  4, 57,113,
+	160,196,224,242,251,255,249,238,217,188,151,104, 45,  1,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  2, 73,165,240,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,230,147, 49,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  3, 99,220,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,189, 56,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0, 51,209,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	153, 12,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,109,250,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,213, 34,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,135,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,230, 37,  0,  0,  0,  0,  0,  0,  0,  0,
+	124,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,222, 18,  0,  0,  0,  0,  0,  0, 76,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,175,  0,  0,  0,
+	  0,  0, 17,232,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255, 81,  0,  0,  0,  0,143,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	255,216,  2,  0,  0, 18,246,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,255,185, 97, 39,  6,  0, 13, 51,121,226,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,255, 76,  0,  0,110,
+	255,255,255,255,255,255,255,255,255,255,255,255,255,217, 56,  0,
+	  0,  0,  0,  0,  0,  0,  0,  9,152,255,255,255,255,255,255,255,
+	255,255,255,255,255,255,171,  0,  0,193,255,255,255,255,255,255,
+	255,255,255,255,255,255,210, 18,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,150,255,255,255,255,255,255,255,255,255,255,255,255,
+	242,  5, 10,250,255,255,255,255,255,255,255,255,255,255,255,246,
+	 35,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,223,255,
+	255,255,255,255,255,255,255,255,255,255,255, 52, 55,255,255,255,
+	255,255,255,255,255,255,255,255,255,143,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,112,255,255,255,255,255,255,255,
+	255,255,255,255,255,100, 95,255,255,255,255,255,255,255,255,255,
+	255,255,255, 57,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0, 32,255,255,255,255,255,255,255,255,255,255,255,255,135,
+	121,255,255,255,255,255,255,255,255,255,255,255,252,  5,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,233,255,255,
+	255,255,255,255,255,255,255,255,255,158,138,255,255,255,255,255,
+	255,255,255,255,255,255,227,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,203,255,255,255,255,255,255,255,255,
+	255,255,255,170,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,191,255,255,255,255,255,255,255,255,255,255,255,174,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,198,255,255,255,255,
+	255,255,255,255,255,255,255,166,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,224,255,255,255,255,255,255,255,255,255,255,
+	255,144,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 20,254,
+	255,255,255,255,255,255,255,255,255,255,255,109,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0, 97,255,255,255,255,255,255,255,
+	255,255,255,255,255, 57,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  2,208,255,255,255,255,255,255,255,255,255,255,255,240,  4,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 98,255,255,255,255,
+	255,255,255,255,255,255,255,255,156,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0, 31,240,255,255,255,255,255,255,255,255,255,255,
+	255,255, 50,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 12,204,255,
+	255,255,255,255,255,255,255,255,255,255,255,177,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  7,185,255,255,255,255,255,255,255,255,
+	255,255,255,255,250, 39,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  6,
+	178,255,255,255,255,255,255,255,255,255,255,255,255,255,128,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  7,179,255,255,255,255,255,255,
+	255,255,255,255,255,255,255,199,  5,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  9,184,255,255,255,255,255,255,255,255,255,255,255,255,255,
+	233, 29,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,190,255,255,255,255,
+	255,255,255,255,255,255,255,255,255,245, 54,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  7,187,255,255,255,255,255,255,255,255,255,255,255,
+	255,255,249, 69,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,165,255,255,
+	255,255,255,255,255,255,255,255,255,255,255,251, 78,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,120,255,255,255,255,255,255,255,255,255,
+	255,255,255,255,252, 84,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 55,
+	252,255,255,255,255,255,255,255,255,255,255,255,255,251, 83,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  3,210,255,255,255,255,255,255,
+	255,255,255,255,255,255,250, 80,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,101,255,255,255,255,255,255,255,255,255,255,255,255,247,
+	 73,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,218,255,255,255,
+	255,255,255,255,255,255,255,255,248, 67,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0, 62,255,255,255,255,255,255,255,255,255,255,
+	255,255, 95,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,145,
+	255,255,255,255,255,255,255,255,255,255,255,169,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,212,255,255,255,255,255,255,
+	255,255,255,255,250, 31,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0, 12,254,255,255,255,255,255,255,255,255,255,255,170,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 51,255,255,255,
+	255,255,255,255,255,255,255,255, 90,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0, 85,255,255,255,255,255,255,255,255,255,
+	255,255, 26,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	111,255,255,255,255,255,255,255,255,255,255,232,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,130,255,255,255,255,255,
+	255,255,255,255,255,200,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,142,255,255,255,255,255,255,255,255,255,255,174,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,150,255,
+	255,255,255,255,255,255,255,255,255,162,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  1,  6,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 44,152,221,252,255,243,
+	194,106,  7,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,120,252,255,255,255,255,255,255,255,215, 36,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,109,255,255,255,
+	255,255,255,255,255,255,255,226, 20,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0, 27,247,255,255,255,255,255,255,255,255,255,
+	255,255,154,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,120,
+	255,255,255,255,255,255,255,255,255,255,255,255,246, 10,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,176,255,255,255,255,255,255,
+	255,255,255,255,255,255,255, 55,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,194,255,255,255,255,255,255,255,255,255,255,255,255,
+	255, 74,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,177,255,255,
+	255,255,255,255,255,255,255,255,255,255,255, 56,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,120,255,255,255,255,255,255,255,255,
+	255,255,255,255,246, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0, 25,246,255,255,255,255,255,255,255,255,255,255,255,152,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,105,255,255,255,
+	255,255,255,255,255,255,255,223, 18,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,112,251,255,255,255,255,255,255,255,
+	210, 33,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+	  0,  0, 38,145,214,247,254,235,186, 99,  5,  0,  0,  0,  0,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+};
+
+static void DrawQuestionMarkInCell(SGPVSurface* const dst, INT32 const cellLeft,
+		INT32 const cellTop, UINT8 const colour, INT32 const pctOfCell)
+{
+	(void)colour;
+	if (dst->BPP() != 16) return;
+
+	INT32 const gw = QMARK_GLYPH_W;
+	INT32 const gh = QMARK_GLYPH_H;
+
+	INT32 const targetH = MAP_GRID_Y * pctOfCell / 100;
+	INT32 const targetW = MAP_GRID_X * pctOfCell / 100;
+	INT32 w = gw * targetH / gh;
+	INT32 h = targetH;
+	if (w > targetW) { w = targetW; h = gh * targetW / gw; }
+	if (w > MAP_GRID_X - 2) w = MAP_GRID_X - 2;
+	if (h > MAP_GRID_Y - 2) h = MAP_GRID_Y - 2;
+	if (w < 1) w = 1;
+	if (h < 1) h = 1;
+
+	/* bong lech theo co net, toi thieu 1 diem anh */
+	INT32 sdx = h / 14;
+	if (sdx < 1) sdx = 1;
+	if (sdx > 4) sdx = 4;
+	INT32 const sdy = sdx;
+
+	INT32 const px = cellLeft + (MAP_GRID_X - w - sdx) / 2;
+	INT32 const py = cellTop  + (MAP_GRID_Y - h - sdy) / 2;
+
+	INT32 const dstW = (INT32)dst->Width();
+	INT32 const dstH = (INT32)dst->Height();
+
+	{
+		static bool qglogged = false;
+		if (!qglogged)
+		{
+			qglogged = true;
+			SLOGI("QGLYPH2: net goc {}x{} -> ve {}x{} tai ({},{}) bong lech {} trong o {}x{}",
+				gw, gh, w, h, px, py, sdx, (INT32)MAP_GRID_X, (INT32)MAP_GRID_Y);
+		}
+	}
+
+	SGPVSurface::Lock ld(dst);
+	UINT16* const dp = ld.Buffer<UINT16>();
+	UINT32 const dpitch = ld.Pitch() >> 1;
+
+	/* lop 0 = bong toi, lop 1 = muc */
+	for (INT32 layer = 0; layer < 2; ++layer)
+	{
+		INT32 const offX = (layer == 0) ? sdx : 0;
+		INT32 const offY = (layer == 0) ? sdy : 0;
+		INT32 const inkR = (layer == 0) ? 0 : QMARK_INK_R;
+		INT32 const inkG = (layer == 0) ? 0 : QMARK_INK_G;
+		INT32 const inkB = (layer == 0) ? 0 : QMARK_INK_B;
+		INT32 const aMul = (layer == 0) ? QMARK_SHADOW_A : 100;
+
+		for (INT32 iy = 0; iy < h; ++iy)
+		{
+			INT32 const ty = py + offY + iy;
+			if (ty < 0 || ty >= dstH) continue;
+			INT32 sy0 = iy * gh / h;
+			INT32 sy1 = (iy + 1) * gh / h;
+			if (sy1 <= sy0) sy1 = sy0 + 1;
+			for (INT32 ix = 0; ix < w; ++ix)
+			{
+				INT32 const tx = px + offX + ix;
+				if (tx < 0 || tx >= dstW) continue;
+				INT32 sx0 = ix * gw / w;
+				INT32 sx1 = (ix + 1) * gw / w;
+				if (sx1 <= sx0) sx1 = sx0 + 1;
+
+				INT32 sum = 0;
+				INT32 cnt = 0;
+				for (INT32 sy = sy0; sy < sy1 && sy < gh; ++sy)
+				{
+					for (INT32 sx = sx0; sx < sx1 && sx < gw; ++sx)
+					{
+						sum += (INT32)gQMarkGlyph[sy * gw + sx];
+						++cnt;
+					}
+				}
+				INT32 a = (cnt > 0) ? (sum / cnt) : 0;
+				a = a * aMul / 100;
+				if (a <= 4) continue;
+				if (a > 255) a = 255;
+
+				UINT16 const oldv = dp[dpitch * ty + tx];
+				INT32 const orr = (INT32)(((oldv >> 11) & 0x1F) << 3);
+				INT32 const og  = (INT32)(((oldv >>  5) & 0x3F) << 2);
+				INT32 const ob  = (INT32)((oldv & 0x1F) << 3);
+				INT32 const nr = (inkR * a + orr * (255 - a)) / 255;
+				INT32 const ng = (inkG * a + og  * (255 - a)) / 255;
+				INT32 const nb = (inkB * a + ob  * (255 - a)) / 255;
+				dp[dpitch * ty + tx] = (UINT16)(((nr >> 3) << 11) | ((ng >> 2) << 5) | (nb >> 3));
+			}
+		}
+	}
+}
+
+
+
+static void BltMapIconFitCell(SGPVSurface* const dst, cache_key_t const& key,
+	UINT16 const idx, INT32 const cellLeft, INT32 const cellTop, INT32 const pctOfCell)
+{
+	auto surf = CreateVideoSurfaceFromObjectFile(key, idx);
+	if (!surf || surf->BPP() != 16 || dst->BPP() != 16)
+	{
+		BltVideoObject(dst, key, idx, cellLeft, cellTop);
+		return;
+	}
+
+	INT32 const sw = (INT32)surf->Width();
+	INT32 const sh = (INT32)surf->Height();
+
+	/* Buoc 1: tim bien that cua hinh */
+	INT32 bx0 = sw, by0 = sh, bx1 = -1, by1 = -1;
+	{
+		SGPVSurface::Lock lb(surf.get());
+		UINT16 const* const bp = lb.Buffer<UINT16>();
+		UINT32 const bpitch = lb.Pitch() >> 1;
+		for (INT32 yy = 0; yy < sh; ++yy)
+		{
+			for (INT32 xx = 0; xx < sw; ++xx)
+			{
+				if (bp[bpitch * yy + xx] == 0) continue;
+				if (xx < bx0) bx0 = xx;
+				if (xx > bx1) bx1 = xx;
+				if (yy < by0) by0 = yy;
+				if (yy > by1) by1 = yy;
+			}
+		}
+	}
+	if (bx1 < bx0 || by1 < by0) { bx0 = 0; by0 = 0; bx1 = sw - 1; by1 = sh - 1; }
+
+	/* QMARK-DUMP: ket xuat o anh ra tep de nhin tan mat. Chay dung mot lan. */
+	{
+		static bool qdumped = false;
+		if (!qdumped)
+		{
+			qdumped = true;
+			SGPVSurface::Lock lq(surf.get());
+			UINT16 const* const qp = lq.Buffer<UINT16>();
+			UINT32 const qpitch = lq.Pitch() >> 1;
+			INT32  const stride = (sw * 3 + 3) / 4 * 4;
+			UINT32 const dataSize = (UINT32)(stride * sh);
+			FILE* qf = fopen("/tmp/qmark.bmp", "wb");
+			if (qf != NULL)
+			{
+				UINT8 hdr[54];
+				memset(hdr, 0, sizeof(hdr));
+				hdr[0] = 'B'; hdr[1] = 'M';
+				UINT32 const fileSize = 54 + dataSize;   memcpy(hdr +  2, &fileSize, 4);
+				UINT32 const offBits  = 54;              memcpy(hdr + 10, &offBits,  4);
+				UINT32 const hsize    = 40;              memcpy(hdr + 14, &hsize,    4);
+				INT32  const bmw      = sw;              memcpy(hdr + 18, &bmw,      4);
+				INT32  const bmh      = sh;              memcpy(hdr + 22, &bmh,      4);
+				UINT16 const planes   = 1;               memcpy(hdr + 26, &planes,   2);
+				UINT16 const bmbpp    = 24;              memcpy(hdr + 28, &bmbpp,    2);
+				memcpy(hdr + 34, &dataSize, 4);
+				fwrite(hdr, 1, 54, qf);
+
+				std::vector<UINT8> qrow((size_t)stride, (UINT8)0);
+				for (INT32 yy = sh - 1; yy >= 0; --yy)
+				{
+					std::fill(qrow.begin(), qrow.end(), (UINT8)0);
+					for (INT32 xx = 0; xx < sw; ++xx)
+					{
+						UINT16 const qv = qp[qpitch * yy + xx];
+						qrow[(size_t)(xx * 3 + 0)] = (UINT8)(( qv        & 0x1F) << 3);
+						qrow[(size_t)(xx * 3 + 1)] = (UINT8)(((qv >>  5) & 0x3F) << 2);
+						qrow[(size_t)(xx * 3 + 2)] = (UINT8)(((qv >> 11) & 0x1F) << 3);
+					}
+					fwrite(qrow.data(), 1, (size_t)stride, qf);
+				}
+				fclose(qf);
+			}
+			SLOGI("QMARK-DUMP: surface {}x{} bien that x {}..{} y {}..{} -> /tmp/qmark.bmp",
+				sw, sh, bx0, bx1, by0, by1);
+
+			/* QMARK-ROW: ban do ky tu cua o anh, de nhin ro hinh that. */
+			for (INT32 qy = 0; qy < sh; ++qy)
+			{
+				char qbuf[80];
+				INT32 const qn = (sw < 78) ? sw : 78;
+				for (INT32 qx = 0; qx < qn; ++qx)
+				{
+					qbuf[qx] = (qp[qpitch * qy + qx] == 0) ? '.' : '#';
+				}
+				qbuf[qn] = '\0';
+				SLOGI("QMARK-ROW {}: {}", qy, qbuf);
+			}
+		}
+	}
+
+	INT32 const cw = bx1 - bx0 + 1;
+	INT32 const ch = by1 - by0 + 1;
+
+	/* Buoc 2: tinh nguoc tu co O xuong, giu ti le khung hinh */
+	INT32 const targetH = MAP_GRID_Y * pctOfCell / 100;
+	INT32 const targetW = MAP_GRID_X * pctOfCell / 100;
+	INT32 w = cw * targetH / (ch > 0 ? ch : 1);
+	INT32 h = targetH;
+	if (w > targetW)
+	{
+		w = targetW;
+		h = ch * targetW / (cw > 0 ? cw : 1);
+	}
+	if (w > MAP_GRID_X - 2) w = MAP_GRID_X - 2;
+	if (h > MAP_GRID_Y - 2) h = MAP_GRID_Y - 2;
+	if (w < 1) w = 1;
+	if (h < 1) h = 1;
+
+	INT32 const px = cellLeft + (MAP_GRID_X - w) / 2;
+	INT32 const py = cellTop  + (MAP_GRID_Y - h) / 2;
+
+
+	/* Buoc 3: keo gian thu cong, bo qua diem anh trong suot */
+	INT32 const dstW = (INT32)dst->Width();
+	INT32 const dstH = (INT32)dst->Height();
+	SGPVSurface::Lock ld(dst);
+	SGPVSurface::Lock ls(surf.get());
+	UINT16 const* const sp = ls.Buffer<UINT16>();
+	UINT16* const dp = ld.Buffer<UINT16>();
+	UINT32 const spitch = ls.Pitch() >> 1;
+	UINT32 const dpitch = ld.Pitch() >> 1;
+	for (INT32 iy = 0; iy < h; ++iy)
+	{
+		INT32 const ty = py + iy;
+		if (ty < 0 || ty >= dstH) continue;
+		INT32 const sy = by0 + iy * ch / h;
+		for (INT32 ix = 0; ix < w; ++ix)
+		{
+			INT32 const tx = px + ix;
+			if (tx < 0 || tx >= dstW) continue;
+			INT32 const sx = bx0 + ix * cw / w;
+			UINT16 const v = sp[spitch * sy + sx];
+			if (v == 0) continue;
+			dp[dpitch * ty + tx] = v;
+		}
+	}
+}
+
 }
 
 // highlighted sector
@@ -495,7 +1143,31 @@ void DrawMap(void)
 {
 	if (!iCurrentMapSectorZ)
 	{
-		BltVideoSurfaceHalf(guiSAVEBUFFER, guiBIGMAP, MAP_VIEW_START_X + 1, MAP_VIEW_START_Y, NULL);
+		if (g_ui.isMapFullSize())
+		{
+			/* Full-size map art (e.g. Wildfire's 714x612 b_map.sti): the
+			 * terrain starts at (41,35) in the art and cell (1,1) must land
+			 * at MAP_VIEW_START + one 42x36 grid step, hence the +1/+1. */
+			/* MAPZOOM */
+			if (MAPZOOM_NUM == 2)
+			{
+				BltVideoSurface(guiSAVEBUFFER, guiBIGMAP, MAP_VIEW_START_X + 1, MAP_VIEW_START_Y + 1, NULL);
+			}
+			else
+			{
+				SGPBox const zsrc = {0, 0, guiBIGMAP->Width(), guiBIGMAP->Height()};
+				SGPBox const zdst = {
+					(UINT16)(MAP_VIEW_START_X + 1),
+					(UINT16)(MAP_VIEW_START_Y + 1),
+					(UINT16)((INT32)guiBIGMAP->Width()  * MAPZOOM_NUM / 2),
+					(UINT16)((INT32)guiBIGMAP->Height() * MAPZOOM_NUM / 2)};
+				BltStretchVideoSurface(guiSAVEBUFFER, guiBIGMAP, &zsrc, &zdst);
+			}
+		}
+		else
+		{
+			BltVideoSurfaceHalf(guiSAVEBUFFER, guiBIGMAP, MAP_VIEW_START_X + 1, MAP_VIEW_START_Y, NULL);
+		}
 
 		// shade map sectors (must be done after Tixa/Orta/Mine icons have been blitted, but before icons!)
 		SGPSector sSector(1, 1, iCurrentMapSectorZ);
@@ -733,20 +1405,31 @@ static INT32 ShowVehicles(const SGPSector& sSector, INT32 icon_pos)
 }
 
 
+static void ShowUncertainNumberEnemiesInSector(INT16 sec_x, INT16 sec_y);
+
+
 static void ShowEnemiesInSector(const SGPSector& sMap, INT16 n_enemies, UINT8 icon_pos)
 {
-	while (n_enemies-- != 0)
-	{
-		DrawMapBoxIcon(guiCHARICONS, SMALL_RED_BOX, sMap, icon_pos++);
-	}
+	/* MAPZOOM-ONEQ: o co dich chi hien MOT dau hoi canh giua o,
+	 * thay vi ve mot hop nho cho tung ten dich. */
+	(void)n_enemies;
+	(void)icon_pos;
+	ShowUncertainNumberEnemiesInSector(sMap.x, sMap.y);
 }
 
 
 static void ShowUncertainNumberEnemiesInSector(INT16 const sec_x, INT16 const sec_y)
 {
-	INT16 const x = MAP_VIEW_START_X + sec_x * MAP_GRID_X + MAP_X_ICON_OFFSET;
-	INT16 const y = MAP_VIEW_START_Y + sec_y * MAP_GRID_Y - 1;
-	BltVideoObject(guiSAVEBUFFER, guiCHARICONS, SMALL_QUESTION_MARK, x, y);
+	INT16 const x = MAP_VIEW_START_X + sec_x * MAP_GRID_X;
+	INT16 const y = MAP_VIEW_START_Y + sec_y * MAP_GRID_Y;
+	/* Wide Wildfire layouts must use the complete glyph.  The legacy boxes.sti
+	 * frame contains only half the mark in some Wildfire data sets.  Keep that
+	 * frame for the original 640x480 layout only. */
+#define QMARK_PCT 92
+	if (g_ui.isMapFullSize() || g_ui.isWidescreenLayout())
+		DrawQuestionMarkInCell(guiSAVEBUFFER, x, y, FONT_MCOLOR_RED, QMARK_PCT);
+	else
+		BltMapIconFitCell(guiSAVEBUFFER, guiCHARICONS, SMALL_QUESTION_MARK, x, y, QMARK_PCT);
 	InvalidateRegion(x, y, x + DMAP_GRID_X, y + DMAP_GRID_Y);
 }
 
@@ -793,14 +1476,14 @@ static void ShadeMapElem(const SGPSector& sMap, const INT32 iColor)
 	{
 		(UINT16)(2 * (sScreenX - (MAP_VIEW_START_X + 1))),
 		(UINT16)(2 * (sScreenY - MAP_VIEW_START_Y)),
-		2 * MAP_GRID_X,
-		2 * MAP_GRID_Y
+		(UINT16)(2 * MAP_GRID_X),
+		(UINT16)(2 * MAP_GRID_Y)
 	};
 
 	// non-airspace
 	if (iColor == MAP_SHADE_BLACK) sScreenY -= 1;
 
-	UINT16* pal;
+	UINT16* pal = NULL;
 	switch (iColor)
 	{
 	case MAP_SHADE_BLACK:
@@ -815,6 +1498,57 @@ static void ShadeMapElem(const SGPSector& sMap, const INT32 iColor)
 
 	default: return;
 	}
+
+	/* Full-size editions use 16-bit map art, so reproduce the palette tint
+	 * directly on the destination cell instead of using the 8-bit blit path. */
+	if (guiBIGMAP->BPP() == 16)
+	{
+		INT32 const x0 = std::max<INT32>(sScreenX, 0);
+		INT32 const y0 = std::max<INT32>(sScreenY, 0);
+		INT32 const x1 = std::min<INT32>(sScreenX + MAP_GRID_X, guiSAVEBUFFER->Width());
+		INT32 const y1 = std::min<INT32>(sScreenY + MAP_GRID_Y, guiSAVEBUFFER->Height());
+		if (x0 >= x1 || y0 >= y1) return;
+
+		UINT8 tint_r;
+		UINT8 tint_g;
+		UINT8 tint_b;
+		UINT32 const scale = iColor == MAP_SHADE_LT_GREEN || iColor == MAP_SHADE_LT_RED ? 400 : 200;
+		if (iColor == MAP_SHADE_LT_GREEN || iColor == MAP_SHADE_DK_GREEN)
+		{
+			tint_r = 0;
+			tint_g = 255;
+			tint_b = 0;
+		}
+		else
+		{
+			tint_r = 255;
+			tint_g = 0;
+			tint_b = 0;
+		}
+
+		SGPVSurface::Lock lock(guiSAVEBUFFER);
+		UINT16* const pixels = lock.Buffer<UINT16>();
+		UINT32 const pitch = lock.Pitch() / sizeof(UINT16);
+		SDL_PixelFormat const& format = guiSAVEBUFFER->GetSDLSurface().format[0];
+		for (INT32 y = y0; y < y1; ++y)
+		{
+			for (INT32 x = x0; x < x1; ++x)
+			{
+				UINT8 red;
+				UINT8 green;
+				UINT8 blue;
+				SDL_GetRGB(pixels[pitch * y + x], &format, &red, &green, &blue);
+				UINT32 const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
+				UINT8 const r = std::min(255U, UINT32(tint_r) * luminance * scale / (255U * 256U));
+				UINT8 const g = std::min(255U, UINT32(tint_g) * luminance * scale / (255U * 256U));
+				UINT8 const b = std::min(255U, UINT32(tint_b) * luminance * scale / (255U * 256U));
+				pixels[pitch * y + x] = Get16BPPColor(r, g, b);
+			}
+		}
+		return;
+	}
+
+	if (pal == NULL) return;
 
 	// get original video surface palette
 	SGPVSurface* const map = guiBIGMAP;
@@ -2677,7 +3411,35 @@ static void DropAPersonInASector(UINT8 const type, UINT8 const sector)
 
 void LoadMapScreenInterfaceMapGraphics()
 {
-	guiBIGMAP                      = AddVideoSurfaceFromFile(INTERFACEDIR "/b_map.pcx");
+	// Multi-edition resource resolution: the strategic map background is
+	// shipped under different filenames depending on the edition. Vanilla
+	// uses interface/b_map.pcx, while JA2: Wildfire ships an up-sized
+	// 16-bit interface/b_map.sti. Ask the resolver for the first candidate
+	// that is actually present in the loaded game data.
+	const ST::string bigMapFile = ResolveResourceVariant(GCM, {
+		INTERFACEDIR "/b_map.pcx",
+		INTERFACEDIR "/b_map.sti",
+	});
+	
+	if (!bigMapFile.empty())
+	{
+		guiBIGMAP = AddVideoSurfaceFromFile(bigMapFile.c_str());
+	}
+	else
+	{
+		SLOGW("Missing interface/b_map.pcx (not present in this game edition); "
+			"using a blank placeholder for the strategic map background.");
+		guiBIGMAP = AddVideoSurface(2 * MAP_VIEW_WIDTH, 2 * MAP_VIEW_HEIGHT, 8);
+		SGPPaletteEntry placeholderPalette[256];
+		for (UINT32 i = 0; i < 256; ++i)
+		{
+			placeholderPalette[i].r = 0;
+			placeholderPalette[i].g = 0;
+			placeholderPalette[i].b = 0;
+			placeholderPalette[i].a = 255;
+		}
+		guiBIGMAP->SetPalette(placeholderPalette);
+	}
 
 	for (auto s : GCM->getMapSecrets())
 	{
@@ -2688,7 +3450,13 @@ void LoadMapScreenInterfaceMapGraphics()
 		}
 	}
 
-	InitializePalettesForMap(guiBIGMAP->GetPalette());
+	// Map sector colour-shading needs an 8-bit palette. Editions whose
+	// strategic-map background is a 16-bit STI (e.g. Wildfire) have none,
+	// so only initialise the shade palettes when a palette is present.
+	if (guiBIGMAP->GetPalette() != NULL)
+	{
+		InitializePalettesForMap(guiBIGMAP->GetPalette());
+	}
 }
 
 
@@ -3454,7 +4222,7 @@ static void ShadeSubLevelsNotVisited(void)
 		if (i->uiFlags & SF_ALREADY_VISITED)           continue;
 		/* The sector is on the currently displayed sublevel and has never been
 			* visited.  Remove that portion of the "mine" graphics from view. */
-		HideExistenceOfUndergroundMapSector(i->ubSector);
+		if (getenv("JA2_SHOWMINE") == NULL) HideExistenceOfUndergroundMapSector(i->ubSector);
 	}
 }
 
@@ -3473,7 +4241,57 @@ static void HandleLowerLevelMapBlit(void)
 	}
 
 	// handle the blt of the sublevel
-	BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 21, MAP_VIEW_START_Y + 17);
+	if (g_ui.isMapFullSize())
+	{
+		/* Full-size sublevel art (e.g. Wildfire's Mine_N.sti subimage is
+		 * 676x580 = exactly 2x the vanilla 338x290), so the vanilla anchor
+		 * (+21,+17) doubles too.  The sublevel art is smaller than the
+		 * surface map art, so first wipe the whole surface-map area to the
+		 * mine art's background colour -- otherwise strips of the surface
+		 * map would stay visible along the edges when switching levels. */
+		UINT16 const fill = Get16BPPColor(FROMRGB(2, 2, 0));
+		ColorFillVideoSurfaceArea(guiSAVEBUFFER,
+			MAP_VIEW_START_X + 1, MAP_VIEW_START_Y + 1,
+			MAP_VIEW_START_X + 1 + (INT32)guiBIGMAP->Width()  * MAPZOOM_NUM / 2,
+				MAP_VIEW_START_Y + 1 + (INT32)guiBIGMAP->Height() * MAPZOOM_NUM / 2, fill);
+		if (MAPZOOM_NUM == 2)
+			{
+				BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 42, MAP_VIEW_START_Y + 34);
+			}
+			else
+			{
+				/* MAPZOOM-SUB: tranh tang ham la video object, loai do khong co ham
+				 * keo gian. Mo cung tep do thanh mat ve roi keo gian, dung cach ma
+				 * RenderTeamRegionBackground() da dung cho newgoldpiece3.sti. */
+				auto zsub = CreateVideoSurfaceFromObjectFile(vo, 0);
+				if (zsub)
+				{
+					SGPBox const zsrc = {0, 0, zsub->Width(), zsub->Height()};
+					SGPBox const zdst = {
+						(UINT16)(MAP_VIEW_START_X + 42 * MAPZOOM_NUM / 2),
+						(UINT16)(MAP_VIEW_START_Y + 34 * MAPZOOM_NUM / 2),
+						(UINT16)((INT32)zsub->Width()  * MAPZOOM_NUM / 2),
+						(UINT16)((INT32)zsub->Height() * MAPZOOM_NUM / 2)};
+					BltStretchVideoSurface(guiSAVEBUFFER, zsub.get(), &zsrc, &zdst);
+				}
+				else
+				{
+					BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 42 * MAPZOOM_NUM / 2, MAP_VIEW_START_Y + 34 * MAPZOOM_NUM / 2);
+				}
+			}
+	}
+	else
+	{
+		auto const sublevel = CreateVideoSurfaceFromObjectFile(vo, 0);
+		if (sublevel && sublevel->Width() == 676 && sublevel->Height() == 580)
+		{
+			BltVideoSurfaceHalf(guiSAVEBUFFER, sublevel.get(), MAP_VIEW_START_X + 21, MAP_VIEW_START_Y + 17, NULL);
+		}
+		else
+		{
+			BltVideoObject(guiSAVEBUFFER, vo, 0, MAP_VIEW_START_X + 21, MAP_VIEW_START_Y + 17);
+		}
+	}
 
 	// handle shading of sublevels
 	ShadeSubLevelsNotVisited( );
@@ -3781,9 +4599,45 @@ static void DrawMapBoxIcon(cache_key_t const vo, UINT16 const icon, const SGPSec
 	INT32 const col = icon_pos % MERC_ICONS_PER_LINE;
 	INT32 const row = icon_pos / MERC_ICONS_PER_LINE;
 
-	INT32 const x = MAP_VIEW_START_X + sMap.x * MAP_GRID_X + MAP_X_ICON_OFFSET + 3 * col;
-	INT32 const y = MAP_VIEW_START_Y + sMap.y * MAP_GRID_Y + MAP_Y_ICON_OFFSET + 3 * row;
-	BltVideoObject(guiSAVEBUFFER, vo, icon, x, y);
+	/* MAPZOOM-ICON2: le trong o va khoang cach xep deu phai phong theo,
+	 * neu khong thi cac hop nho se de len nhau khi o to ra. */
+	INT32 const spread = MapIconBoostPercent();
+	INT32 x, y;
+	if (MAPZOOM_NUM == 2 && spread == 100)
+	{
+		/* Khong phong: giu nguyen bo cuc goc, man hinh nho khong doi mot diem anh */
+		x = MAP_VIEW_START_X + sMap.x * MAP_GRID_X + (MAP_X_ICON_OFFSET + 3 * col);
+		y = MAP_VIEW_START_Y + sMap.y * MAP_GRID_Y + (MAP_Y_ICON_OFFSET + 3 * row);
+	}
+	else
+	{
+		/* MAPZOOM-CLUSTER: dat goc luoi xep sao cho CA CUM nam giua o */
+		INT32 stepX = 3 * MAPZOOM_NUM * spread / 200;
+		INT32 stepY = 3 * MAPZOOM_NUM * spread / 200;
+		if (stepX < 2) stepX = 2;
+		if (stepY < 2) stepY = 2;
+		INT32 clusterW = MERC_ICONS_PER_LINE * stepX;
+		INT32 clusterH = ROWS_PER_SECTOR    * stepY;
+		if (clusterW > MAP_GRID_X - 2)
+		{
+			clusterW = MAP_GRID_X - 2;
+			stepX    = clusterW / MERC_ICONS_PER_LINE;
+			if (stepX < 1) stepX = 1;
+			clusterW = MERC_ICONS_PER_LINE * stepX;
+		}
+		if (clusterH > MAP_GRID_Y - 2)
+		{
+			clusterH = MAP_GRID_Y - 2;
+			stepY    = clusterH / ROWS_PER_SECTOR;
+			if (stepY < 1) stepY = 1;
+			clusterH = ROWS_PER_SECTOR * stepY;
+		}
+		INT32 const originX = MAP_VIEW_START_X + sMap.x * MAP_GRID_X + (MAP_GRID_X - clusterW) / 2;
+		INT32 const originY = MAP_VIEW_START_Y + sMap.y * MAP_GRID_Y + (MAP_GRID_Y - clusterH) / 2;
+		x = originX + col * stepX;
+		y = originY + row * stepY;
+	}
+	BltMapIconAlpha(guiSAVEBUFFER, vo, icon, x, y);
 	InvalidateRegion(x, y, x + DMAP_GRID_X, y + DMAP_GRID_Y);
 }
 
@@ -3802,9 +4656,7 @@ static void DrawBullseye(void)
 	INT16 sX, sY;
 
 	GetScreenXYFromMapXY(g_merc_arrive_sector, &sX, &sY);
-	sY -= 2;
-
-	BltVideoObject(guiSAVEBUFFER, guiBULLSEYE, 0, sX, sY);
+	BltMapIconCentered(guiSAVEBUFFER, guiBULLSEYE, 0, sX, sY);
 }
 
 

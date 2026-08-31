@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "Interface_Panels.h"
 #include "Animation_Control.h"
 #include "Assignments.h"
@@ -139,9 +143,15 @@
 #define SM_LOOKB_Y				108
 #define SM_STEALTHMODE_X			187
 #define SM_STEALTHMODE_Y			73
-#define SM_DONE_X				(g_ui.m_teamPanelSlotsTotalWidth + 45)
+/* OGVM-UILAYOUT: the SM panel is always built from the vanilla
+ * inventory_bottom_panel.sti art, whose buttons box is
+ * TEAMPANEL_BUTTONSBOX_WIDTH (142) wide and is right-aligned to the end of the
+ * SM panel. These offsets are therefore relative to the slot area and are the
+ * same for every edition. Do NOT branch on m_teamPanelWidth here: that width
+ * belongs to the TEAM panel, which may use a wider (194px) Wildfire box. */
+#define SM_DONE_X				(g_ui.m_teamPanelSlotsTotalWidth + 46)
 #define SM_DONE_Y				4
-#define SM_MAPSCREEN_X				(g_ui.m_teamPanelSlotsTotalWidth + 91)
+#define SM_MAPSCREEN_X				(g_ui.m_teamPanelSlotsTotalWidth + 92)
 #define SM_MAPSCREEN_Y				4
 
 
@@ -323,7 +333,7 @@ static MOUSE_REGION gSM_SELMERCEnemyIndicatorRegion;
 static MOUSE_REGION gSM_SELMERCStatsRegion[NUM_ATTRIBUTES];
 static MOUSE_REGION gTEAM_PanelRegion;
 
-static std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex);
+std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex);
 
 // Globals - for one - the current merc here
 SOLDIERTYPE *gpSMCurrentMerc = NULL;
@@ -849,26 +859,97 @@ static void SelectedMercPopupMoveCallback(MOUSE_REGION* pRegion, uint32_t iReaso
 static void SelectedMercEnemyIndicatorCallback(MOUSE_REGION* pRegion, UINT32 iReason);
 
 
-/** Fill empty space at the bottom of the screen. */
-static void FillEmptySpaceAtBottom()
+/* OGVM-UILAYOUT: width of the assembled Single-Merc panel.
+ *
+ * The SM panel is composed from INTERFACEDIR "/inventory_bottom_panel.sti",
+ * which is vanilla art: slot area + a 142px buttons box. The TEAM panel may be
+ * composed from Wildfire's bottom_bar.sti whose buttons box is 194px wide, so
+ * g_ui.m_teamPanelWidth is 52px too wide to describe the SM panel. Using it
+ * left an uncovered 52px strip at the right edge of the SM panel. */
+static UINT16 GetSMPanelWidth()
+{
+	return g_ui.m_teamPanelSlotsTotalWidth + TEAMPANEL_BUTTONSBOX_WIDTH;
+}
+
+/** Fill empty space at the bottom of the screen.
+ * @param panelWidth width of the bottom panel that is currently assembled. */
+static void FillEmptySpaceAtBottom(UINT16 const panelWidth)
 {
 	if(g_ui.isBigScreen())
 	{
-		ColorFillVideoSurfaceArea(guiSAVEBUFFER, 0, g_ui.get_INV_INTERFACE_START_Y(),
-						INTERFACE_START_X, g_ui.m_screenHeight, 0);
-		ColorFillVideoSurfaceArea(guiSAVEBUFFER, INTERFACE_START_X + g_ui.m_teamPanelWidth, g_ui.get_INV_INTERFACE_START_Y(),
-						g_ui.m_screenWidth, g_ui.m_screenHeight, 0);
+		/* Fill the gaps on both sides of the bottom panel with the textured
+		 * space filler instead of plain black. */
+		UINT16 const y = g_ui.get_INV_INTERFACE_START_Y();
+		UINT16 const h = g_ui.m_screenHeight - y;
+		if (INTERFACE_START_X > 0)
+		{
+			SGPBox const left = {0, y, (UINT16)INTERFACE_START_X, h};
+			DrawFillerOnSurface(guiSAVEBUFFER, left);
+		}
+		UINT16 const panelEnd = INTERFACE_START_X + panelWidth;
+		if (panelEnd < g_ui.m_screenWidth)
+		{
+			SGPBox const right = {panelEnd, y, (UINT16)(g_ui.m_screenWidth - panelEnd), h};
+			DrawFillerOnSurface(guiSAVEBUFFER, right);
+		}
 	}
 }
 
 /** Fill up some space with a textured space filler */
-static void DrawFillerOnSurface(SGPVSurface* vsSurface, SGPBox const &dest)
+void DrawFillerOnSurface(SGPVSurface* vsSurface, SGPBox const &dest)
 {
 	auto vsFiller = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/overheadinterface.sti", 0);
 
-	// clip and blit the big panel from the overheadinterface graphics
-	SGPBox const src  = {80, 42, (UINT16) std::min(int(dest.w), 560), (UINT16) std::min(int(dest.h), 112)};
-	BltStretchVideoSurface(vsSurface, vsFiller.get(), &src, &dest);
+	/* LEATHER-TINT + TILE: Wildfire OverheadInterface.sti wood is cold grey and
+	 * stretching a 560x112 crop over full-screen margins makes giant red grain.
+	 * Tint toward dark book-leather (sample map overview ~dark brown, not red
+	 * mahogany) then TILE 1:1 so the grain stays fine like the original chrome. */
+	{
+		SGPVSurface::Lock l(vsFiller.get());
+		UINT16* const buf    = l.Buffer<UINT16>();
+		UINT32  const stride = l.Pitch() / 2;
+		UINT16  const w      = vsFiller->Width();
+		UINT16  const h      = vsFiller->Height();
+		for (UINT16 y = 0; y < h; ++y)
+		{
+			UINT16* row = buf + y * stride;
+			for (UINT16 x = 0; x < w; ++x)
+			{
+				UINT32 const rgb = GetRGBColor(row[x]);
+				INT32 r = SGPGetRValue(rgb);
+				INT32 g = SGPGetGValue(rgb);
+				INT32 b = SGPGetBValue(rgb);
+				if (r + g + b < 18) continue; // keep holes / pure black
+				/* dark chocolate leather: modest red, crush green/blue, keep dim */
+				r = std::min(255, (r * 110) / 100 + 6);
+				g = std::min(255, (g *  55) / 100 + 2);
+				b = std::min(255, (b *  35) / 100 + 1);
+				/* overall darken toward book-cover levels */
+				r = (r * 70) / 100;
+				g = (g * 70) / 100;
+				b = (b * 70) / 100;
+				row[x] = Get16BPPColor((UINT8)r, (UINT8)g, (UINT8)b);
+			}
+		}
+	}
+
+	/* Tile the filler crop 1:1 across dest (no stretch = no giant wood grain). */
+	UINT16 const tileW = (UINT16)std::min(560, (int)vsFiller->Width()  > 80 ? vsFiller->Width()  - 80 : vsFiller->Width());
+	UINT16 const tileH = (UINT16)std::min(112, (int)vsFiller->Height() > 42 ? vsFiller->Height() - 42 : vsFiller->Height());
+	if (tileW == 0 || tileH == 0 || dest.w == 0 || dest.h == 0) return;
+
+	for (UINT16 dy = 0; dy < dest.h; dy = (UINT16)(dy + tileH))
+	{
+		UINT16 const hPiece = (UINT16)std::min((int)tileH, (int)(dest.h - dy));
+		for (UINT16 dx = 0; dx < dest.w; dx = (UINT16)(dx + tileW))
+		{
+			UINT16 const wPiece = (UINT16)std::min((int)tileW, (int)(dest.w - dx));
+			SGPBox const src  = {80, 42, wPiece, hPiece};
+			/* BltVideoSurface uses dest x/y + optional src rect */
+			SGPBox const piece = {src.x, src.y, wPiece, hPiece};
+			BltVideoSurface(vsSurface, vsFiller.get(), dest.x + dx, dest.y + dy, &piece);
+		}
+	}
 }
 
 static void MakeRegionForAttributeHelpText(Attributes attr, uint16_t tlx, uint16_t tly, uint16_t brx, uint16_t bry)
@@ -881,22 +962,74 @@ void InitializeSMPanel()
 	// Assemble the SMPanel from graphic objects.
 	// For visual consistency, the SMPanel should fill up the same width as the TEAMPanel, that the buttons and
 	// minimap are in the bottom-right corner.
-	SGPVObject* voSMPanel = AddVideoObjectFromFile(INTERFACEDIR "/inventory_bottom_panel.sti");
-	guiSMPanel = new SGPVSurface(g_ui.m_teamPanelWidth, INV_INTERFACE_HEIGHT, PIXEL_DEPTH);
-	if (g_ui.m_teamPanelWidth > 640)
-	{
-		// The team panel is longer than default
-		// need a second blit, and we will start from the right
-		BltVideoObject(guiSMPanel, voSMPanel, 0, g_ui.m_teamPanelWidth - 640, 0);
-	}
-	// draw the basic Single-Merc panel
-	BltVideoObject(guiSMPanel, voSMPanel, 0, 0, 0);
-	DeleteVideoObject(voSMPanel);
+	/* Load via surface so we can crop source rects. Wildfire ships this art
+	 * 1024px wide: inventory chrome on the left, radar/button bay on the far
+	 * right. A plain left-aligned blit only shows x0..639 and loses the bay. */
+	auto vsSMArt = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/inventory_bottom_panel.sti", 0);
+	UINT16 const artWidth     = vsSMArt->Width();
+	UINT16 const artHeight    = vsSMArt->Height();
+	UINT16 const smPanelWidth = GetSMPanelWidth();
+	UINT16 const blitH        = std::min(artHeight, (UINT16)INV_INTERFACE_HEIGHT);
 
-	INT16 sFillerWidth = g_ui.m_teamPanelWidth - 640;
+	/* OGVM-UILAYOUT: never tune offsets against this panel without reading these
+	 * four numbers first. artWidth is what the art actually is, smPanelWidth is
+	 * what we allocate, m_teamPanelWidth is the TEAM panel and is NOT the same. */
+	SLOGD("OGVM-UILAYOUT SM panel: artWidth={} smPanelWidth={} slotsTotal={} teamPanelWidth={} buttonsBox={}",
+		artWidth, smPanelWidth, g_ui.m_teamPanelSlotsTotalWidth,
+		g_ui.m_teamPanelWidth, g_ui.getTeamPanelButtonsBoxWidth());
+
+	guiSMPanel = new SGPVSurface(smPanelWidth, INV_INTERFACE_HEIGHT, PIXEL_DEPTH);
+	{
+		/* Clip to the panel surface: some editions (JA2: Wildfire) ship this
+		 * art 1024px wide, and the unclipped vanilla double-blit below would
+		 * write past the surface (bus error). */
+		SGPRect panelClip;
+		panelClip.set(0, 0, smPanelWidth, INV_INTERFACE_HEIGHT);
+		SGPRect const oldClip = SetClippingRect(panelClip);
+
+		if (artWidth > smPanelWidth)
+		{
+			/* OGVM-SMPANEL: WF 1024 art — inventory chrome ends at
+			 * SM_INVINTERFACE_WIDTH (532); radar/clock bay is the far-right
+			 * strip of the art (strong edge ~x916). Taking left =
+			 * smPanelWidth-142 cut the last pocket column and glued in a
+			 * dark spacer from the middle of the art (the gap in screenshots).
+			 * Keep full inventory width, then take only the remaining bay
+			 * pixels from the art's right edge. */
+			UINT16 const leftW = std::min((UINT16)SM_INVINTERFACE_WIDTH, smPanelWidth);
+			UINT16 const boxW  = static_cast<UINT16>(smPanelWidth - leftW);
+			SGPBox const leftSrc  = {0, 0, leftW, blitH};
+			SGPBox const rightSrc = {static_cast<UINT16>(artWidth - boxW), 0, boxW, blitH};
+			BltVideoSurface(guiSMPanel, vsSMArt.get(), 0, 0, &leftSrc);
+			if (boxW > 0)
+			{
+				BltVideoSurface(guiSMPanel, vsSMArt.get(), leftW, 0, &rightSrc);
+			}
+		}
+		else if (artWidth < smPanelWidth)
+		{
+			// The panel is longer than the art (more than 6 merc slots):
+			// need a second blit, and we will start from the right so that the
+			// buttons box ends up flush with the right edge of the panel.
+			BltVideoSurface(guiSMPanel, vsSMArt.get(), smPanelWidth - artWidth, 0, NULL);
+			BltVideoSurface(guiSMPanel, vsSMArt.get(), 0, 0, NULL);
+		}
+		else
+		{
+			// Vanilla 640 art: one-to-one blit.
+			BltVideoSurface(guiSMPanel, vsSMArt.get(), 0, 0, NULL);
+		}
+
+		SetClippingRect(oldClip);
+	}
+
+	/* Cover the seam between the two blits above with the textured space
+	 * filler. When the art is exactly as wide as the panel (the common
+	 * 6-slot case) or we already composed left+right from WF art, there is
+	 * nothing to fill. */
+	INT16 const sFillerWidth = static_cast<INT16>(smPanelWidth) - static_cast<INT16>(artWidth);
 	if (sFillerWidth > 0)
 	{
-		// draw a space filler if needed
 		SGPBox const dest = {SM_INVINTERFACE_WIDTH, 2, static_cast<UINT16>(sFillerWidth), INV_INTERFACE_HEIGHT - 6};
 		DrawFillerOnSurface(guiSMPanel, dest);
 	}
@@ -904,7 +1037,7 @@ void InitializeSMPanel()
 	guiSMObjects  = AddVideoObjectFromFile(INTERFACEDIR "/inventory_gold_front.sti");
 	guiSMObjects2 = AddVideoObjectFromFile(INTERFACEDIR "/inv_frn.sti");
 
-	FillEmptySpaceAtBottom();
+	FillEmptySpaceAtBottom(smPanelWidth);
 
 	// INit viewport region
 	// Set global mouse regions
@@ -2286,18 +2419,37 @@ void InitializeTEAMPanel()
 	guiTEAMPanel = new SGPVSurface(g_ui.m_teamPanelWidth, TEAMPANEL_HEIGHT, PIXEL_DEPTH);
 
 	auto vsTEAMPanel = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/bottom_bar.sti", 0);
-	BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), 0, 0, NULL);
-	for (int i = 6; i < NUM_TEAM_SLOTS; i++)
-	{	// extend the panel if needed
-		SGPBox const rect = {5 * TEAMPANEL_SLOT_WIDTH, 0,
-					TEAMPANEL_SLOT_WIDTH + TEAMPANEL_BUTTONSBOX_WIDTH, TEAMPANEL_HEIGHT};
-		BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), i * TEAMPANEL_SLOT_WIDTH, 0, &rect);
+	if (g_ui.getTeamPanelButtonsBoxWidth() == TEAMPANEL_BUTTONSBOX_WIDTH_WF)
+	{
+		/* JA2: Wildfire ships a 1024px 10-slot bottom bar with its 194px
+		 * buttons box at x=830. Compose the panel from the slot area on the
+		 * left and the buttons box from the right end of the art, instead of
+		 * assuming the vanilla 640px 6-slot layout. */
+		BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), 0, 0, NULL);
+		for (int i = 10; i < NUM_TEAM_SLOTS; i++)
+		{	// extend the panel if needed
+			SGPBox const rect = {9 * TEAMPANEL_SLOT_WIDTH, 0, TEAMPANEL_SLOT_WIDTH, TEAMPANEL_HEIGHT};
+			BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), i * TEAMPANEL_SLOT_WIDTH, 0, &rect);
+		}
+		SGPBox const buttonsBox = {10 * TEAMPANEL_SLOT_WIDTH, 0,
+					TEAMPANEL_BUTTONSBOX_WIDTH_WF, TEAMPANEL_HEIGHT};
+		BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), g_ui.m_teamPanelSlotsTotalWidth, 0, &buttonsBox);
+	}
+	else
+	{
+		BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), 0, 0, NULL);
+		for (int i = 6; i < NUM_TEAM_SLOTS; i++)
+		{	// extend the panel if needed
+			SGPBox const rect = {5 * TEAMPANEL_SLOT_WIDTH, 0,
+						TEAMPANEL_SLOT_WIDTH + TEAMPANEL_BUTTONSBOX_WIDTH, TEAMPANEL_HEIGHT};
+			BltVideoSurface(guiTEAMPanel, vsTEAMPanel.get(), i * TEAMPANEL_SLOT_WIDTH, 0, &rect);
+		}
 	}
 
 	guiTEAMObjects = AddVideoObjectFromFile(INTERFACEDIR "/gold_front.sti");
 	guiVEHINV      = AddVideoObjectFromFile(INTERFACEDIR "/inventor.sti");
 
-	FillEmptySpaceAtBottom();
+	FillEmptySpaceAtBottom(g_ui.m_teamPanelWidth);
 
 	// Create buttons
 	CreateTEAMPanelButtons();
@@ -2397,7 +2549,7 @@ void RenderTEAMPanel(DirtyLevel const dirty_level)
 		MarkAButtonDirty(iTEAMPanelButtons[TEAM_DONE_BUTTON]);
 		MarkAButtonDirty(iTEAMPanelButtons[TEAM_MAP_SCREEN_BUTTON]);
 		MarkAButtonDirty(iTEAMPanelButtons[CHANGE_SQUAD_BUTTON]);
-
+	
 		BltVideoSurface(guiSAVEBUFFER, guiTEAMPanel, INTERFACE_START_X, INTERFACE_START_Y, NULL);
 
 		// LOOP THROUGH ALL MERCS ON TEAM PANEL
@@ -3222,7 +3374,11 @@ void RenderTownIDString(void)
 	SetFontAttributes(COMPFONT, 183);
 	ST::string zTownIDString = GetSectorIDString(gWorldSector, TRUE);
 	zTownIDString = ReduceStringLength(zTownIDString, 80, COMPFONT);
-	MPrint(INTERFACE_START_X + g_ui.m_teamPanelSlotsTotalWidth + 50,
+	/* OGVM-UILAYOUT: centered under the radar window, so it must use the
+	 * exact same anchor as UILayout::get_RADAR_WINDOW_X(): slotsTotal + a
+	 * fixed offset + the ACTIVE PANEL's buttons-box shift. The shift is a
+	 * property of which panel is on screen, not of the art edition. */
+	MPrint(INTERFACE_START_X + g_ui.m_teamPanelSlotsTotalWidth + 50 + g_ui.activeButtonsBoxShift(),
 		SCREEN_HEIGHT - 55, zTownIDString, HCenterVCenterAlign(80, 16));
 }
 
@@ -3802,12 +3958,16 @@ void HandleTacticalEffectsOfEquipmentChange(SOLDIERTYPE* pSoldier, UINT32 uiInvP
 }
 
 
-static std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex)
+std::unique_ptr<SGPVSurface> CreateVideoSurfaceFromObjectFile(const ST::string& filename, UINT16 usRegionIndex)
 {
 	AutoSGPVObject vo(AddVideoObjectFromFile(filename));
 	auto r = vo->SubregionProperties(usRegionIndex);
 	auto sf = std::make_unique<SGPVSurface>(r.usWidth, r.usHeight, PIXEL_DEPTH);
+	SGPRect clip;
+	clip.set(0, 0, r.usWidth, r.usHeight);
+	SGPRect const oldClip = SetClippingRect(clip);
 	BltVideoObject(sf.get(), vo.get(), usRegionIndex, 0, 0);
+	SetClippingRect(oldClip);
 
 	return sf;
 }

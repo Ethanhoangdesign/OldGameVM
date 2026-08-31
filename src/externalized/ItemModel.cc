@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "ItemModel.h"
 #include "Directories.h"
 #include "TranslatableString.h"
@@ -115,6 +119,12 @@ int8_t          ItemModel::getReliability() const      { return bReliability;   
 int8_t          ItemModel::getRepairEase() const       { return bRepairEase;           }
 uint16_t        ItemModel::getFlags() const            { return fFlags;                }
 const GraphicModel& ItemModel::getInventoryGraphicSmall() const { return inventoryGraphics.small; }
+void ItemModel::overrideInventoryGraphics(const ST::string& smallPath, uint16_t smallSubImageIndex, const ST::string& bigPath)
+{
+	inventoryGraphics.small = GraphicModel(smallPath, smallSubImageIndex);
+	inventoryGraphics.big = GraphicModel(bigPath, 0);
+}
+
 const GraphicModel& ItemModel::getInventoryGraphicBig() const { return inventoryGraphics.big; }
 const TilesetTileIndexModel& ItemModel::getTileGraphic() const { return tileGraphic; }
 

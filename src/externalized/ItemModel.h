@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #pragma once
 
 #include "Containers.h"
@@ -117,6 +121,8 @@ public:
 		TranslatableString::Loader& stringLoader;
 	};
 
+	/** Repoint both inventory artwork variants for an edition-specific item ID. */
+	void overrideInventoryGraphics(const ST::string& smallPath, uint16_t smallSubImageIndex, const ST::string& bigPath);
 	virtual JsonValue serialize() const;
 	static std::unique_ptr<ItemModel> deserialize(const JsonValue &json, TranslatableString::Loader& stringLoader);
 

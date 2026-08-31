@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #ifndef _UI_LAYOUT_H_
 #define _UI_LAYOUT_H_
 
@@ -41,6 +45,7 @@
 
 #define TEAMPANEL_SLOT_WIDTH            (83)     // width of one slot in the bottom team panel
 #define TEAMPANEL_BUTTONSBOX_WIDTH      (142)    // width of the container of the buttons on the right of team panel
+#define TEAMPANEL_BUTTONSBOX_WIDTH_WF   (194)    // width of the same container in the JA2: Wildfire bottom bar art
 #define TEAMPANEL_HEIGHT                (120)    // height of the bottom bar team panel
 
 
@@ -138,6 +143,14 @@ public:
 	/** Check if the screen is bigger than original 640x480. */
 	bool isBigScreen() const;
 
+	/** True when using widescreen layouts that span full width (bottom panel from x=0 to x=width)
+	 * but not full-size map art. Used for screens like 934x480, 1024x600, etc. where height < 720
+	 * but we want full-width bottom panels. */
+	bool isWidescreenLayout() const;
+
+	/** True when map-screen widgets use the wide bottom-panel artwork. */
+	bool isWidePanel() const;
+
 	UINT16 currentHeight() const;
 	UINT16 get_CLOCK_X() const;
 	UINT16 get_CLOCK_Y() const;
@@ -153,6 +166,49 @@ public:
 
 	/** Number of displayable slots in the team panel, based on the game policy and screen width. */
 	UINT16 getTeamPanelNumSlots() const;
+
+	/** Width of the buttons box on the right of the team panel, depending on the loaded interface art edition. */
+	UINT16 getTeamPanelButtonsBoxWidth() const;
+
+	/** Horizontal shift of the widgets that live inside the buttons box
+	 *  (radar window, clock, town name) for the panel that is currently
+	 *  on screen.
+	 *
+	 *  The SM (single-merc inventory) panel is always composed from the
+	 *  vanilla inventory_bottom_panel.sti, whose buttons box is
+	 *  TEAMPANEL_BUTTONSBOX_WIDTH (142) wide, while the TEAM panel may be
+	 *  composed from Wildfire's bottom_bar.sti with a 194px box. Both
+	 *  boxes are flush right, so their left edge -- the point every offset
+	 *  below is measured from -- differs by (boxWidth - 142) px.
+	 *
+	 *  Anything positioned inside the buttons box MUST add this. Do not
+	 *  branch on getTeamPanelButtonsBoxWidth() directly: that describes
+	 *  the art edition, not the panel currently being drawn, and picking
+	 *  either constant then leaves the other panel 52px out. */
+	UINT16 activeButtonsBoxShift() const;
+
+	/** True when the strategic map is drawn at full size (Wildfire 714x612 map
+	 *  art on a big enough screen) instead of the vanilla half scale.
+	 *  See docs/KE-HOACH-mapscreen-fullsize.md. */
+	bool isMapFullSize() const;
+
+	/** Strategic-map screen grid metrics (see Map_Screen_Interface_Map.h). */
+	UINT16 get_MAP_GRID_X() const;
+	UINT16 get_MAP_GRID_Y() const;
+	UINT16 get_MAP_VIEW_START_X() const;
+	UINT16 get_MAP_VIEW_START_Y() const;
+	UINT16 get_MAP_VIEW_WIDTH() const;
+	UINT16 get_MAP_VIEW_HEIGHT() const;
+
+	/** Base offset of the map screen bottom panel (vanilla: STD_SCREEN with
+	 *  the panel at +0,+359; full-size Wildfire layout: at 261,647; widescreen right-anchored panel leaves the history strip at the left). */
+	UINT16 get_MAP_BOTTOM_BASE_X() const;
+	UINT16 get_MAP_BOTTOM_BASE_Y() const;
+
+	/** Origin of the map screen left column (character info + roster).
+	 *  Vanilla: STD_SCREEN; full-size Wildfire layout: the top-left corner. */
+	UINT16 get_MAP_LEFT_COL_X() const;
+	UINT16 get_MAP_LEFT_COL_Y() const;
 
 	/** Recalculate UI elements' positions after changing screen size.
 	 *  This method requires the game data to be loaded, but it should be called before most other the application initialization is done.

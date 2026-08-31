@@ -300,6 +300,11 @@ protected:
 	bool loadExplosionAnimations();
 	bool loadExplosives(TranslatableString::Loader& stringLoader, const std::vector<const ExplosionAnimationModel*>& animations);
 	bool loadItems(TranslatableString::Loader& stringLoader);
+#ifdef WITH_UNITTESTS
+	friend class DefaultContentManagerUT;
+#endif
+	static bool applyWildfireMagazineFixup(JsonObject& obj);
+	static bool applyWildfireWeaponFixup(JsonObject& obj);
 	bool loadMagazines(TranslatableString::Loader& stringLoader);
 	bool loadExplosiveCalibres();
 	bool loadCalibres(TranslatableString::Loader& stringLoader);

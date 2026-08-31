@@ -12,6 +12,9 @@
 #include "WCheck.h"
 #include "WordWrap.h"
 #include "Font_Control.h"
+#ifdef __ANDROID__
+#include "Laptop.h"
+#endif
 
 #include <string_theory/string>
 
@@ -1046,7 +1049,40 @@ static void DrawQuickButton(const GUI_BUTTON* b)
 		}
 	}
 
-	BltVideoObject(ButtonDestBuffer, pics->vobj, UseImage, b->X(), b->Y());
+	#ifdef __ANDROID__
+	// When hit area was enlarged (e.g. MessageBox YES/NO 2×), stretch art to fill it
+	// so label (centered in W/H) lines up with the button graphic.
+	{
+		UINT16 const aw = static_cast<UINT16>(pics->max.w);
+		UINT16 const ah = static_cast<UINT16>(pics->max.h);
+		INT32  const dx = b->X();
+		INT32  const dy = b->Y();
+		INT32  const dw = b->W();
+		INT32  const dh = b->H();
+		if (aw > 0 && ah > 0 && dw > aw && dh > ah &&
+		    dx >= 0 && dy >= 0 &&
+		    dx + dw <= ButtonDestBuffer->Width() &&
+		    dy + dh <= ButtonDestBuffer->Height())
+		{
+			SGPVSurface tmp(aw, ah, 16);
+			tmp.Fill(0);
+			tmp.SetTransparency(0);
+			SGPRect tmpClip;
+			tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+			SGPRect const oldClip = SetClippingRect(tmpClip);
+			BltVideoObject(&tmp, pics->vobj, static_cast<UINT16>(UseImage), 0, 0);
+			SetClippingRect(oldClip);
+			SGPBox src;
+			src.set(0, 0, aw, ah);
+			SGPBox dst;
+			dst.set(static_cast<UINT16>(dx), static_cast<UINT16>(dy),
+				static_cast<UINT16>(dw), static_cast<UINT16>(dh));
+			BltStretchVideoSurface(ButtonDestBuffer, &tmp, &src, &dst);
+			return;
+		}
+	}
+#endif
+	BltVideoObject(ButtonDestBuffer, pics->vobj, static_cast<UINT16>(UseImage), b->X(), b->Y());
 }
 
 
@@ -1134,7 +1170,43 @@ static void DrawCheckBoxButton(const GUI_BUTTON *b)
 		}
 	}
 
-	BltVideoObject(ButtonDestBuffer, pics->vobj, UseImage, b->X(), b->Y());
+#ifdef __ANDROID__
+	// Checkbox STI tiny → 2x for mobile full-screen UI (Options/GIO).
+	// Skip in laptop fit-scale: help/chrome already natural in FB, present scales.
+	if ((b->uiFlags & BUTTON_CHECKBOX) && !AndroidLaptopScaleActive())
+	{
+		UINT16 const w = static_cast<UINT16>(pics->max.w);
+		UINT16 const h = static_cast<UINT16>(pics->max.h);
+		INT32  const dx = b->X();
+		INT32  const dy = b->Y();
+		INT32 const scale = (SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480) ? 1 : 2;
+		INT32  const dw = static_cast<INT32>(w) * scale;
+		INT32  const dh = static_cast<INT32>(h) * scale;
+		if (w > 0 && h > 0 && dx >= 0 && dy >= 0 &&
+		    dx + dw <= ButtonDestBuffer->Width() &&
+		    dy + dh <= ButtonDestBuffer->Height())
+		{
+			SGPVSurface tmp(w, h, 16);
+			tmp.Fill(0);
+			tmp.SetTransparency(0);
+			SGPRect tmpClip;
+			tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+			SGPRect const oldClip = SetClippingRect(tmpClip);
+			BltVideoObject(&tmp, pics->vobj, static_cast<UINT16>(UseImage), 0, 0);
+			SetClippingRect(oldClip);
+
+			SGPBox src;
+			src.set(0, 0, w, h);
+			SGPBox dst;
+			dst.set(static_cast<UINT16>(dx), static_cast<UINT16>(dy),
+				static_cast<UINT16>(dw), static_cast<UINT16>(dh));
+			BltStretchVideoSurface(ButtonDestBuffer, &tmp, &src, &dst);
+			return;
+		}
+	}
+#endif
+
+	BltVideoObject(ButtonDestBuffer, pics->vobj, static_cast<UINT16>(UseImage), b->X(), b->Y());
 }
 
 

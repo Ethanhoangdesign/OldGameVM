@@ -419,6 +419,12 @@ static BOOLEAN IsItRaining(void);
 static void LoadDesktopBackground(void);
 static void RenderLapTopImage(void);
 
+#ifdef __ANDROID__
+static void AndroidLaptopComputeScale(void);
+static void AndroidLaptopScaleShutdown(void);
+static void AndroidLaptopPresentScaled(void);
+#endif
+
 
 static void EnterLaptop(void)
 {
@@ -462,9 +468,13 @@ static void EnterLaptop(void)
 
 	// set the fact we are currently in laptop, for rendering purposes
 	fCurrentlyInLaptop = TRUE;
-
-	// reset redraw flag and redraw new mail
+#ifdef __ANDROID__
+	AndroidLaptopComputeScale();
+	// Full natural redraw every frame while fit-scaled (dirty rects break stretch).
+	fReDrawScreenFlag  = TRUE;
+#else
 	fReDrawScreenFlag  = FALSE;
+#endif
 	fReDrawNewMailFlag = TRUE;
 
 	// sub page
@@ -527,6 +537,13 @@ static void EnterLaptop(void)
 	InitalizeSubSitesList();
 
 	InvalidateScreen();
+
+#ifdef __ANDROID__
+	// Canh giữa chuột khi mở laptop để tránh bị ẩn trong vùng bị che (letterbox/black bars)
+	SetUsingTouch(false);
+#endif
+	// Di chuyển chuột vào tâm màn hình Laptop
+	SetSafeMousePositionLogical((LAPTOP_SCREEN_UL_X + LAPTOP_SCREEN_LR_X) / 2, (LAPTOP_SCREEN_UL_Y + LAPTOP_SCREEN_LR_Y) / 2);
 }
 
 
@@ -574,6 +591,9 @@ void ExitLaptop(void)
 
 	// set the fact we are currently not in laptop, for rendering purposes
 	fCurrentlyInLaptop = FALSE;
+#ifdef __ANDROID__
+	AndroidLaptopScaleShutdown();
+#endif
 
 	//Deallocate, save data -- leaving laptop.
 	SetRenderFlags(RENDER_FLAG_FULL);
@@ -632,6 +652,9 @@ static void RenderLapTopImage(void)
 {
 	if (fMaximizingProgram || fMinizingProgram) return;
 
+#ifdef __ANDROID__
+	FRAME_BUFFER->Fill(0);
+#endif
 	BltVideoObject(FRAME_BUFFER, guiLAPTOP,           0, LAPTOP_X,      LAPTOP_Y);
 	BltVideoObject(FRAME_BUFFER, guiLaptopBACKGROUND, 1, LAPTOP_X + 25, LAPTOP_Y + 23);
 
@@ -971,6 +994,83 @@ static void ShouldNewMailBeDisplayed(void);
 static void ShowLights(void);
 static void UpdateStatusOfDisplayingBookMarks(void);
 
+#ifdef __ANDROID__
+// Fit 640x480 laptop (at STD_SCREEN) into full SCREEN, keep aspect, black letterbox.
+// Draw 1x natural every frame; Video presents via SDL nearest (1 scale, no soft FB stretch).
+static INT32 s_lpNatX = 0, s_lpNatY = 0, s_lpNatW = 640, s_lpNatH = 480;
+static INT32 s_lpDstX = 0, s_lpDstY = 0, s_lpDstW = 640, s_lpDstH = 480;
+static BOOLEAN s_lpScaleReady = FALSE;
+
+static void AndroidLaptopComputeScale(void)
+{
+	s_lpNatW = 640;
+	s_lpNatH = 480;
+	s_lpNatX = STD_SCREEN_X;
+	s_lpNatY = STD_SCREEN_Y;
+	// Aspect-fit. 1664x678 → ~1.41x by height.
+	const float sx = (float)SCREEN_WIDTH  / (float)s_lpNatW;
+	const float sy = (float)SCREEN_HEIGHT / (float)s_lpNatH;
+	const float s  = (sx < sy) ? sx : sy;
+	s_lpDstW = (INT32)(s_lpNatW * s + 0.5f);
+	s_lpDstH = (INT32)(s_lpNatH * s + 0.5f);
+	if (s_lpDstW < 1) s_lpDstW = 1;
+	if (s_lpDstH < 1) s_lpDstH = 1;
+	if (s_lpDstW > (INT32)SCREEN_WIDTH)  s_lpDstW = (INT32)SCREEN_WIDTH;
+	if (s_lpDstH > (INT32)SCREEN_HEIGHT) s_lpDstH = (INT32)SCREEN_HEIGHT;
+	s_lpDstX = ((INT32)SCREEN_WIDTH  - s_lpDstW) / 2;
+	s_lpDstY = ((INT32)SCREEN_HEIGHT - s_lpDstH) / 2;
+	s_lpScaleReady = TRUE;
+}
+
+BOOLEAN AndroidLaptopScaleActive(void)
+{
+	return !gfInMsgBox && fCurrentlyInLaptop && s_lpScaleReady
+		&& (s_lpDstW != s_lpNatW || s_lpDstH != s_lpNatH
+		    || s_lpDstX != s_lpNatX || s_lpDstY != s_lpNatY);
+}
+
+void AndroidLaptopMapScreenToLogical(int* x, int* y)
+{
+	if (!x || !y || !AndroidLaptopScaleActive()) return;
+	int lx = s_lpNatX + (int)(((*x - s_lpDstX) * (long long)s_lpNatW) / s_lpDstW);
+	int ly = s_lpNatY + (int)(((*y - s_lpDstY) * (long long)s_lpNatH) / s_lpDstH);
+	if (lx < s_lpNatX) lx = s_lpNatX;
+	if (ly < s_lpNatY) ly = s_lpNatY;
+	if (lx > s_lpNatX + s_lpNatW - 1) lx = s_lpNatX + s_lpNatW - 1;
+	if (ly > s_lpNatY + s_lpNatH - 1) ly = s_lpNatY + s_lpNatH - 1;
+	*x = lx;
+	*y = ly;
+}
+
+BOOLEAN AndroidLaptopGetPresentRects(int* nx, int* ny, int* nw, int* nh,
+                                     int* dx, int* dy, int* dw, int* dh)
+{
+	if (!AndroidLaptopScaleActive()) return FALSE;
+	if (nx) *nx = s_lpNatX;
+	if (ny) *ny = s_lpNatY;
+	if (nw) *nw = s_lpNatW;
+	if (nh) *nh = s_lpNatH;
+	if (dx) *dx = s_lpDstX;
+	if (dy) *dy = s_lpDstY;
+	if (dw) *dw = s_lpDstW;
+	if (dh) *dh = s_lpDstH;
+	return TRUE;
+}
+
+static void AndroidLaptopPresentScaled(void)
+{
+	// FB stays natural 1x; Video RefreshScreen does SDL nearest fit present.
+	AndroidLaptopComputeScale();
+	if (!AndroidLaptopScaleActive()) return;
+	InvalidateScreen();
+}
+
+static void AndroidLaptopScaleShutdown(void)
+{
+	s_lpScaleReady = FALSE;
+}
+#endif
+
 
 ScreenID LaptopScreenHandle()
 {
@@ -1056,12 +1156,38 @@ ScreenID LaptopScreenHandle()
 	//This determines if the help screen should be active
 	if (ShouldTheHelpScreenComeUp(HELP_SCREEN_LAPTOP, FALSE))
 	{
+#ifdef __ANDROID__
+		// Stretched FB from last present — redraw natural base before help overlays.
+		if (AndroidLaptopScaleActive())
+		{
+			RenderLapTopImage();
+			RenderLaptop();
+			RenderButtons();
+			PrintDate();
+			PrintBalance();
+			PrintNumberOnTeam();
+			ShowLights();
+		}
+#endif
 		// handle the help screen
 		HelpScreenHandler();
+#ifdef __ANDROID__
+		AndroidLaptopPresentScaled();
+#endif
 		return LAPTOP_SCREEN;
 	}
 
-	RestoreBackgroundRects();
+#ifdef __ANDROID__
+	// Fit-scale: always full natural redraw; dirty restore would composite into stretched FB.
+	if (fCurrentlyInLaptop)
+	{
+		fReDrawScreenFlag = TRUE;
+	}
+	else
+#endif
+	{
+		RestoreBackgroundRects();
+	}
 
 	// lock cursor to screen
 	RestrictMouseCursor(&LaptopScreenRect);
@@ -1212,11 +1338,19 @@ ScreenID LaptopScreenHandle()
 
 	ExecuteVideoOverlays();
 
-	SaveBackgroundRects();
+#ifdef __ANDROID__
+	if (!fCurrentlyInLaptop)
+#endif
+	{
+		SaveBackgroundRects();
+	}
 	RenderFastHelp();
 
 	// ex SAVEBUFFER queue
 	ResetInterface();
+#ifdef __ANDROID__
+	AndroidLaptopPresentScaled();
+#endif
 	return (LAPTOP_SCREEN);
 }
 

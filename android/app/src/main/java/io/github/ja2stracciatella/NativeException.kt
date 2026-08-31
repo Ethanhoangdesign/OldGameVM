@@ -9,6 +9,38 @@ object NativeExceptionContainer {
         return this.exception
     }
 
+    fun reportDirectory(context: android.content.Context): java.io.File =
+        java.io.File(context.filesDir, ".ja2")
+
+    fun reportFile(context: android.content.Context): java.io.File =
+        java.io.File(reportDirectory(context), "crash-report")
+
+    fun signalFile(context: android.content.Context): java.io.File =
+        java.io.File(reportDirectory(context), "crash-signal")
+
+    fun runningFile(context: android.content.Context): java.io.File =
+        java.io.File(reportDirectory(context), "game-running")
+
+    fun readReport(context: android.content.Context): String? =
+        reportFile(context).takeIf { it.isFile }?.runCatching { readText() }?.getOrNull()
+
+    fun readSignal(context: android.content.Context): String? =
+        signalFile(context).takeIf { it.isFile }?.runCatching { readText() }?.getOrNull()
+
+    fun hasUncleanRun(context: android.content.Context): Boolean = runningFile(context).isFile
+
+    fun markGameRunning(context: android.content.Context) {
+        val dir = reportDirectory(context)
+        dir.mkdirs()
+        val temp = java.io.File(dir, "game-running.tmp")
+        temp.writeText("running\n")
+        temp.renameTo(runningFile(context))
+    }
+
+    fun clearGameRunning(context: android.content.Context) {
+        runningFile(context).delete()
+    }
+
     @Synchronized
     fun setException(exception: String) {
         this.exception = exception

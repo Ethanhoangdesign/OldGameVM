@@ -27,6 +27,7 @@ add_executable(${LAUNCHER_BINARY}
     "${CMAKE_SOURCE_DIR}/src/sgp/SGPFile.cc"
     "${CMAKE_SOURCE_DIR}/src/sgp/SGPStrings.cc"
     ${LOCAL_LAUNCHER_HEADERS}
+    "${CMAKE_SOURCE_DIR}/src/externalized/editiondetector/EditionDetector.cc"
     StracciatellaLauncher.cc
     Launcher.cc
     main.cc
@@ -36,6 +37,8 @@ add_executable(${LAUNCHER_BINARY}
 set_target_properties(${LAUNCHER_BINARY}
     PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
+
+target_include_directories(${LAUNCHER_BINARY} PRIVATE "${CMAKE_SOURCE_DIR}/src/externalized/editiondetector")
 
 add_dependencies(${LAUNCHER_BINARY} stracciatella)
 

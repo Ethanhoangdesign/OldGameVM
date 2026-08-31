@@ -2434,6 +2434,17 @@ static INT32 CTGTHandleBulletStructureInteraction(BULLET* pBullet, STRUCTURE* pS
 }
 
 
+// CTGT profiling counters
+static UINT32 guiCTGT_TotalCalls = 0;
+static UINT32 guiCTGT_TotalTileIterations = 0;
+static UINT32 guiCTGT_TotalStructureIterations = 0;
+static UINT32 guiCTGT_EarlyReturn_Ground = 0;
+static UINT32 guiCTGT_EarlyReturn_Roof = 0;
+static UINT32 guiCTGT_EarlyReturn_OutOfWorld = 0;
+static UINT32 guiCTGT_MaxTilesPerCall = 0;
+static UINT32 guiCTGT_MaxStructuresPerTile = 0;
+static UINT32 guiCTGT_EmptyTiles = 0;
+
 static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 {
 	FIXEDPT qLandHeight;
@@ -2473,6 +2484,12 @@ static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 	FIXEDPT qWindowBottomHeight;
 	FIXEDPT qWindowTopHeight;
 
+	// Per-call counters
+	UINT32 uiTilesThisCall = 0;
+	UINT32 uiStructuresThisTile = 0;
+
+	guiCTGT_TotalCalls++;
+
 	SLOGD("Starting CalcChanceToGetThrough" );
 
 	do
@@ -2487,9 +2504,36 @@ static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 		qWindowBottomHeight = gqStandardWindowBottomHeight + qLandHeight;
 		qWindowTopHeight = gqStandardWindowTopHeight + qLandHeight;
 
+		// Per-tile counter
+		uiTilesThisCall++;
+		guiCTGT_TotalTileIterations++;
+
 		// Assemble list of structures we might hit!
 		iNumLocalStructures = 0;
 		pStructure = pMapElement->pStructureHead;
+
+		// Count structures in this tile
+		uiStructuresThisTile = 0;
+		STRUCTURE* pCountStruct = pStructure;
+		while (pCountStruct)
+		{
+			uiStructuresThisTile++;
+			guiCTGT_TotalStructureIterations++;
+			pCountStruct = pCountStruct->pNext;
+		}
+
+		// Track max structures per tile
+		if (uiStructuresThisTile > guiCTGT_MaxStructuresPerTile)
+		{
+			guiCTGT_MaxStructuresPerTile = uiStructuresThisTile;
+		}
+
+		// Track empty tiles
+		if (uiStructuresThisTile == 0)
+		{
+			guiCTGT_EmptyTiles++;
+		}
+
 		// calculate chance of hitting each structure
 		uiChanceOfHit = ChanceOfBulletHittingStructure( pBullet->iLoop, pBullet->iDistanceLimit, 0 );
 
@@ -2511,6 +2555,7 @@ static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 		if (iCurrAboveLevelZ < 0)
 		{
 			// ground is in the way!
+			guiCTGT_EarlyReturn_Ground++;
 			return( 0 );
 		}
 		iCurrCubesAboveLevelZ = CONVERT_HEIGHTUNITS_TO_INDEX( iCurrAboveLevelZ );
@@ -2662,6 +2707,7 @@ static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 				if ((qLastZ > qWallHeight && pBullet->qCurrZ < qWallHeight) ||
 					(qLastZ < qWallHeight && pBullet->qCurrZ > qWallHeight))
 				{
+					guiCTGT_EarlyReturn_Roof++;
 					return( 0 ); // roof collision
 				}
 			}
@@ -2836,6 +2882,7 @@ static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 
 		if ( pBullet->iCurrTileX < 0 || pBullet->iCurrTileX >= WORLD_COLS || pBullet->iCurrTileY < 0 || pBullet->iCurrTileY >= WORLD_ROWS )
 		{
+			guiCTGT_EarlyReturn_OutOfWorld++;
 			return( 0 );
 		}
 
@@ -2876,6 +2923,12 @@ static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 	// fractional amount of distance remaining which is unchecked
 	// but we shouldn't(?) need to check it because the target is there!
 
+	// Update max tiles per call
+	if (uiTilesThisCall > guiCTGT_MaxTilesPerCall)
+	{
+		guiCTGT_MaxTilesPerCall = uiTilesThisCall;
+	}
+
 	// try simple chance to get through, ignoring range effects
 	iChanceToGetThrough = iChanceToGetThrough * (pBullet->iImpact - pBullet->iImpactReduction) / pBullet->iImpact;
 
@@ -2883,6 +2936,22 @@ static UINT8 CalcChanceToGetThrough(BULLET* pBullet)
 	{
 		iChanceToGetThrough = 0;
 	}
+
+	// Log stats every 1000 calls
+	if (guiCTGT_TotalCalls % 1000 == 0)
+	{
+		SLOGI("CTGT stats: calls={}, tiles/call={.1f}, structs/tile={.1f}, empty={}%, ground={}, roof={}, outofworld={}, max_tiles={}, max_structs={}",
+			guiCTGT_TotalCalls,
+			guiCTGT_TotalCalls > 0 ? (float)guiCTGT_TotalTileIterations / guiCTGT_TotalCalls : 0.0f,
+			guiCTGT_TotalTileIterations > 0 ? (float)guiCTGT_TotalStructureIterations / guiCTGT_TotalTileIterations : 0.0f,
+			guiCTGT_TotalTileIterations > 0 ? (guiCTGT_EmptyTiles * 100.0f / guiCTGT_TotalTileIterations) : 0.0f,
+			guiCTGT_EarlyReturn_Ground,
+			guiCTGT_EarlyReturn_Roof,
+			guiCTGT_EarlyReturn_OutOfWorld,
+			guiCTGT_MaxTilesPerCall,
+			guiCTGT_MaxStructuresPerTile);
+	}
+
 	return( (UINT8) iChanceToGetThrough );
 }
 

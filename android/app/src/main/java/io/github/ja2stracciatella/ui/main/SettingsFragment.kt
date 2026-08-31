@@ -8,170 +8,106 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.CompoundButton
-import android.widget.CompoundButton.OnCheckedChangeListener
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import io.github.ja2stracciatella.*
 import io.github.ja2stracciatella.databinding.FragmentLauncherSettingsBinding
 
-
-/**
- * A placeholder fragment containing a simple view.
- */
 class SettingsFragment : Fragment() {
     private var _binding: FragmentLauncherSettingsBinding? = null
     private val binding get() = _binding!!
-
     private lateinit var configurationModel: ConfigurationModel
     private lateinit var scalingQualities: Array<ScalingQuality>
+    private var suppressPresetCallback = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        configurationModel = ViewModelProvider(requireActivity())[ConfigurationModel::class.java]
-        scalingQualities = (ScalingQuality::values)()
-
         super.onCreate(savedInstanceState)
+        configurationModel = ViewModelProvider(requireActivity())[ConfigurationModel::class.java]
+        scalingQualities = ScalingQuality.values()
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentLauncherSettingsBinding.inflate(inflater, container, false)
-
-        val spinnerLabels = scalingQualities.map { it.getLabel() }
-        val adapter: ArrayAdapter<String> =
-            ArrayAdapter(this.requireContext(), R.layout.launcher_spinner_item, spinnerLabels)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.scalingQualitySpinner.adapter = adapter
-
-        configurationModel.resolution.observe(viewLifecycleOwner) { resolution ->
-            if (binding.resolutionWidthEdit.text.toString() != resolution.width.toString()) {
-                binding.resolutionWidthEdit.setText(resolution.width.toString())
-            }
-            if (binding.resolutionHeightEdit.text.toString() != resolution.height.toString()) {
-                binding.resolutionHeightEdit.setText(resolution.height.toString())
-            }
-        }
-        binding.resolutionWidthEdit.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable) {}
-            override fun beforeTextChanged(
-                s: CharSequence, start: Int,
-                count: Int, after: Int
-            ) {
-            }
-
-            override fun onTextChanged(
-                s: CharSequence, start: Int,
-                before: Int, count: Int
-            ) {
-                if (s.isNotEmpty()) {
-                    try {
-                        val width = s.toString().toUInt()
-                        val current = configurationModel.resolution.value ?: Resolution.DEFAULT
-                        if (width != current.width) {
-                            configurationModel.setResolution(
-                                Resolution(
-                                    width,
-                                    current.height
-                                )
-                            )
-                        }
-
-                    } catch (_: java.lang.NumberFormatException) {
-                    } catch (_: java.lang.NullPointerException) {
-                    }
-                }
-            }
-        })
-        binding.resolutionHeightEdit.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable) {}
-            override fun beforeTextChanged(
-                s: CharSequence, start: Int,
-                count: Int, after: Int
-            ) {
-            }
-
-            override fun onTextChanged(
-                s: CharSequence, start: Int,
-                before: Int, count: Int
-            ) {
-                if (s.isNotEmpty()) {
-                    try {
-                        val height = s.toString().toUInt()
-                        val current = configurationModel.resolution.value ?: Resolution.DEFAULT
-                        if (height != current.height) {
-                            configurationModel.setResolution(
-                                Resolution(
-                                    current.width,
-                                    height
-                                )
-                            )
-                        }
-
-                    } catch (_: java.lang.NumberFormatException) {
-                    } catch (_: java.lang.NullPointerException) {
-                    }
-                }
-            }
-        })
-
-        configurationModel.scalingQuality.observe(viewLifecycleOwner) { scalingQuality ->
-            val index = scalingQualities.indexOf(scalingQuality)
-            binding.scalingQualitySpinner.setSelection(index)
-        }
-        binding.scalingQualitySpinner.onItemSelectedListener =
-            object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(
-                    parent: AdapterView<*>?,
-                    view: View?,
-                    position: Int,
-                    id: Long
-                ) {
-                    if (position >= 0 && position < scalingQualities.size) {
-                        configurationModel.setScalingQuality(scalingQualities[position])
-                    }
-                }
-
-                override fun onNothingSelected(parent: AdapterView<*>?) {
-                }
-            }
-
-        binding.resolutionAutoButton.setOnClickListener {
-            val launcherActivity = requireActivity()
-            if (launcherActivity is LauncherActivity) {
-                configurationModel.resolution.value = launcherActivity.getRecommendedResolution()
-            }
-        }
-
-        configurationModel.debug.observe(viewLifecycleOwner) { enabled ->
-            binding.debugModeChip.isChecked = enabled
-        }
-        binding.debugModeChip.setOnCheckedChangeListener { _, isChecked ->
-            configurationModel.debug.value = isChecked
-        }
-
+        setupScalingSpinner()
+        setupResolutionFields()
+        setupResolutionPresets()
+        setupDebug()
         return binding.root
     }
 
-    companion object {
-        /**
-         * The fragment argument representing the section number for this
-         * fragment.
-         */
-        private const val ARG_SECTION_NUMBER = "section_number"
+    private fun <T> spinnerAdapter(items: List<T>): ArrayAdapter<String> {
+        val adapter = ArrayAdapter(requireContext(), R.layout.launcher_spinner_item, items.map { it.toString() })
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        return adapter
+    }
 
-        /**
-         * Returns a new instance of this fragment for the given section
-         * number.
-         */
-        @JvmStatic
-        fun newInstance(sectionNumber: Int): SettingsFragment {
-            return SettingsFragment().apply {
-                arguments = Bundle().apply {
-                    putInt(ARG_SECTION_NUMBER, sectionNumber)
-                }
+    private fun setupScalingSpinner() {
+        binding.scalingQualitySpinner.adapter = spinnerAdapter(scalingQualities.map { it.getLabel() })
+        configurationModel.scalingQuality.observe(viewLifecycleOwner) { quality ->
+            scalingQualities.indexOf(quality).takeIf { it >= 0 }?.let { binding.scalingQualitySpinner.setSelection(it) }
+        }
+        binding.scalingQualitySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (position in scalingQualities.indices) configurationModel.setScalingQuality(scalingQualities[position])
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun setupResolutionFields() {
+        configurationModel.resolution.observe(viewLifecycleOwner) { resolution ->
+            if (binding.resolutionWidthEdit.text.toString() != resolution.width.toString()) binding.resolutionWidthEdit.setText(resolution.width.toString())
+            if (binding.resolutionHeightEdit.text.toString() != resolution.height.toString()) binding.resolutionHeightEdit.setText(resolution.height.toString())
+            syncPresetSpinner(resolution)
+        }
+        binding.resolutionWidthEdit.addTextChangedListener(resolutionWatcher { width, current -> Resolution(width, current.height) })
+        binding.resolutionHeightEdit.addTextChangedListener(resolutionWatcher { height, current -> Resolution(current.width, height) })
+        binding.resolutionAutoButton.setOnClickListener {
+            (requireActivity() as? LauncherActivity)?.let { configurationModel.setResolution(it.getRecommendedResolution()) }
+        }
+    }
+
+    private fun resolutionWatcher(make: (UInt, Resolution) -> Resolution) = object : TextWatcher {
+        override fun afterTextChanged(s: Editable?) {}
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+            if (!s.isNullOrEmpty()) s.toString().toUIntOrNull()?.let { value ->
+                val current = configurationModel.resolution.value ?: Resolution.DEFAULT
+                val next = make(value, current)
+                if (next != current) configurationModel.setResolution(next)
             }
         }
+    }
+
+    private fun setupResolutionPresets() {
+        binding.resolutionPresetSpinner.adapter = spinnerAdapter(Resolution.PRESETS.map { it.label() } + "Custom…")
+        binding.resolutionPresetSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (!suppressPresetCallback && position in Resolution.PRESETS.indices) configurationModel.setResolution(Resolution.PRESETS[position])
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun syncPresetSpinner(resolution: Resolution) {
+        val index = Resolution.PRESETS.indexOfFirst { it.width == resolution.width && it.height == resolution.height }
+        val target = if (index >= 0) index else Resolution.PRESETS.size
+        if (binding.resolutionPresetSpinner.selectedItemPosition != target) {
+            suppressPresetCallback = true
+            binding.resolutionPresetSpinner.setSelection(target)
+            suppressPresetCallback = false
+        }
+    }
+
+    private fun setupDebug() {
+        configurationModel.debug.observe(viewLifecycleOwner) { enabled ->
+            if (binding.debugModeChip.isChecked != enabled) binding.debugModeChip.isChecked = enabled
+        }
+        binding.debugModeChip.setOnCheckedChangeListener { _, checked -> configurationModel.setDebug(checked) }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

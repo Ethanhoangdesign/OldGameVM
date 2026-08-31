@@ -36,6 +36,7 @@ TEST(WeaponsTest, EffectiveArmour)
 	EXPECT_EQ(EffectiveArmour(&obj), 30);
 
 	delete cm;
+	GCM = nullptr;
 }
 
 TEST(WeaponsTest, ExplosiveEffectiveArmour)
@@ -83,6 +84,7 @@ TEST(WeaponsTest, ExplosiveEffectiveArmour)
 	EXPECT_EQ(ExplosiveEffectiveArmour(&obj), 27);
 
 	delete cm;
+	GCM = nullptr;
 }
 
 TEST(WeaponsTest, ArmourPercent)
@@ -117,6 +119,7 @@ TEST(WeaponsTest, ArmourPercent)
 	EXPECT_EQ(ArmourPercent(&soldier), 65);
 
 	delete cm;
+	GCM = nullptr;
 }
 
 TEST(WeaponsTest, ArmourVersusExplosivesPercent)
@@ -151,4 +154,5 @@ TEST(WeaponsTest, ArmourVersusExplosivesPercent)
 	EXPECT_EQ(ArmourVersusExplosivesPercent(&soldier), 85);
 
 	delete cm;
+	GCM = nullptr;
 }

@@ -55,6 +55,17 @@ void InitializeFonts(void)
 	{
 		M(gpHugeFont, FONTSDIR "/hugefont.sti");
 	}
+#ifdef __ANDROID__
+	// Optional: missing hugefont must not abort. GIO falls back to FONT16ARIAL.
+	try
+	{
+		M(gpHugeFont, FONTSDIR "/hugefont.sti");
+	}
+	catch (...)
+	{
+		gpHugeFont = nullptr;
+	}
+#endif
 #undef M
 
 	// Set default for font system

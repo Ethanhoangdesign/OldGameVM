@@ -1,5 +1,6 @@
 #include "Button_System.h"
 #include "FPS.h"
+#include "GameController.h"   /* OGVM-CONTROLLER */
 #include "GameLoop.h"
 #include "GameSettings.h"
 #include "Input.h"
@@ -43,12 +44,95 @@
 #include <string_theory/format>
 
 #include <chrono>
+#include <csignal>
+#include <cstdio>
 #include <exception>
+#include <fstream>
 #include <locale>
 #include <new>
+#include <string>
 #include <thread>
 #include <utility>
+#ifdef __ANDROID__
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 using namespace std::chrono_literals;
+
+#ifdef __ANDROID__
+namespace
+{
+constexpr size_t CRASH_PATH_SIZE = 512;
+char g_crashSignalPath[CRASH_PATH_SIZE]{};
+char g_crashReportPath[CRASH_PATH_SIZE]{};
+char g_gameRunningPath[CRASH_PATH_SIZE]{};
+
+void WriteSignalReport(int signal_number)
+{
+	int const fd = open(g_crashSignalPath, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0) return;
+	char digits[16];
+	int n = 0;
+	char reversed[16];
+	if (signal_number == 0) digits[n++] = '0';
+	else
+	{
+		while (signal_number > 0 && n < 15)
+		{
+			reversed[n++] = static_cast<char>('0' + signal_number % 10);
+			signal_number /= 10;
+		}
+		for (int i = 0; i < n; ++i) digits[i] = reversed[n - i - 1];
+	}
+	digits[n++] = '\n';
+	(void)write(fd, digits, static_cast<size_t>(n));
+	(void)close(fd);
+	signal(SIGSEGV, SIG_DFL);
+	signal(SIGABRT, SIG_DFL);
+	signal(SIGBUS, SIG_DFL);
+	signal(SIGILL, SIG_DFL);
+	signal(SIGFPE, SIG_DFL);
+	raise(signal_number);
+}
+
+void InstallCrashSignalHandlers(const char* home)
+{
+	std::snprintf(g_crashSignalPath, CRASH_PATH_SIZE, "%s/crash-signal", home);
+	std::snprintf(g_crashReportPath, CRASH_PATH_SIZE, "%s/crash-report", home);
+	std::snprintf(g_gameRunningPath, CRASH_PATH_SIZE, "%s/game-running", home);
+	std::remove(g_crashSignalPath);
+	std::ofstream(g_gameRunningPath, std::ios::trunc) << "running\n";
+	signal(SIGSEGV, WriteSignalReport);
+	signal(SIGABRT, WriteSignalReport);
+	signal(SIGBUS, WriteSignalReport);
+	signal(SIGILL, WriteSignalReport);
+	signal(SIGFPE, WriteSignalReport);
+}
+
+void RemoveGameRunningMarker()
+{
+	if (g_gameRunningPath[0] != '\0') std::remove(g_gameRunningPath);
+}
+
+void WriteCrashReport(const ST::string& message)
+{
+	if (g_crashReportPath[0] == '\0') return;
+	try
+	{
+		std::ofstream report(g_crashReportPath, std::ios::trunc);
+		if (!report) return;
+		report << "kind=cpp_exception\nmessage=" << message.c_str()
+			<< "\nscreen=" << guiPendingScreen << "\n";
+		report.flush();
+	}
+	catch (...)
+	{
+		// Crash reporting must not replace the original exception.
+	}
+}
+
+}
+#endif
 
 extern BOOLEAN gfPauseDueToPlayerGamePause;
 
@@ -98,6 +182,9 @@ static void deinitGameAndExit()
 	DoDeadIsDeadSaveIfNecessary();
 
 	shutdownGame();
+	#ifdef __ANDROID__
+	RemoveGameRunningMarker();
+	#endif
 
 	exit(0);
 }
@@ -160,6 +247,15 @@ static void MainLoop()
 				case SDL_FINGERUP:     FingerUp(&event.tfinger); break;
 				case SDL_FINGERDOWN:   FingerDown(&event.tfinger); break;
 
+				/* OGVM-CONTROLLER: su kien tay cam */
+				case SDL_CONTROLLERDEVICEADDED:
+				case SDL_CONTROLLERDEVICEREMOVED:
+				case SDL_CONTROLLERBUTTONDOWN:
+				case SDL_CONTROLLERBUTTONUP:
+				case SDL_CONTROLLERAXISMOTION:
+					GameController_HandleEvent(&event);
+					break;
+
 				case SDL_QUIT: deinitGameAndExit(); break;
 			}
 		}
@@ -167,6 +263,9 @@ static void MainLoop()
 		{
 			if (s_doGameCycles)
 			{
+				/* OGVM-CONTROLLER: di chuyen con tro theo analog moi frame */
+				GameController_Update();
+
 				// Aim to execute the game loop at a rate of 144Hz,
 				// once every ~6944 microseconds.
 				constexpr auto targetResolution = 1'000'000us / 144;
@@ -291,6 +390,9 @@ int main(int argc, char* argv[])
 		}
 
 		RustPointer<char> configFolderPath(EngineOptions_getStracciatellaHome());
+		#ifdef __ANDROID__
+		if (configFolderPath) InstallCrashSignalHandlers(configFolderPath.get());
+		#endif
 		if (configFolderPath.get() == NULL) {
 			auto rustError = getRustError();
 			if (rustError != NULL) {
@@ -356,6 +458,9 @@ int main(int argc, char* argv[])
 		////////////////////////////////////////////////////////////
 
 		SDL_Init(SDL_INIT_VIDEO);
+
+		/* OGVM-CONTROLLER: khoi tao gamepad (doc co bat/tat tu controller.ini) */
+		GameController_Init();
 
 		// restore output to the console (on windows when built with MINGW)
 	#ifdef __MINGW32__
@@ -471,6 +576,9 @@ void TerminationHandler()
 	#ifdef __ANDROID__
 	jniEnv->CallVoidMethod(exceptionContainerSingleton, setAndroidExceptionMethodId,
                                    jniEnv->NewStringUTF(errorMessage.c_str()));
+	#endif
+	#ifdef __ANDROID__
+	WriteCrashReport(errorMessage);
 	#endif
 	shutdownGame();
 	#ifndef __ANDROID__

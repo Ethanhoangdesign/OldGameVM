@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #ifndef __MAP_INTERFACE_BORDER_H
 #define __MAP_INTERFACE_BORDER_H
 
@@ -55,6 +59,9 @@ extern INT32 giScrollButtonState;
 
 void DeleteMapBorderGraphics( void );
 void RenderMapBorder( void );
+
+// full-size layout: level selector drawn on the toggle strip
+void RenderMapLevelSelectorFullSize(void);
 
 void ToggleShowTownsMode( void );
 void ToggleShowMinesMode( void );

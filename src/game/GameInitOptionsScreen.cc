@@ -21,42 +21,88 @@
 #include "SysUtil.h"
 #include "Text.h"
 #include "Types.h"
+#include "HImage.h"
+#include "VObject.h"
+#include "VObject_Blitters.h"
 #include "VSurface.h"
 #include "Video.h"
 #include "WordWrap.h"
 #include "UILayout.h"
 
 #include <string_theory/string>
+#include <cmath>
 
 
+#ifdef __ANDROID__
+// Center-fit 640x480 GIO chrome into the screen (no 2x cap). Matches the
+// Options/SaveLoad family so narrow presets (e.g. 934x480) stretch full instead
+// of pushing OK/Cancel off-screen. A 2x fixed scale worked on 768p but overflowed
+// on shorter/wide presets.
+static float GioUiScale(void)
+{
+	float const sx = (float)SCREEN_WIDTH  / 640.f;
+	float const sy = (float)SCREEN_HEIGHT / 480.f;
+	return std::min(sx, sy);
+}
+#define GIO_SCALE_X(x) ((INT16)((INT32)(SCREEN_WIDTH  / 2) + (INT32)(((INT32)(x) - (INT32)(STD_SCREEN_X + 320)) * GioUiScale())))
+#define GIO_SCALE_Y(y) ((INT16)((INT32)(SCREEN_HEIGHT / 2) + (INT32)(((INT32)(y) - (INT32)(STD_SCREEN_Y + 240)) * GioUiScale())))
+#define GIO_COMPACT_LAYOUT		(SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480)
+// 934x480 has only 1x vertical room; larger Android presets keep the touch layout.
+#define GIO_TITLE_FONT			(GIO_COMPACT_LAYOUT ? FONT16ARIAL : ((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL))
+#define GIO_TITLE_COLOR		FONT_MCOLOR_WHITE
+#define GIO_TOGGLE_TEXT_FONT		(GIO_COMPACT_LAYOUT ? FONT12ARIAL : ((gpHugeFont != nullptr) ? gpHugeFont : FONT16ARIAL))
+#define GIO_TOGGLE_TEXT_COLOR		FONT_MCOLOR_WHITE
+#define GIO_GAP_BN_SETTINGS		(GIO_COMPACT_LAYOUT ? 35 : 70)
+#define GIO_OFFSET_TO_TEXT		(GIO_COMPACT_LAYOUT ? 20 : 40)
+#define GIO_OFFSET_TO_TOGGLE_BOX	(GIO_COMPACT_LAYOUT ? 250 : 310)
+#define GIO_OFFSET_TO_TOGGLE_BOX_Y	(GIO_COMPACT_LAYOUT ? 9 : 18)
+#define GIO_COMPACT_X(x)		(GIO_COMPACT_LAYOUT ? (x) - 40 : (x))
+#define GIO_COMPACT_LEFT_X(x)		(GIO_COMPACT_LAYOUT ? (x) - 60 : (x))
+#define GIO_COMPACT_RIGHT_X(x)		(GIO_COMPACT_LAYOUT ? (x) - 20 : (x))
+#else
+#define GIO_SCALE_X(x) (x)
+#define GIO_SCALE_Y(y) (y)
 #define GIO_TITLE_FONT			FONT16ARIAL//FONT14ARIAL
 #define GIO_TITLE_COLOR		FONT_MCOLOR_WHITE
-
 #define GIO_TOGGLE_TEXT_FONT		FONT16ARIAL//FONT14ARIAL
 #define GIO_TOGGLE_TEXT_COLOR		FONT_MCOLOR_WHITE
-
-//buttons
-#define GIO_BTN_OK_X			(STD_SCREEN_X + 141)
-#define GIO_BTN_OK_Y			(STD_SCREEN_Y + 418)
-#define GIO_CANCEL_X			(STD_SCREEN_X + 379)
-
-//main title
-#define GIO_MAIN_TITLE_X		(STD_SCREEN_X + 0)
-#define GIO_MAIN_TITLE_Y		(STD_SCREEN_Y + 68)
-#define GIO_MAIN_TITLE_WIDTH		640
-
-//radio box locations
 #define GIO_GAP_BN_SETTINGS		35
 #define GIO_OFFSET_TO_TEXT		20//30
 #define GIO_OFFSET_TO_TOGGLE_BOX	155//200
 #define GIO_OFFSET_TO_TOGGLE_BOX_Y	9
+#define GIO_COMPACT_X(x)		(x)
+#define GIO_COMPACT_LEFT_X(x)		(x)
+#define GIO_COMPACT_RIGHT_X(x)		(x)
+#endif
 
-#define GIO_DIF_SETTINGS_X		(STD_SCREEN_X + 80)
-#define GIO_DIF_SETTINGS_Y		(STD_SCREEN_Y + 150)
-#define GIO_DIF_SETTINGS_WIDTH		GIO_OFFSET_TO_TOGGLE_BOX - GIO_OFFSET_TO_TEXT //230
+//buttons
+#define GIO_BTN_OK_X			GIO_SCALE_X(STD_SCREEN_X + GIO_COMPACT_X(141))
+// Keep OK/Cancel fully on-screen (prefs button art ~40px tall; short heights clip).
+#ifdef __ANDROID__
+#define GIO_BTN_OK_Y			((GIO_SCALE_Y(STD_SCREEN_Y + 418) > (INT16)(SCREEN_HEIGHT - 48)) \
+					? (INT16)(SCREEN_HEIGHT - 48) \
+					: GIO_SCALE_Y(STD_SCREEN_Y + 418))
+#else
+#define GIO_BTN_OK_Y			GIO_SCALE_Y(STD_SCREEN_Y + 418)
+#endif
+#define GIO_CANCEL_X			GIO_SCALE_X(STD_SCREEN_X + GIO_COMPACT_X(379))
 
-#define GIO_GAME_SETTINGS_X		(STD_SCREEN_X + 350)
-#define GIO_GAME_SETTINGS_Y		(STD_SCREEN_Y + 300)
+//main title
+#define GIO_MAIN_TITLE_X		GIO_SCALE_X(STD_SCREEN_X + 0)
+#define GIO_MAIN_TITLE_Y		GIO_SCALE_Y(STD_SCREEN_Y + 68)
+#ifdef __ANDROID__
+#define GIO_MAIN_TITLE_WIDTH		(GIO_COMPACT_LAYOUT ? 640 : 640 * 2)
+#else
+#define GIO_MAIN_TITLE_WIDTH		(640 * 2)
+#endif
+
+//radio box locations
+#define GIO_DIF_SETTINGS_X		GIO_SCALE_X(STD_SCREEN_X + GIO_COMPACT_LEFT_X(80))
+#define GIO_DIF_SETTINGS_Y		GIO_SCALE_Y(STD_SCREEN_Y + 150)
+#define GIO_DIF_SETTINGS_WIDTH		(GIO_OFFSET_TO_TOGGLE_BOX - GIO_OFFSET_TO_TEXT) //230
+
+#define GIO_GAME_SETTINGS_X		GIO_SCALE_X(STD_SCREEN_X + GIO_COMPACT_RIGHT_X(350))
+#define GIO_GAME_SETTINGS_Y		GIO_SCALE_Y(STD_SCREEN_Y + 300)
 #define GIO_GAME_SETTINGS_WIDTH	GIO_DIF_SETTINGS_WIDTH
 
 #define GIO_GUN_SETTINGS_X		GIO_GAME_SETTINGS_X
@@ -128,6 +174,8 @@ static BOOLEAN gfGIOScreenEntry      = TRUE;
 static BOOLEAN gfGIOScreenExit       = FALSE;
 static BOOLEAN gfReRenderGIOScreen   = TRUE;
 static BOOLEAN gfGIOButtonsAllocated = FALSE;
+static BOOLEAN gfGIOExitOptionsSaved = FALSE;
+static GAME_OPTIONS gGIOExitOptions;
 
 static UINT8 gubGameOptionScreenHandler = GIO_NOTHING;
 
@@ -176,6 +224,7 @@ static void HandleGIOScreen(void);
 static void RenderGIOScreen(void);
 static void GetGIOScreenUserInput(void);
 static void RestoreGIOButtonBackGrounds(void);
+static void SaveGIOExitOptions(void);
 static void DoneFadeOutForExitGameInitOptionScreen(void);
 static void DisplayMessageToUserAboutGameDifficulty(void);
 static void DisplayMessageToUserAboutDeadIsDeadSaveScreen(const ST::string& zString, MSGBOX_CALLBACK ReturnCallback);
@@ -239,6 +288,7 @@ template<> ScreenID HandleScreen<GAME_INIT_OPTIONS_SCREEN>()
 
 static GUIButtonRef MakeButton(BUTTON_PICS* img, const ST::string& text, INT16 x, GUI_CALLBACK click)
 {
+// OPT_BUTTON_* = humanist + white (shared popup chrome).
 	GUIButtonRef const btn = CreateIconAndTextButton(img, text, OPT_BUTTON_FONT, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, GIO_BTN_OK_Y, MSYS_PRIORITY_HIGH, click);
 	SpecifyButtonSoundScheme(btn, BUTTON_SOUND_SCHEME_BIGSWITCH3);
 	return btn;
@@ -252,6 +302,15 @@ static void MakeCheckBoxes(GUIButtonRef* const btns, size_t const n, INT16 const
 		GUIButtonRef const b = CreateCheckBoxButton(x, y, INTERFACEDIR "/optionscheck.sti", MSYS_PRIORITY_HIGH + 10, click);
 		btns[i] = b;
 		b->SetUserData(i);
+#ifdef __ANDROID__
+		// Match DrawCheckBoxButton(): 934x480 renders at natural size; other
+		// Android layouts keep the enlarged touch target.
+		if (!GIO_COMPACT_LAYOUT)
+		{
+			b->Area.RegionBottomRightX = b->Area.RegionTopLeftX + 68;
+			b->Area.RegionBottomRightY = b->Area.RegionTopLeftY + 58;
+		}
+#endif
 	}
 	btns[def]->uiFlags |= BUTTON_CLICKED_ON;
 }
@@ -300,7 +359,7 @@ static void EnterGIOScreen()
 		MakeCheckBoxes(guiGunOptionToggles, lengthof(guiGunOptionToggles), x, y, BtnGunOptionsTogglesCallback, def);
 	}
 
-#if 0 // JA2 Gold: no more timed turns
+#if 0 // JA2Gold: no more timed turns
 	{ // Check box to toggle the timed turn option
 		INT16  const x   = GIO_TIMED_TURN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX;
 		INT16  const y   = GIO_TIMED_TURN_SETTING_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
@@ -315,7 +374,7 @@ static void EnterGIOScreen()
 	// Render the screen once, so we can blt to the save buffer
 	RenderGIOScreen();
 
-	BlitBufferToBuffer(FRAME_BUFFER, guiSAVEBUFFER, STD_SCREEN_X, STD_SCREEN_Y, 640, 439);
+	BltVideoSurface(guiSAVEBUFFER, FRAME_BUFFER, 0, 0, NULL);
 
 	gfGIOButtonsAllocated = TRUE;
 }
@@ -382,6 +441,7 @@ static void HandleGIOScreen(void)
 				{
 					//Disable the ok button
 					DisableButton(guiGIODoneButton);
+					SaveGIOExitOptions();
 					gFadeOutDoneCallback = DoneFadeOutForExitGameInitOptionScreen;
 					FadeOutNextFrame();
 				}
@@ -414,10 +474,38 @@ static void RenderGIOScreen(void)
 {
 	UINT16		usPosY;
 
-	BltVideoObject(FRAME_BUFFER, guiGIOMainBackGroundImage, 0, STD_SCREEN_X, STD_SCREEN_Y);
+	// 640x480 options art: always stretch full FRAME_BUFFER (no letterbox trees)
+	{
+		SGPVObject const* const vo = GetVObject(guiGIOMainBackGroundImage);
+		ETRLEObject const& bg = vo->SubregionProperties(0);
+		if (bg.usWidth == SCREEN_WIDTH && bg.usHeight == SCREEN_HEIGHT)
+		{
+			BltVideoObject(FRAME_BUFFER, guiGIOMainBackGroundImage, 0, 0, 0);
+		}
+		else
+		{
+			// VO is 8bpp; stretch path needs 16bpp temp surface
+			SGPVSurface tmp(bg.usWidth, bg.usHeight, 16);
+			SGPRect tmpClip;
+			tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+			SGPRect const oldClip = SetClippingRect(tmpClip);
+			BltVideoObject(&tmp, vo, 0, 0, 0);
+			SetClippingRect(oldClip);
+			SGPBox src;
+			src.set(0, 0, bg.usWidth, bg.usHeight);
+			SGPBox dst;
+			dst.set(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+			BltStretchVideoSurface(FRAME_BUFFER, &tmp, &src, &dst);
+		}
+	}
+	InvalidateScreen();
 
 	//Shade the background
+#ifdef __ANDROID__
+	FRAME_BUFFER->ShadowRect(GIO_SCALE_X(STD_SCREEN_X + (GIO_COMPACT_LAYOUT ? 0 : 48)), GIO_SCALE_Y(STD_SCREEN_Y + 55), GIO_SCALE_X(STD_SCREEN_X + (GIO_COMPACT_LAYOUT ? 640 : 592)), GIO_SCALE_Y(STD_SCREEN_Y + 408));
+#else
 	FRAME_BUFFER->ShadowRect(STD_SCREEN_X + 48, STD_SCREEN_Y + 55, STD_SCREEN_X + 592, STD_SCREEN_Y + 408); //358
+#endif
 
 
 	//Display the title
@@ -479,11 +567,33 @@ static void RenderGIOScreen(void)
 	usPosY += GIO_GAP_BN_SETTINGS;
 
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY, GIO_DIF_SETTINGS_WIDTH, 2, GIO_TOGGLE_TEXT_FONT, GIO_TOGGLE_TEXT_COLOR, gzGIOScreenText[GIO_IRON_MAN_TEXT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#ifdef __ANDROID__
+	if (GIO_COMPACT_LAYOUT)
+	{
+		DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	}
+	else
+	{
+		DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+50, 440, 2, FONT16ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	}
+#else
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_SAVE_DURING_COMBAT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#endif
 	usPosY += GIO_GAP_BN_SETTINGS;
 
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY, GIO_DIF_SETTINGS_WIDTH, 2, GIO_TOGGLE_TEXT_FONT, GIO_TOGGLE_TEXT_COLOR, gzGIOScreenText[GIO_DEAD_IS_DEAD_TEXT], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#ifdef __ANDROID__
+	if (GIO_COMPACT_LAYOUT)
+	{
+		DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	}
+	else
+	{
+		DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+50, 440, 2, FONT16ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+	}
+#else
 	DisplayWrappedString(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TEXT, usPosY+20, 220, 2, FONT12ARIAL, GIO_TOGGLE_TEXT_COLOR, zNewTacticalMessages[TCTL_MSG__CANNOT_LOAD_PREVIOUS_SAVE], FONT_MCOLOR_BLACK, LEFT_JUSTIFIED);
+#endif
 }
 
 
@@ -631,7 +741,7 @@ static UINT8 GetCurrentGunButtonSetting(void)
 }
 
 
-#if 0// JA2 Gold: no timed turns
+#if 0// JA2 Gold: no more timed turns
 static UINT8 GetCurrentTimedTurnsButtonSetting(void)
 {
 	UINT8	cnt;
@@ -659,64 +769,29 @@ static UINT8 GetCurrentGameSaveButtonSetting(void)
 
 static void RestoreGIOButtonBackGrounds(void)
 {
-	UINT8	cnt;
-	UINT16 usPosY;
+	// GIO always renders full background.
+	// Skip per-checkbox restore: Android 2x layout can place rect past screen edge.
+}
 
-	// Check box to toggle Difficulty settings
-	usPosY = GIO_DIF_SETTINGS_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < NUM_DIF_LEVELS; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_DIF_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
 
-	// Check box to toggle Game settings ( realistic, sci fi )
-	usPosY = GIO_GAME_SETTINGS_Y-GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < NUM_GAME_STYLES; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_GAME_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
-
-	// Check box to toggle Gun options
-	usPosY = GIO_GUN_SETTINGS_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < NUM_GUN_OPTIONS; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_GUN_SETTINGS_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
-
+static void SaveGIOExitOptions(void)
+{
+	gGIOExitOptions = gGameOptions;
+	gGIOExitOptions.fGunNut = GetCurrentGunButtonSetting();
+	gGIOExitOptions.fSciFi = GetCurrentGameStyleButtonSetting();
+	gGIOExitOptions.ubDifficultyLevel = GetCurrentDifficultyButtonSetting() + 1;
 #if 0 // JA2Gold: no more timed turns setting
-	// Check box to toggle timed turns options
-	usPosY = GIO_TIMED_TURN_SETTING_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < GIO_NUM_TIMED_TURN_OPTIONS; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_TIMED_TURN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
+	gGIOExitOptions.fTurnTimeLimit = GetCurrentTimedTurnsButtonSetting();
 #endif
-
-	// Check box to toggle iron man options
-	usPosY = GIO_IRON_MAN_SETTING_Y - GIO_OFFSET_TO_TOGGLE_BOX_Y;
-	for (cnt = 0; cnt < NUM_SAVE_OPTIONS; cnt++)
-	{
-		RestoreExternBackgroundRect(GIO_IRON_MAN_SETTING_X + GIO_OFFSET_TO_TOGGLE_BOX, usPosY, 34, 29);
-		usPosY += GIO_GAP_BN_SETTINGS;
-	}
+	gGIOExitOptions.ubGameSaveMode = GetCurrentGameSaveButtonSetting();
+	gfGIOExitOptionsSaved = TRUE;
 }
 
 
 static void DoneFadeOutForExitGameInitOptionScreen(void)
 {
-	// loop through and get the status of all the buttons
-	gGameOptions.fGunNut = GetCurrentGunButtonSetting();
-	gGameOptions.fSciFi = GetCurrentGameStyleButtonSetting();
-	gGameOptions.ubDifficultyLevel = GetCurrentDifficultyButtonSetting() + 1;
-#if 0 // JA2Gold: no more timed turns setting
-	gGameOptions.fTurnTimeLimit = GetCurrentTimedTurnsButtonSetting();
-#endif
-	// JA2Gold: iron man
-	gGameOptions.ubGameSaveMode = GetCurrentGameSaveButtonSetting();
+	if (!gfGIOExitOptionsSaved) SaveGIOExitOptions();
+	gGameOptions = gGIOExitOptions;
 
 	if (gGameOptions.ubGameSaveMode == GIO_DEAD_IS_DEAD)
 	{
@@ -752,6 +827,8 @@ static void ConfirmGioDifSettingMessageBoxCallBack(MessageBoxReturnValue const b
 {
 	if (bExitValue == MSG_BOX_RETURN_YES)
 	{
+		// Snapshot while GIO buttons still alive (before fade teardown).
+		SaveGIOExitOptions();
 		if (GetCurrentGameSaveButtonSetting() == GIO_DEAD_IS_DEAD)
 		{
 			gubGameOptionScreenHandler = GIO_DEAD_IS_DEAD_SAVE;

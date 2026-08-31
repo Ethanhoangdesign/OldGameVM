@@ -149,6 +149,15 @@ void     LaptopScreenInit(void);
 ScreenID LaptopScreenHandle(void);
 void     LaptopScreenShutdown(void);
 
+#ifdef __ANDROID__
+// Fit-scale laptop keep aspect. Touch map + present rects for Video.
+BOOLEAN AndroidLaptopScaleActive(void);
+void    AndroidLaptopMapScreenToLogical(int* x, int* y);
+// Natural 640x480 src in FB → fit dst on screen (for SDL nearest present).
+BOOLEAN AndroidLaptopGetPresentRects(int* nx, int* ny, int* nw, int* nh,
+                                     int* dx, int* dy, int* dw, int* dh);
+#endif
+
 inline cache_key_t const guiTITLEBARLAPTOP{ LAPTOPDIR "/programtitlebar.sti" };
 
 #endif

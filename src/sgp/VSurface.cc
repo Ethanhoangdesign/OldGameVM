@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "Debug.h"
 #include "HImage.h"
 #include "Shading.h"
@@ -168,7 +172,16 @@ void BltVideoSurfaceHalf(SGPVSurface* const dst, SGPVSurface* const src, INT32 c
 	UINT32  const SrcPitchBYTES  = lsrc.Pitch();
 	UINT16* const DestBuf        = ldst.Buffer<UINT16>();
 	UINT32  const DestPitchBYTES = ldst.Pitch();
-	Blt8BPPDataTo16BPPBufferHalf(DestBuf, DestPitchBYTES, src, SrcBuf, SrcPitchBYTES, DestX, DestY, src_rect);
+	// 16-bit source surfaces (e.g. uncompressed STI art in some game editions)
+	// have no 8-bit palette, so they need a direct 16->16 half blit.
+	if (src->BPP() == 16)
+	{
+		Blt16BPPDataTo16BPPBufferHalf(DestBuf, DestPitchBYTES, src, SrcBuf, SrcPitchBYTES, DestX, DestY, src_rect);
+	}
+	else
+	{
+		Blt8BPPDataTo16BPPBufferHalf(DestBuf, DestPitchBYTES, src, SrcBuf, SrcPitchBYTES, DestX, DestY, src_rect);
+	}
 }
 
 
@@ -204,9 +217,19 @@ void BltVideoSurface(SGPVSurface* const dst, SGPVSurface* const src, INT32 const
 {
 	Assert(dst);
 	Assert(src);
+	if (!dst || !src) return;
 
-	const UINT8 src_bpp = src->BPP();
-	const UINT8 dst_bpp = dst->BPP();
+	SDL_Surface const* const src_surface = src->surface_.get();
+	SDL_Surface* const dst_surface = dst->surface_.get();
+	if (!src_surface || !dst_surface || !src_surface->format || !dst_surface->format ||
+		!src_surface->pixels || !dst_surface->pixels)
+	{
+		SLOGE("Skipping blit with invalid video surface");
+		return;
+	}
+
+	const UINT8 src_bpp = src_surface->format->BitsPerPixel;
+	const UINT8 dst_bpp = dst_surface->format->BitsPerPixel;
 	if (src_bpp == dst_bpp)
 	{
 		SDL_Rect* src_rect = 0;
@@ -267,25 +290,46 @@ void BltVideoSurface(SGPVSurface* const dst, SGPVSurface* const src, INT32 const
 
 void BltStretchVideoSurface(SGPVSurface* const dst, SGPVSurface const* const src, SGPBox const* const src_rect, SGPBox const* const dst_rect)
 {
+	if (!dst || !src || !src_rect || !dst_rect) return;
 	if (dst->BPP() != 16 || src->BPP() != 16) return;
+	if (src_rect->w == 0 || src_rect->h == 0 || dst_rect->w == 0 || dst_rect->h == 0) return;
 
 	SDL_Surface const* const ssurface = src->surface_.get();
 	SDL_Surface*       const dsurface = dst->surface_.get();
+	if (!ssurface || !dsurface || !ssurface->pixels || !dsurface->pixels) return;
+
+	// Clamp destination into dst surface — unclamped write SEGV on Android 2× UI.
+	INT32 dx0 = dst_rect->x;
+	INT32 dy0 = dst_rect->y;
+	INT32 dx1 = dx0 + (INT32)dst_rect->w;
+	INT32 dy1 = dy0 + (INT32)dst_rect->h;
+	if (dx0 < 0) dx0 = 0;
+	if (dy0 < 0) dy0 = 0;
+	if (dx1 > dsurface->w) dx1 = dsurface->w;
+	if (dy1 > dsurface->h) dy1 = dsurface->h;
+	if (dx1 <= dx0 || dy1 <= dy0) return;
+
+	// Source must fit in src surface.
+	if ((INT32)src_rect->x < 0 || (INT32)src_rect->y < 0) return;
+	if ((INT32)src_rect->x + (INT32)src_rect->w > ssurface->w) return;
+	if ((INT32)src_rect->y + (INT32)src_rect->h > ssurface->h) return;
 
 	const UINT32  s_pitch = ssurface->pitch >> 1;
 	const UINT32  d_pitch = dsurface->pitch >> 1;
 	UINT16 const* os      = (const UINT16*)ssurface->pixels + s_pitch * src_rect->y + src_rect->x;
-	UINT16*       d       =       (UINT16*)dsurface->pixels + d_pitch * dst_rect->y + dst_rect->x;
+	UINT16*       d       =       (UINT16*)dsurface->pixels + d_pitch * dy0 + dx0;
 
-	UINT const width  = dst_rect->w;
-	UINT const height = dst_rect->h;
+	// If we clamped dst origin, still stretch into remaining box (simple: use clamped size).
+	UINT const width  = (UINT)(dx1 - dx0);
+	UINT const height = (UINT)(dy1 - dy0);
 	UINT const dx     = src_rect->w;
 	UINT const dy     = src_rect->h;
 	UINT py = 0;
-	if (ssurface->flags & SDL_TRUE)
+	UINT32 key = 0;
+	bool const has_colorkey = SDL_HasColorKey(const_cast<SDL_Surface*>(ssurface)) == SDL_TRUE;
+	if (has_colorkey)
 	{
-//		const UINT16 key = ssurface->format->colorkey;
-		const UINT16 key = 0;
+		SDL_GetColorKey(const_cast<SDL_Surface*>(ssurface), &key);
 		for (UINT iy = 0; iy < height; ++iy)
 		{
 			const UINT16* s = os;

@@ -92,7 +92,7 @@ UINT16 GunRange(OBJECTTYPE const& o)
 	{
 		range += GUN_BARREL_RANGE_BONUS * WEAPON_STATUS_MOD(o.bAttachStatus[attach_pos]) / 100;
 	}
-	attach_pos = FindAttachment(&o, SILENCER);
+	attach_pos = FindSilencerAttachment(&o);
 	if (attach_pos != ITEM_NOT_FOUND)
 	{
 		range -= SILENCER_RANGE_PENALTY;
@@ -539,7 +539,7 @@ static BOOLEAN WillExplosiveWeaponFail(const SOLDIERTYPE* pSoldier, const OBJECT
 static ST::string GetBurstSoundName(SOLDIERTYPE const& soldier)
 {
 	auto * const weapon = GCM->getWeapon(soldier.usAttackingWeapon);
-	bool isSilenced = FindAttachment(&soldier.inv[soldier.ubAttackingHand], SILENCER) != NO_SLOT;
+	bool isSilenced = FindSilencerAttachment(&soldier.inv[soldier.ubAttackingHand]) != NO_SLOT;
 	auto const& burstSound = isSilenced ? weapon->silencedBurstSound : weapon->burstSound;
 
 	if (!burstSound.empty())
@@ -624,7 +624,7 @@ static void UseGun(SOLDIERTYPE * const pSoldier, GridNo const sTargetGridNo)
 		if ( GCM->getItem(usItemNum)->getItemClass() != IC_THROWING_KNIFE )
 		{
 			// Switch on silencer...
-			if( FindAttachment( &( pSoldier->inv[ pSoldier->ubAttackingHand ] ), SILENCER ) != NO_SLOT )
+			if( FindSilencerAttachment( &( pSoldier->inv[ pSoldier->ubAttackingHand ] ) ) != NO_SLOT )
 			{
 				if (!weapon->silencedSound.empty()) {
 					PlayLocationJA2Sample(pSoldier->sGridNo, weapon->silencedSound, HIGHVOLUME, 1);
@@ -843,7 +843,7 @@ static void UseGun(SOLDIERTYPE * const pSoldier, GridNo const sTargetGridNo)
 	else
 	{
 		// if the weapon has a silencer attached
-		bSilencerPos = FindAttachment( &(pSoldier->inv[HANDPOS]), SILENCER );
+		bSilencerPos = FindSilencerAttachment( &(pSoldier->inv[HANDPOS]) );
 		if (bSilencerPos != -1)
 		{
 			// reduce volume by a percentage equal to silencer's work %age (min 1)

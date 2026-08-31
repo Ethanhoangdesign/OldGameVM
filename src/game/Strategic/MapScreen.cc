@@ -1,8 +1,13 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "MapScreen.h"
 #include "Animated_ProgressBar.h"
 #include "Campaign.h"
 #include "Cheats.h"
 #include "ContentManager.h"
+#include "UILayout.h"
 #include "Creature_Spreading.h"
 #include "Cursor_Control.h"
 #include "Cursors.h"
@@ -108,11 +113,11 @@
 
 // Coordinate defines
 
-#define TOWN_INFO_X           (STD_SCREEN_X + 0)
-#define TOWN_INFO_Y           (STD_SCREEN_Y + 1)
+#define TOWN_INFO_X           (MAP_LEFT_COL_X + 0)
+#define TOWN_INFO_Y           (MAP_LEFT_COL_Y + 1)
 
-#define PLAYER_INFO_X         (STD_SCREEN_X + 0)
-#define PLAYER_INFO_Y         (STD_SCREEN_Y + 107)
+#define PLAYER_INFO_X         (MAP_LEFT_COL_X + 0)
+#define PLAYER_INFO_Y         (MAP_LEFT_COL_Y + 107)
 
 // item description
 #define MAP_ITEMDESC_START_X PLAYER_INFO_X
@@ -127,58 +132,66 @@
 
 #define MAP_BG_WIDTH      (640 - 261)
 
-#define MAP_ARMOR_LABEL_X (STD_SCREEN_X + 208)
-#define MAP_ARMOR_LABEL_Y (STD_SCREEN_Y + 179)
-#define MAP_ARMOR_X       (STD_SCREEN_X + 209)
-#define MAP_ARMOR_Y       (STD_SCREEN_Y + 188)
+/* Origin of the map screen left column (character info + roster). The
+ * full-size Wildfire layout pins it to the top-left corner of the screen. */
+/* MAPZOOM: suy he so nguoc tu buoc luoi (63 khi phong, 42 khi khong). */
+#define MAPZOOM_NUM ((g_ui.get_MAP_GRID_X() >= 60) ? 3 : 2)
+
+#define MAP_LEFT_COL_X (g_ui.get_MAP_LEFT_COL_X())
+#define MAP_LEFT_COL_Y (g_ui.get_MAP_LEFT_COL_Y())
+
+#define MAP_ARMOR_LABEL_X (MAP_LEFT_COL_X + 208)
+#define MAP_ARMOR_LABEL_Y (MAP_LEFT_COL_Y + 179)
+#define MAP_ARMOR_X       (MAP_LEFT_COL_X + 209)
+#define MAP_ARMOR_Y       (MAP_LEFT_COL_Y + 188)
 #define MAP_ARMOR_W        28
 #define MAP_ARMOR_H        10
 
-#define MAP_WEIGHT_LABEL_X (STD_SCREEN_X + 173)
-#define MAP_WEIGHT_LABEL_Y (STD_SCREEN_Y + 256)
-#define MAP_WEIGHT_X       (STD_SCREEN_X + 176)
-#define MAP_WEIGHT_Y       (STD_SCREEN_Y + 265)
+#define MAP_WEIGHT_LABEL_X (MAP_LEFT_COL_X + 173)
+#define MAP_WEIGHT_LABEL_Y (MAP_LEFT_COL_Y + 256)
+#define MAP_WEIGHT_X       (MAP_LEFT_COL_X + 176)
+#define MAP_WEIGHT_Y       (MAP_LEFT_COL_Y + 265)
 #define MAP_WEIGHT_W        28
 #define MAP_WEIGHT_H        10
 
-#define MAP_CAMO_LABEL_X (STD_SCREEN_X + 178)
-#define MAP_CAMO_LABEL_Y (STD_SCREEN_Y + 283)
-#define MAP_CAMO_X       (STD_SCREEN_X + 176)
-#define MAP_CAMO_Y       (STD_SCREEN_Y + 292)
+#define MAP_CAMO_LABEL_X (MAP_LEFT_COL_X + 178)
+#define MAP_CAMO_LABEL_Y (MAP_LEFT_COL_Y + 283)
+#define MAP_CAMO_X       (MAP_LEFT_COL_X + 176)
+#define MAP_CAMO_Y       (MAP_LEFT_COL_Y + 292)
 #define MAP_CAMO_W        28
 #define MAP_CAMO_H        10
 
 #define MAP_INV_STATS_TITLE_FONT_COLOR 6
 
-#define PLAYER_INFO_FACE_START_X    (STD_SCREEN_X + 9)
-#define PLAYER_INFO_FACE_START_Y    (STD_SCREEN_Y + 17)
-#define PLAYER_INFO_FACE_END_X			(STD_SCREEN_X + 60)
-#define PLAYER_INFO_FACE_END_Y			(STD_SCREEN_Y + 76)
+#define PLAYER_INFO_FACE_START_X    (MAP_LEFT_COL_X + 9)
+#define PLAYER_INFO_FACE_START_Y    (MAP_LEFT_COL_Y + 17)
+#define PLAYER_INFO_FACE_END_X			(MAP_LEFT_COL_X + 60)
+#define PLAYER_INFO_FACE_END_Y			(MAP_LEFT_COL_Y + 76)
 
-#define PLAYER_INFO_HAND_START_X    (STD_SCREEN_X + 4)
-#define PLAYER_INFO_HAND_START_Y    (STD_SCREEN_Y + 81)
-#define PLAYER_INFO_HAND_END_X      (STD_SCREEN_X + 62)
-#define PLAYER_INFO_HAND_END_Y      (STD_SCREEN_Y + 103)
+#define PLAYER_INFO_HAND_START_X    (MAP_LEFT_COL_X + 4)
+#define PLAYER_INFO_HAND_START_Y    (MAP_LEFT_COL_Y + 81)
+#define PLAYER_INFO_HAND_END_X      (MAP_LEFT_COL_X + 62)
+#define PLAYER_INFO_HAND_END_Y      (MAP_LEFT_COL_Y + 103)
 
-#define INV_BODY_X (UINT16)(STD_SCREEN_X + 71)
-#define INV_BODY_Y (UINT16)(STD_SCREEN_Y + 116)
+#define INV_BODY_X (UINT16)(MAP_LEFT_COL_X + 71)
+#define INV_BODY_Y (UINT16)(MAP_LEFT_COL_Y + 116)
 
 //Text offsets
 #define Y_OFFSET 2
 
 
 // char stat positions
-#define STR_X (STD_SCREEN_X + 112)
-#define STR_Y (STD_SCREEN_Y + 42)
+#define STR_X (MAP_LEFT_COL_X + 112)
+#define STR_Y (MAP_LEFT_COL_Y + 42)
 #define DEX_X STR_X
-#define DEX_Y (STD_SCREEN_Y + 32)
+#define DEX_Y (MAP_LEFT_COL_Y + 32)
 #define AGL_X STR_X
-#define AGL_Y (STD_SCREEN_Y + 22)
+#define AGL_Y (MAP_LEFT_COL_Y + 22)
 #define LDR_X STR_X
-#define LDR_Y (STD_SCREEN_Y + 52)
+#define LDR_Y (MAP_LEFT_COL_Y + 52)
 #define WIS_X STR_X
-#define WIS_Y (STD_SCREEN_Y + 62)
-#define LVL_X (STD_SCREEN_X + 159)
+#define WIS_Y (MAP_LEFT_COL_Y + 62)
+#define LVL_X (MAP_LEFT_COL_X + 159)
 #define LVL_Y AGL_Y
 #define MRK_X LVL_X
 #define MRK_Y DEX_Y
@@ -192,44 +205,44 @@
 #define STAT_WID 15
 #define STAT_HEI GetFontHeight(CHAR_FONT)
 
-#define PIC_NAME_X (STD_SCREEN_X + 8)
-#define PIC_NAME_Y (STD_SCREEN_Y + 66 + 3)
-#define PIC_NAME_WID (STD_SCREEN_X + 60 - PIC_NAME_X)
-#define PIC_NAME_HEI (STD_SCREEN_Y + 75 - PIC_NAME_Y)
-#define CHAR_NAME_X (STD_SCREEN_X + 14)
-#define CHAR_NAME_Y (STD_SCREEN_Y + 2 + 3)
-#define CHAR_NAME_WID (STD_SCREEN_X + 164 - CHAR_NAME_X)
-#define CHAR_NAME_HEI (STD_SCREEN_Y + 11 - CHAR_NAME_Y)
-#define CHAR_TIME_REMAINING_X (STD_SCREEN_X + 207)
-#define CHAR_TIME_REMAINING_Y (STD_SCREEN_Y + 65)
-#define CHAR_TIME_REMAINING_WID (STD_SCREEN_X + 258 - CHAR_TIME_REMAINING_X)
+#define PIC_NAME_X (MAP_LEFT_COL_X + 8)
+#define PIC_NAME_Y (MAP_LEFT_COL_Y + 66 + 3)
+#define PIC_NAME_WID (MAP_LEFT_COL_X + 60 - PIC_NAME_X)
+#define PIC_NAME_HEI (MAP_LEFT_COL_Y + 75 - PIC_NAME_Y)
+#define CHAR_NAME_X (MAP_LEFT_COL_X + 14)
+#define CHAR_NAME_Y (MAP_LEFT_COL_Y + 2 + 3)
+#define CHAR_NAME_WID (MAP_LEFT_COL_X + 164 - CHAR_NAME_X)
+#define CHAR_NAME_HEI (MAP_LEFT_COL_Y + 11 - CHAR_NAME_Y)
+#define CHAR_TIME_REMAINING_X (MAP_LEFT_COL_X + 207)
+#define CHAR_TIME_REMAINING_Y (MAP_LEFT_COL_Y + 65)
+#define CHAR_TIME_REMAINING_WID (MAP_LEFT_COL_X + 258 - CHAR_TIME_REMAINING_X)
 #define CHAR_TIME_REMAINING_HEI GetFontHeight(CHAR_FONT)
 #define CHAR_SALARY_X					CHAR_TIME_REMAINING_X
-#define CHAR_SALARY_Y					(STD_SCREEN_Y + 79)
+#define CHAR_SALARY_Y					(MAP_LEFT_COL_Y + 79)
 #define CHAR_SALARY_WID					CHAR_TIME_REMAINING_WID - 8		// for right justify
 #define CHAR_SALARY_HEI					CHAR_TIME_REMAINING_HEI
 #define CHAR_MEDICAL_X					CHAR_TIME_REMAINING_X
-#define CHAR_MEDICAL_Y					(STD_SCREEN_Y + 93)
+#define CHAR_MEDICAL_Y					(MAP_LEFT_COL_Y + 93)
 #define CHAR_MEDICAL_WID				CHAR_TIME_REMAINING_WID - 8		// for right justify
 #define CHAR_MEDICAL_HEI				CHAR_TIME_REMAINING_HEI
-#define CHAR_ASSIGN_X (STD_SCREEN_X + 182)
-#define CHAR_ASSIGN1_Y (STD_SCREEN_Y + 18)
-#define CHAR_ASSIGN2_Y (STD_SCREEN_Y + 31)
+#define CHAR_ASSIGN_X (MAP_LEFT_COL_X + 182)
+#define CHAR_ASSIGN1_Y (MAP_LEFT_COL_Y + 18)
+#define CHAR_ASSIGN2_Y (MAP_LEFT_COL_Y + 31)
 #define CHAR_ASSIGN_WID 257 - 178
 #define CHAR_ASSIGN_HEI 39 - 29
-#define CHAR_HP_X (STD_SCREEN_X + 133)
-#define CHAR_HP_Y (STD_SCREEN_Y + 77 + 3)
-#define CHAR_HP_WID  (STD_SCREEN_X + 175 - CHAR_HP_X)
-#define CHAR_HP_HEI  (STD_SCREEN_Y + 90 - CHAR_HP_Y)
-#define CHAR_MORALE_X (STD_SCREEN_X + 133)
-#define CHAR_MORALE_Y (STD_SCREEN_Y + 91 + 3)
-#define CHAR_MORALE_WID (STD_SCREEN_X + 175 - CHAR_MORALE_X)
-#define CHAR_MORALE_HEI (STD_SCREEN_Y + 101 - CHAR_MORALE_Y)
+#define CHAR_HP_X (MAP_LEFT_COL_X + 133)
+#define CHAR_HP_Y (MAP_LEFT_COL_Y + 77 + 3)
+#define CHAR_HP_WID  (MAP_LEFT_COL_X + 175 - CHAR_HP_X)
+#define CHAR_HP_HEI  (MAP_LEFT_COL_Y + 90 - CHAR_HP_Y)
+#define CHAR_MORALE_X (MAP_LEFT_COL_X + 133)
+#define CHAR_MORALE_Y (MAP_LEFT_COL_Y + 91 + 3)
+#define CHAR_MORALE_WID (MAP_LEFT_COL_X + 175 - CHAR_MORALE_X)
+#define CHAR_MORALE_HEI (MAP_LEFT_COL_Y + 101 - CHAR_MORALE_Y)
 
-#define SOLDIER_PIC_X (STD_SCREEN_X + 9)
-#define SOLDIER_PIC_Y (STD_SCREEN_Y + 20)
-#define SOLDIER_HAND_X (STD_SCREEN_X + 6)
-#define SOLDIER_HAND_Y (STD_SCREEN_Y + 81)
+#define SOLDIER_PIC_X (MAP_LEFT_COL_X + 9)
+#define SOLDIER_PIC_Y (MAP_LEFT_COL_Y + 20)
+#define SOLDIER_HAND_X (MAP_LEFT_COL_X + 6)
+#define SOLDIER_HAND_Y (MAP_LEFT_COL_Y + 81)
 
 #define RGB_WHITE	( FROMRGB( 255, 255, 255 ) )
 #define RGB_YELLOW	( FROMRGB( 255, 255,   0 ) )
@@ -485,7 +498,7 @@ static void GlowItem(void)
 
 		if (fOldItemGlow)
 		{
-			RestoreExternBackgroundRect( STD_SCREEN_X + 3, STD_SCREEN_Y + 80, ( UINT16 )( 65 - 3 ), ( UINT16 )( 105 - 80 ) );
+			RestoreExternBackgroundRect( MAP_LEFT_COL_X + 3, MAP_LEFT_COL_Y + 80, ( UINT16 )( 65 - 3 ), ( UINT16 )( 105 - 80 ) );
 		}
 
 		fOldItemGlow = FALSE;
@@ -514,7 +527,7 @@ static void GlowItem(void)
 	// restore background
 	if((iColorNum==0)||(iColorNum==1))
 	{
-		RestoreExternBackgroundRect( STD_SCREEN_X + 3, STD_SCREEN_Y + 80, ( UINT16 )( 65 - 3 ), ( UINT16 )( 105 - 80 ) );
+		RestoreExternBackgroundRect( MAP_LEFT_COL_X + 3, MAP_LEFT_COL_Y + 80, ( UINT16 )( 65 - 3 ), ( UINT16 )( 105 - 80 ) );
 		RenderHandPosItem();
 	}
 
@@ -522,8 +535,8 @@ static void GlowItem(void)
 	UINT16 usColor = GlowColor(iColorNum);
 	SGPVSurface::Lock l(FRAME_BUFFER);
 	SetClippingRegionAndImageWidth(l.Pitch(), 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-	RectangleDraw(TRUE, STD_SCREEN_X + 3, STD_SCREEN_Y + 80, STD_SCREEN_X + 64, STD_SCREEN_Y + 104, usColor, l.Buffer<UINT16>());
-	InvalidateRegion( STD_SCREEN_X + 3, STD_SCREEN_Y + 80, STD_SCREEN_X + 65, STD_SCREEN_Y + 105 );
+	RectangleDraw(TRUE, MAP_LEFT_COL_X + 3, MAP_LEFT_COL_Y + 80, MAP_LEFT_COL_X + 64, MAP_LEFT_COL_Y + 104, usColor, l.Buffer<UINT16>());
+	InvalidateRegion( MAP_LEFT_COL_X + 3, MAP_LEFT_COL_Y + 80, MAP_LEFT_COL_X + 65, MAP_LEFT_COL_Y + 105 );
 }
 
 
@@ -1304,6 +1317,10 @@ static void RefreshMapScreen()
 // THIS IS STUFF THAT RUNS *ONCE* DURING APPLICATION EXECUTION, AT INITIAL STARTUP
 void MapScreenInit(void)
 {
+	// OGVM-UILAYOUT: sync g_ui to actual screen size
+	g_ui.setScreenSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+	g_ui.recalculatePositions();
+
 	InitMapScreenInterfaceMap();
 
 	// set up leave list arrays for dismissed mercs
@@ -1574,6 +1591,31 @@ ScreenID MapScreenHandle(void)
 
 		guiSAVEBUFFER->Fill(Get16BPPColor(RGB_NEAR_BLACK));
 		FRAME_BUFFER->Fill( Get16BPPColor(RGB_NEAR_BLACK));
+
+		if (g_ui.isBigScreen() && !g_ui.isMapFullSize())
+		{
+			/* Fill the space around the centered 640x480 map screen layout
+			 * with the textured space filler instead of leaving it black.
+			 * Draw into both buffers (after the black wipe above) so partial
+			 * background restores keep the filler intact. In full-size map
+			 * mode the Wildfire layout fills the screen itself. */
+			UINT16 const l = STD_SCREEN_X;
+			UINT16 const t = STD_SCREEN_Y;
+			UINT16 const mw = MAP_SCREEN_WIDTH;
+			UINT16 const mh = MAP_SCREEN_HEIGHT;
+			SGPBox const bands[] = {
+				{0, 0, SCREEN_WIDTH, t},                                                  // top
+				{0, (UINT16)(t + mh), SCREEN_WIDTH, (UINT16)(SCREEN_HEIGHT - t - mh)},    // bottom
+				{0, t, l, mh},                                                            // left
+				{(UINT16)(l + mw), t, (UINT16)(SCREEN_WIDTH - l - mw), mh},               // right
+			};
+			for (SGPBox const& band : bands)
+			{
+				if (band.w == 0 || band.h == 0) continue;
+				DrawFillerOnSurface(FRAME_BUFFER, band);
+				DrawFillerOnSurface(guiSAVEBUFFER, band);
+			}
+		}
 
 		if( gpCurrentTalkingFace != NULL )
 		{
@@ -1921,6 +1963,7 @@ ScreenID MapScreenHandle(void)
 		else
 		{
 			fShowInventoryFlag = FALSE;
+			fMapScreenBottomDirty = TRUE; // full-size layout: log panel top follows the inventory state
 		}
 
 		fTeamPanelDirty = TRUE;
@@ -3105,6 +3148,7 @@ void EndMapScreen( BOOLEAN fDuringFade )
 	HandleShutDownOfMapScreenWhileExternfaceIsTalking( );
 
 	fShowInventoryFlag = FALSE;
+	fMapScreenBottomDirty = TRUE; // full-size layout: log panel top follows the inventory state
 	CreateDestroyMapInvButton();
 
 	// no longer can we show assignments menu
@@ -3167,6 +3211,7 @@ void EndMapScreen( BOOLEAN fDuringFade )
 
 
 	fShowInventoryFlag = FALSE;
+	fMapScreenBottomDirty = TRUE; // full-size layout: log panel top follows the inventory state
 	CreateDestroyTrashCanRegion( );
 
 	if ( !fDuringFade )
@@ -3938,28 +3983,28 @@ static void RenderAttributeStringsForUpperLeftHandCorner(SGPVSurface* const uiBu
 	SetFontDestBuffer(uiBufferToRenderTo);
 
 	// assignment strings
-	DrawString(pUpperLeftMapScreenStrings[0], STD_SCREEN_X + 220 - StringPixLength(pUpperLeftMapScreenStrings[0], CHAR_FONT) / 2, STD_SCREEN_Y + 6, CHAR_FONT);
+	DrawString(pUpperLeftMapScreenStrings[0], MAP_LEFT_COL_X + 220 - StringPixLength(pUpperLeftMapScreenStrings[0], CHAR_FONT) / 2, MAP_LEFT_COL_Y + 6, CHAR_FONT);
 
 	// vehicles and robot don't have attributes, contracts, or morale
 	const SOLDIERTYPE* const pSoldier = GetSelectedInfoChar();
 	if (!pSoldier || !IsMechanical(*pSoldier))
 	{
 		// health
-		DrawString(pUpperLeftMapScreenStrings[1], STD_SCREEN_X + 87, STD_SCREEN_Y + 80, CHAR_FONT);
+		DrawString(pUpperLeftMapScreenStrings[1], MAP_LEFT_COL_X + 87, MAP_LEFT_COL_Y + 80, CHAR_FONT);
 
 		for( iCounter = 0; iCounter < 5; iCounter++ )
 		{
-			DrawString(pShortAttributeStrings[iCounter],     STD_SCREEN_X +  88, STD_SCREEN_Y + 22 + iCounter * 10, CHAR_FONT);
-			DrawString(pShortAttributeStrings[iCounter + 5], STD_SCREEN_X + 133, STD_SCREEN_Y + 22 + iCounter * 10, CHAR_FONT);
+			DrawString(pShortAttributeStrings[iCounter],     MAP_LEFT_COL_X +  88, MAP_LEFT_COL_Y + 22 + iCounter * 10, CHAR_FONT);
+			DrawString(pShortAttributeStrings[iCounter + 5], MAP_LEFT_COL_X + 133, MAP_LEFT_COL_Y + 22 + iCounter * 10, CHAR_FONT);
 		}
 
 		// morale
-		DrawString(pUpperLeftMapScreenStrings[2], STD_SCREEN_X + 87, STD_SCREEN_Y + 94,  CHAR_FONT);
+		DrawString(pUpperLeftMapScreenStrings[2], MAP_LEFT_COL_X + 87, MAP_LEFT_COL_Y + 94,  CHAR_FONT);
 	}
 	else
 	{
 		// condition
-		DrawString(pUpperLeftMapScreenStrings[3], STD_SCREEN_X + 87, STD_SCREEN_Y + 80, CHAR_FONT);
+		DrawString(pUpperLeftMapScreenStrings[3], MAP_LEFT_COL_X + 87, MAP_LEFT_COL_Y + 80, CHAR_FONT);
 	}
 
 
@@ -4931,23 +4976,274 @@ void RenderMapRegionBackground( void )
 		return;
 	}
 
+	// BORDER-ORDER: ve khung vien TRUOC, roi ve ban do de len.
+	// Khung vien cua mot so ban (vd Wildfire) co long hep hon vi tri
+	// engine dat ban do, nen neu ve sau se xen mat o bien.
+	// blit in border
+	/* SECTORINV-FIX: BlitInventoryPoolGraphic() truoc day nam BEN TRONG
+	 * RenderMapBorder(). RenderMapBorder() bi bo qua o che do map
+	 * full-size (khung vien vanilla khong vua), nen bang sector inventory
+	 * khong bao gio duoc ve: chi thay o xam phang va phai bam chuot phai
+	 * moi thoat ra duoc. Goi thang o day cho ca hai che do. */
+	/* SECTORINV-GRID: da go khoi lap nen go cua SECTORINV-BG.
+	 * Art Wildfire (763x647) tu phu kin vung ban do nen khong con
+	 * mep ho nao de lap; bo cuc that do truc tiep tu art trong
+	 * Map_Screen_Interface_Map_Inventory.cc. */
+	if (fShowMapInventoryPool)
+	{
+		BlitInventoryPoolGraphic( );
+	}
+	else if (!g_ui.isMapFullSize())
+	{
+		/* The vanilla-sized map border does not fit the full-size map. */
+		RenderMapBorder( );
+		if (g_ui.isWidescreenLayout())
+		{
+			/* The 934x480 layout moves the map away from the vanilla border,
+			 * exposing its black backdrop. Replace the complete right-hand
+			 * backdrop first; DrawMap() below paints the map over it. */
+			UINT16 const x = MAP_LEFT_COL_X + 261;
+			SGPBox const backdrop = {x, 0, (UINT16)(SCREEN_WIDTH - x), 359};
+			DrawFillerOnSurface(guiSAVEBUFFER, backdrop);
+		}
+	}
+
+
 	// don't bother if showing sector inventory instead of the map!!!
 	if( !fShowMapInventoryPool )
 	{
 		// draw map
 		DrawMap( );
+
+		/* 934x480: reuse Wildfire's real Mbs molding instead of approximating
+		 * its irregular highlights with flat lines. The source well starts at
+		 * (49, 27), measured from the 763x647 artwork. Draw only the four frame
+		 * strips so the already-rendered map and index rails remain untouched. */
+		if (SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480)
+		{
+			auto const frame = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/mbs.sti", 0);
+			INT32 const x = (INT32)g_ui.get_MAP_VIEW_START_X() + 1;
+			INT32 const y = (INT32)g_ui.get_MAP_VIEW_START_Y();
+			INT32 const w = 714 / 2;
+			INT32 const h = 612 / 2;
+			INT32 const edgeX = 49;
+			INT32 const edgeY = 27;
+
+			SGPBox const srcTop    = {0, 0, frame->Width(), (UINT16)edgeY};
+			SGPBox const dstTop    = {(UINT16)(x - edgeX / 2), (UINT16)(y - edgeY / 2), (UINT16)(w + edgeX), (UINT16)(edgeY / 2)};
+			SGPBox const srcBottom = {0, (UINT16)(edgeY + 612), frame->Width(), (UINT16)(frame->Height() - edgeY - 612)};
+			SGPBox const dstBottom = {(UINT16)(x - edgeX / 2), (UINT16)(y + h), (UINT16)(w + edgeX), (UINT16)((frame->Height() - edgeY - 612) / 2)};
+			SGPBox const srcLeft   = {0, (UINT16)edgeY, (UINT16)edgeX, 612};
+			SGPBox const dstLeft   = {(UINT16)(x - edgeX / 2), (UINT16)y, (UINT16)(edgeX / 2), (UINT16)h};
+			SGPBox const srcRight  = {(UINT16)(edgeX + 714), (UINT16)edgeY, (UINT16)(frame->Width() - edgeX - 714), 612};
+			SGPBox const dstRight  = {(UINT16)(x + w), (UINT16)y, (UINT16)((frame->Width() - edgeX - 714) / 2), (UINT16)h};
+
+			BltStretchVideoSurface(guiSAVEBUFFER, frame.get(), &srcTop,    &dstTop);
+			BltStretchVideoSurface(guiSAVEBUFFER, frame.get(), &srcBottom, &dstBottom);
+			BltStretchVideoSurface(guiSAVEBUFFER, frame.get(), &srcLeft,   &dstLeft);
+			BltStretchVideoSurface(guiSAVEBUFFER, frame.get(), &srcRight,  &dstRight);
+		}
 	}
-
-
-	// blit in border
-	RenderMapBorder( );
 
 	if (ghAttributeBox != NO_POPUP_BOX) ForceUpDateOfBox(ghAttributeBox);
 	if (ghTownMineBox  != NO_POPUP_BOX) ForceUpDateOfBox(ghTownMineBox);
 
 	MapscreenMarkButtonsDirty();
 
-	RestoreExternBackgroundRect(STD_SCREEN_X + 261, STD_SCREEN_Y + 0, MAP_BG_WIDTH, 359);
+	if (g_ui.isMapFullSize())
+	{
+		if (!fShowMapInventoryPool)
+		{
+			/* Backdrop panel under the toggle-button row, like the reference
+			 * layout (drawn together with the map so a map redraw cannot
+			 * wipe it). */
+			/* The wood band sits below the map (grid bottom = 612), like
+			 * Wildfire's Map_Bord.sti (bar at 609..648); the buttons and
+			 * the level selector poke a few px above it by design. */
+			/* WOODFRAME3: the map art is 714x612, so on screens wider or taller than
+			 * 1024x768 it no longer covers the whole region. Fill only the margins
+			 * AROUND the art with the wooden filler, never the art itself, so this
+			 * stays correct no matter when it runs relative to DrawMap(). */
+			{
+				UINT16 const artX = g_ui.get_MAP_VIEW_START_X() + 1;
+				UINT16 const artY = g_ui.get_MAP_VIEW_START_Y() + 1;
+				/* Fill the complete area above and beside the map, including the
+				 * exposed strip between the roster and the centred map. */
+				UINT16 const bandH = (UINT16)(SCREEN_HEIGHT - 121);
+				if (artX > 136)
+				{
+					SGPBox const b = {136, 0, (UINT16)(artX - 136), bandH};
+					DrawFillerOnSurface(guiSAVEBUFFER, b);
+					DrawFillerOnSurface(FRAME_BUFFER, b);
+				}
+				if (artX + (714 * MAPZOOM_NUM / 2) < SCREEN_WIDTH)
+				{
+					SGPBox const b = {(UINT16)(artX + (714 * MAPZOOM_NUM / 2)), 0, (UINT16)(SCREEN_WIDTH - artX - (714 * MAPZOOM_NUM / 2)), bandH};
+					DrawFillerOnSurface(guiSAVEBUFFER, b);
+					DrawFillerOnSurface(FRAME_BUFFER, b);
+				}
+				if (artY > 1)
+				{
+					SGPBox const b = {artX, 0, (UINT16)(714 * MAPZOOM_NUM / 2), artY};
+					DrawFillerOnSurface(guiSAVEBUFFER, b);
+					DrawFillerOnSurface(FRAME_BUFFER, b);
+				}
+			}
+
+			/* VFILL: cao bang toan bo cho trong con lai, toi thieu 35 */
+			UINT16 const stripTop = (UINT16)(g_ui.get_MAP_VIEW_START_Y() + (613 * MAPZOOM_NUM / 2));
+			UINT16 const stripBot = (UINT16)(SCREEN_HEIGHT - 121);
+			UINT16 const stripH   = (UINT16)(stripBot > stripTop + 35 ? stripBot - stripTop : 35);
+			SGPBox const strip = {262, stripTop, (UINT16)(SCREEN_WIDTH - 262), stripH};
+			DrawFillerOnSurface(guiSAVEBUFFER, strip);
+			DrawFillerOnSurface(FRAME_BUFFER, strip);
+			/* LISTLONG: da bo hai duong ke trang tri o day. Chung la khung cua
+			 * dai nut trong bo cuc 1024; tren man rong hon thi sau nut bam va
+			 * thanh chon tang da nam gon trong bang duoi, nen khung nay khong
+			 * con boc thu gi, chi la hai duong ke lo lung tren go. */
+
+			/* MAPFRAME: thick recessed leather picture-frame matching the
+			 * original Map Overview sample. Wraps the full b_map art well
+			 * (714x612 incl. 1-16 / A-P rails). Rails stay from b_map.sti;
+			 * we only darken them and draw the outer 4-side molding. */
+			{
+				/* Art well = where b_map.sti is blitted (see DrawMap). */
+				INT32 const ax = (INT32)g_ui.get_MAP_VIEW_START_X() + 1;
+				INT32 const ay = (INT32)g_ui.get_MAP_VIEW_START_Y() + 1;
+				INT32 const aw = 714 * MAPZOOM_NUM / 2;
+				INT32 const ah = 612 * MAPZOOM_NUM / 2;
+				INT32 const ox0 = ax;
+				INT32 const oy0 = ay;
+				INT32 const ox1 = ax + aw;
+				INT32 const oy1 = ay + ah;
+
+				/* Index rail thickness inside b_map art (terrain at 41,35). */
+				INT32 const railT = 35 * MAPZOOM_NUM / 2; // top numbers
+				INT32 const railL = 41 * MAPZOOM_NUM / 2; // left letters
+
+				/* Overview sample palette: near-black frame, warm ridge only */
+				UINT16 const ink  = Get16BPPColor(FROMRGB(  3,  2,  1));
+				UINT16 const deep = Get16BPPColor(FROMRGB( 10,  6,  3));
+				UINT16 const body = Get16BPPColor(FROMRGB( 22, 13,  7));
+				UINT16 const mid  = Get16BPPColor(FROMRGB( 36, 22, 11));
+				UINT16 const warm = Get16BPPColor(FROMRGB( 58, 38, 18));
+				UINT16 const hi   = Get16BPPColor(FROMRGB( 78, 52, 26));
+
+				auto bar = [&](INT32 x1, INT32 y1, INT32 x2, INT32 y2, UINT16 col) {
+					if (x2 > x1 && y2 > y1)
+						ColorFillVideoSurfaceArea(guiSAVEBUFFER, x1, y1, x2, y2, col);
+				};
+
+				/* ===== outer molding ~14px, all 4 sides (sample look) ===== */
+				/* ring 0: ink crack */
+				bar(ox0 - 14, oy0 - 14, ox1 + 14, oy0 - 13, ink);
+				bar(ox0 - 14, oy1 + 13, ox1 + 14, oy1 + 14, ink);
+				bar(ox0 - 14, oy0 - 14, ox0 - 13, oy1 + 14, ink);
+				bar(ox1 + 13, oy0 - 14, ox1 + 14, oy1 + 14, ink);
+
+				/* ring 1: deep shadow */
+				bar(ox0 - 13, oy0 - 13, ox1 + 13, oy0 - 9, deep);
+				bar(ox0 - 13, oy1 + 9,  ox1 + 13, oy1 + 13, deep);
+				bar(ox0 - 13, oy0 - 13, ox0 - 9,  oy1 + 13, deep);
+				bar(ox1 + 9,  oy0 - 13, ox1 + 13, oy1 + 13, deep);
+
+				/* ring 2: leather body */
+				bar(ox0 - 9, oy0 - 9, ox1 + 9, oy0 - 4, body);
+				bar(ox0 - 9, oy1 + 4, ox1 + 9, oy1 + 9, body);
+				bar(ox0 - 9, oy0 - 9, ox0 - 4, oy1 + 9, body);
+				bar(ox1 + 4, oy0 - 9, ox1 + 9, oy1 + 9, body);
+
+				/* ring 3: mid fill */
+				bar(ox0 - 4, oy0 - 4, ox1 + 4, oy0 - 2, mid);
+				bar(ox0 - 4, oy1 + 2, ox1 + 4, oy1 + 4, mid);
+				bar(ox0 - 4, oy0 - 4, ox0 - 2, oy1 + 4, mid);
+				bar(ox1 + 2, oy0 - 4, ox1 + 4, oy1 + 4, mid);
+
+				/* raised bevel: highlight top/left, shadow bottom/right */
+				bar(ox0 - 2, oy0 - 2, ox1 + 2, oy0 - 1, hi);
+				bar(ox0 - 2, oy0 - 2, ox0 - 1, oy1 + 2, warm);
+				bar(ox0 - 2, oy1 + 1, ox1 + 2, oy1 + 2, deep);
+				bar(ox1 + 1, oy0 - 2, ox1 + 2, oy1 + 2, ink);
+
+				/* inner hairline against the art */
+				bar(ox0 - 1, oy0 - 1, ox1 + 1, oy0,     ink);
+				bar(ox0 - 1, oy1,     ox1 + 1, oy1 + 1, warm);
+				bar(ox0 - 1, oy0 - 1, ox0,     oy1 + 1, ink);
+				bar(ox1,     oy0 - 1, ox1 + 1, oy1 + 1, warm);
+
+				/* ===== darken index rails + add matching bottom/right rails =====
+				 * Sample has near-black bars on ALL 4 sides; b_map only paints
+				 * top/left chrome, so bottom/right get a solid dark strip and
+				 * top/left get a multiply-darken so numbers stay visible. */
+				{
+					SGPVSurface::Lock l(guiSAVEBUFFER);
+					UINT16* const buf    = l.Buffer<UINT16>();
+					UINT32  const stride = l.Pitch() / 2;
+					INT32 const sw = (INT32)guiSAVEBUFFER->Width();
+					INT32 const sh = (INT32)guiSAVEBUFFER->Height();
+
+					auto darken = [&](INT32 x1, INT32 y1, INT32 x2, INT32 y2, INT32 pct) {
+						if (x1 < 0) x1 = 0;
+						if (y1 < 0) y1 = 0;
+						if (x2 > sw) x2 = sw;
+						if (y2 > sh) y2 = sh;
+						for (INT32 y = y1; y < y2; ++y)
+						{
+							UINT16* row = buf + (UINT32)y * stride;
+							for (INT32 x = x1; x < x2; ++x)
+							{
+								UINT32 const rgb = GetRGBColor(row[x]);
+								INT32 r = (SGPGetRValue(rgb) * pct) / 100;
+								INT32 g = (SGPGetGValue(rgb) * pct) / 100;
+								INT32 b = (SGPGetBValue(rgb) * pct) / 100;
+								/* bias toward warm black so it reads as leather */
+								r = (r * 90 + 8) / 100;
+								g = (g * 70 + 4) / 100;
+								b = (b * 50 + 2) / 100;
+								row[x] = Get16BPPColor((UINT8)r, (UINT8)g, (UINT8)b);
+							}
+						}
+					};
+
+					/* top number rail + left letter rail (keep glyph contrast) */
+					darken(ox0, oy0, ox1, oy0 + railT, 42);
+					darken(ox0, oy0 + railT, ox0 + railL, oy1, 42);
+
+					/* bottom + right "silent" rails so the well is even 4-sided */
+					INT32 const railB = railT;
+					INT32 const railR = railL;
+					/* fill solid dark first, then a touch of noise via darken path */
+					bar(ox0 + railL, oy1 - railB, ox1, oy1, deep);
+					bar(ox1 - railR, oy0 + railT, ox1, oy1 - railB, deep);
+					darken(ox0 + railL, oy1 - railB, ox1, oy1, 70);
+					darken(ox1 - railR, oy0 + railT, ox1, oy1 - railB, 70);
+
+					/* inner bevel on bottom/right silent rails */
+					bar(ox0 + railL, oy1 - railB, ox1, oy1 - railB + 1, ink);
+					bar(ox1 - railR, oy0 + railT, ox1 - railR + 1, oy1, ink);
+					bar(ox0 + railL, oy1 - 1, ox1, oy1, warm);
+					bar(ox1 - 1, oy0 + railT, ox1, oy1, warm);
+				}
+			}
+		}
+		if (!fShowMapInventoryPool)
+		{
+			// level selector at the end of the toggle strip
+			RenderMapLevelSelectorFullSize();
+		}
+		/* Copy the whole full-size map region (the Wildfire right column). */
+		RestoreExternBackgroundRect(136, 0, SCREEN_WIDTH - 136, g_ui.get_MAP_VIEW_START_Y() + (612 * MAPZOOM_NUM / 2 + 35));
+	}
+	else
+	{
+		/* 934x480 shifts the map beyond the vanilla 379px restore region.
+		 * Copy through the half-sized art's right edge so its shading reaches
+		 * FRAME_BUFFER too. */
+		UINT16 const mapBgWidth = SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480
+			? MAP_VIEW_START_X + MAP_VIEW_WIDTH + MAP_GRID_X + 1 - (MAP_LEFT_COL_X + 261)
+			: MAP_BG_WIDTH;
+		RestoreExternBackgroundRect(MAP_LEFT_COL_X + 261, MAP_LEFT_COL_Y + 0, mapBgWidth, 359);
+	}
 
 	// don't bother if showing sector inventory instead of the map!!!
 	if( !fShowMapInventoryPool )
@@ -4978,7 +5274,34 @@ static void RenderTeamRegionBackground()
 	// Show inventory or the team list?
 	if (!fShowInventoryFlag)
 	{
-		BltVideoObject(guiSAVEBUFFER, guiCHARLIST, 0, PLAYER_INFO_X, PLAYER_INFO_Y);
+		if (g_ui.isMapFullSize())
+		{
+			/* Stretch the roster frame down to the bottom band so the list
+			 * area has room for many soldiers: the header row and bottom
+			 * rail keep their height, only the grid body is stretched. */
+			auto vsCharList = CreateVideoSurfaceFromObjectFile(INTERFACEDIR "/newgoldpiece3.sti", 0);
+			SGPBox const srcHead = {0,   0, 262,  40};
+			SGPBox const dstHead = {(UINT16)PLAYER_INFO_X, (UINT16)PLAYER_INFO_Y, 262, 40};
+			SGPBox const srcBody = {0,  40, 262, 190};
+			/* LISTLONG: khung chay dai cham dinh khung nhat ky thay vi dung o
+			 * con so cung 474. Dinh khung nhat ky la SCREEN_HEIGHT - 118 (dat o
+			 * ban va chieu doc). Hang tieu de 40 va thanh day 24 giu nguyen chieu
+			 * cao, chi than luoi giua duoc keo. Co ke chan duoi de khong bao gio
+			 * sinh ra chieu cao am tren man qua thap. */
+			INT32 const rosterBot  = (INT32)SCREEN_HEIGHT - 118;
+			INT32 const rosterBodyH = (rosterBot - (INT32)PLAYER_INFO_Y - 40 - 24 > 60)
+				? rosterBot - (INT32)PLAYER_INFO_Y - 40 - 24 : 474;
+			SGPBox const dstBody = {(UINT16)PLAYER_INFO_X, (UINT16)(PLAYER_INFO_Y + 40), 262, (UINT16)rosterBodyH};
+			SGPBox const srcFoot = {0, 230, 262,  24};
+			SGPBox const dstFoot = {(UINT16)PLAYER_INFO_X, (UINT16)((INT32)PLAYER_INFO_Y + 40 + rosterBodyH), 262, 24};
+			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcHead, &dstHead);
+			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcBody, &dstBody);
+			BltStretchVideoSurface(guiSAVEBUFFER, vsCharList.get(), &srcFoot, &dstFoot);
+		}
+		else
+		{
+			BltVideoObject(guiSAVEBUFFER, guiCHARLIST, 0, PLAYER_INFO_X, PLAYER_INFO_Y);
+		}
 		HandleHighLightingOfLinesInTeamPanel();
 		DisplayCharacterList();
 		DisplayIconsForMercsAsleep();
@@ -4993,7 +5316,7 @@ static void RenderTeamRegionBackground()
 	gfRenderPBInterface = TRUE;
 
 	MarkAllBoxesAsAltered();
-	RestoreExternBackgroundRect(STD_SCREEN_X + 0, STD_SCREEN_Y + 107, 261 - 0, 359 - 107);
+	RestoreExternBackgroundRect(MAP_LEFT_COL_X + 0, MAP_LEFT_COL_Y + 107, 261 - 0, 359 - 107);
 	MapscreenMarkButtonsDirty();
 }
 
@@ -5031,7 +5354,7 @@ static void RenderCharacterInfoBackground(void)
 	MarkAllBoxesAsAltered( );
 
 	// restore background for area
-	RestoreExternBackgroundRect( STD_SCREEN_X + 0, STD_SCREEN_Y + 0, 261, 107 );
+	RestoreExternBackgroundRect( MAP_LEFT_COL_X + 0, MAP_LEFT_COL_Y + 0, 261, 107 );
 
 }
 
@@ -5230,6 +5553,7 @@ void ReBuildCharactersList( void )
 
 	// exit inventory mode
 	fShowInventoryFlag = FALSE;
+	fMapScreenBottomDirty = TRUE; // full-size layout: log panel top follows the inventory state
 }
 
 
@@ -6016,6 +6340,7 @@ static void HandlePreBattleInterfaceWithInventoryPanelUp(void)
 
 		// kill inventory panel
 		fShowInventoryFlag = FALSE;
+		fMapScreenBottomDirty = TRUE; // full-size layout: log panel top follows the inventory state
 		CreateDestroyMapInvButton();
 	}
 }
@@ -6205,8 +6530,8 @@ static void CreateDestroyMapCharacterScrollButtons(void)
 	{
 		const INT16 prio = MSYS_PRIORITY_HIGHEST - 5;
 
-		giCharInfoButton[0] = QuickCreateButtonImg(INTERFACEDIR "/map_screen_bottom_arrows.sti", 11, 4, -1, 6, -1, STD_SCREEN_X + 67, STD_SCREEN_Y + 69, prio, PrevInventoryMapBtnCallback);
-		giCharInfoButton[1] = QuickCreateButtonImg(INTERFACEDIR "/map_screen_bottom_arrows.sti", 12, 5, -1, 7, -1, STD_SCREEN_X + 67, STD_SCREEN_Y + 87, prio, NextInventoryMapBtnCallback);
+		giCharInfoButton[0] = QuickCreateButtonImg(INTERFACEDIR "/map_screen_bottom_arrows.sti", 11, 4, -1, 6, -1, MAP_LEFT_COL_X + 67, MAP_LEFT_COL_Y + 69, prio, PrevInventoryMapBtnCallback);
+		giCharInfoButton[1] = QuickCreateButtonImg(INTERFACEDIR "/map_screen_bottom_arrows.sti", 12, 5, -1, 7, -1, MAP_LEFT_COL_X + 67, MAP_LEFT_COL_Y + 87, prio, NextInventoryMapBtnCallback);
 
 		giCharInfoButton[0]->SetFastHelpText(pMapScreenPrevNextCharButtonHelpText[0]);
 		giCharInfoButton[1]->SetFastHelpText(pMapScreenPrevNextCharButtonHelpText[1]);
@@ -6325,7 +6650,7 @@ static void AddTeamPanelSortButtonsForMapScreen(void)
 
 	for (INT32 i = 0; i < MAX_SORT_METHODS; ++i)
 	{
-		giMapSortButton[i] = QuickCreateButtonImg(filename, iImageIndex[i], iImageIndex[i] + 6, STD_SCREEN_X + gMapSortButtons[i].iX, STD_SCREEN_Y + gMapSortButtons[i].iY, MSYS_PRIORITY_HIGHEST - 5, MapSortBtnCallback);
+		giMapSortButton[i] = QuickCreateButtonImg(filename, iImageIndex[i], iImageIndex[i] + 6, MAP_LEFT_COL_X + gMapSortButtons[i].iX, MAP_LEFT_COL_Y + gMapSortButtons[i].iY, MSYS_PRIORITY_HIGHEST - 5, MapSortBtnCallback);
 		giMapSortButton[i]->SetUserData(i);
 		giMapSortButton[i]->SetFastHelpText(wMapScreenSortButtonHelpText[i]);
 	}
@@ -6595,7 +6920,7 @@ static void DisplayIconsForMercsAsleep(void)
 
 		if (pSoldier->bActive && pSoldier->fMercAsleep && CanChangeSleepStatusForSoldier(pSoldier))
 		{
-			BltVideoObject(guiSAVEBUFFER, guiSleepIcon, 0, STD_SCREEN_X + 125, Y_START + iCounter * (Y_SIZE + 2));
+			BltVideoObject(guiSAVEBUFFER, guiSleepIcon, 0, MAP_LEFT_COL_X + 125, Y_START + iCounter * (Y_SIZE + 2));
 		}
 	}
 }
@@ -6606,24 +6931,28 @@ static void CheckForAndRenderNewMailOverlay(void)
 {
 	if( fNewMailFlag )
 	{
+		// Anchor the icon to the Laptop button; full-size moves that button
+		// right (+554 vs +456), so the hardcoded +464 floated over finance box.
+		INT32 const lapX = (g_ui.isWidePanel() ? 554 : 456) + g_ui.get_MAP_BOTTOM_BASE_X();
+		INT32 const lapY = 410 + g_ui.get_MAP_BOTTOM_BASE_Y();
 		if( GetJA2Clock() % 1000 < 667 )
 		{
 			if (guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]->Clicked())
 			{ //button is down, so offset the icon
-				BltVideoObject(FRAME_BUFFER, guiNewMailIcons, 1, STD_SCREEN_X + 465, STD_SCREEN_Y + 418);
-				InvalidateRegion( STD_SCREEN_X + 465, STD_SCREEN_Y + 418, STD_SCREEN_X + 480, STD_SCREEN_Y + 428 );
+				BltVideoObject(FRAME_BUFFER, guiNewMailIcons, 1, lapX + 9, lapY + 8);
+				InvalidateRegion( lapX + 9, lapY + 8, lapX + 24, lapY + 18 );
 			}
 			else
 			{ //button is up, so draw the icon normally
-				BltVideoObject(FRAME_BUFFER, guiNewMailIcons, 0, STD_SCREEN_X + 464, STD_SCREEN_Y + 417);
+				BltVideoObject(FRAME_BUFFER, guiNewMailIcons, 0, lapX + 8, lapY + 7);
 				if (!guiMapBottomExitButtons[MAP_EXIT_TO_LAPTOP]->Enabled())
 				{
-					SGPRect area = { (UINT16)(STD_SCREEN_X + 463), (UINT16)(STD_SCREEN_Y + 417), (UINT16)(STD_SCREEN_X + 477), (UINT16)(STD_SCREEN_Y + 425) };
+					SGPRect area = { (UINT16)(lapX + 7), (UINT16)(lapY + 7), (UINT16)(lapX + 21), (UINT16)(lapY + 15) };
 
 					SGPVSurface::Lock l(FRAME_BUFFER);
 					Blt16BPPBufferHatchRect(l.Buffer<UINT16>(), l.Pitch(), &area);
 				}
-				InvalidateRegion( STD_SCREEN_X + 463, STD_SCREEN_Y + 417, STD_SCREEN_X + 481, STD_SCREEN_Y + 430 );
+				InvalidateRegion( lapX + 7, lapY + 7, lapX + 25, lapY + 20 );
 
 			}
 		}
@@ -6698,6 +7027,7 @@ static void CheckForInventoryModeCancellation(void)
 			if ( fShowInventoryFlag )
 			{
 				fShowInventoryFlag = FALSE;
+				fMapScreenBottomDirty = TRUE; // full-size layout: log panel top follows the inventory state
 				fTeamPanelDirty = TRUE;
 			}
 
@@ -7011,6 +7341,7 @@ void ChangeSelectedInfoChar( INT8 bCharNumber, BOOLEAN fResetSelectedList )
 			{
 				// then get out of inventory mode
 				fShowInventoryFlag = FALSE;
+				fMapScreenBottomDirty = TRUE; // full-size layout: log panel top follows the inventory state
 			}
 		}
 
@@ -7895,6 +8226,7 @@ static void RequestToggleMercInventoryPanel(void)
 	{
 		// toggle inventory mode
 		fShowInventoryFlag = !fShowInventoryFlag;
+		fMapScreenBottomDirty = TRUE; // full-size layout: log panel top follows the inventory state
 	}
 
 	fTeamPanelDirty = TRUE;

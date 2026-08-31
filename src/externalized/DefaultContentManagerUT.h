@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DefaultContentManager.h"
+#include <utility>
 #ifdef WITH_UNITTESTS
 #include "gtest/gtest.h"
 extern ContentManager * GCM;
@@ -10,13 +11,20 @@ struct EngineOptions;
 
 class DefaultContentManagerUT : public DefaultContentManager
 {
-	using DefaultContentManager::DefaultContentManager;
+	DefaultContentManagerUT(RustPointer<EngineOptions> engineOptions, bool wildfire = false) :
+		DefaultContentManager(std::move(engineOptions)), m_wildfire(wildfire) {}
+
+	bool m_wildfire;
 
 public:
 	/** Create DefaultContentManager for usage in unit testing. */
 	static DefaultContentManagerUT* createDefaultCMForTesting();
+	static DefaultContentManagerUT* createWildfireCMForTesting();
 
 	bool loadGameData() override;
+	bool doesGameResExists(const ST::string& filename) const override;
+	using DefaultContentManager::applyWildfireMagazineFixup;
+	using DefaultContentManager::applyWildfireWeaponFixup;
 
 #ifdef WITH_UNITTESTS
 

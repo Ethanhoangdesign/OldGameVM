@@ -1,8 +1,13 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "CharProfile.h"
 #include "Directories.h"
 #include "Font.h"
 #include "IMPVideoObjects.h"
 #include "Merc_Hiring.h"
+#include "Overhead.h"
 #include "Text.h"
 #include "Cursors.h"
 #include "Laptop.h"
@@ -64,6 +69,23 @@ static const FacePosInfo g_face_info[] =
 	{  8,  5,  7, 24 },
 	{  5,  6,  5, 26 }
 };
+
+
+/* JA2: Wildfire replaces the art of I.M.P. portraits 200, 205, 210 and 211
+ * with its own faces, whose eye and mouth positions differ from the vanilla
+ * table above (all four use the same layout, measured directly from the
+ * Wildfire face STIs). Wildfire game data is recognisable by its 16-bit
+ * strategic map interface/b_map.sti, which replaces vanilla's b_map.pcx. */
+static const FacePosInfo* GetImpFacePosInfo(UINT8 const portrait_idx)
+{
+	static const FacePosInfo wildfire_face = { 7, 7, 10, 23 };
+
+	bool const isWildfireArt = (portrait_idx == 0 || portrait_idx == 5 ||
+				portrait_idx == 10 || portrait_idx == 11) &&
+				GCM->doesGameResExists(INTERFACEDIR "/b_map.sti") &&
+				!GCM->doesGameResExists(INTERFACEDIR "/b_map.pcx");
+	return isWildfireArt ? &wildfire_face : &g_face_info[portrait_idx];
+}
 
 
 static void BtnIMPConfirmNo(GUI_BUTTON *btn, UINT32 reason);
@@ -144,7 +166,8 @@ static void DestroyConfirmButtons(void)
 static void GiveItemsToPC(UINT8 ubProfileId);
 
 
-static BOOLEAN AddCharacterToPlayersTeam(void)
+// HireMerc returns INT8 (-1/0/1). Never treat as BOOLEAN — -1 is truthy.
+static INT8 AddCharacterToPlayersTeam(void)
 {
 	MERC_HIRE_STRUCT HireMercStruct{};
 
@@ -176,10 +199,21 @@ static BOOLEAN AddCharacterToPlayersTeam(void)
 	HireMercStruct.ubInsertionCode	= INSERTION_CODE_ARRIVING_GAME;
 	HireMercStruct.uiTimeTillMercArrives = GetMercArrivalTimeOfDay( );
 
-	const FacePosInfo* const fi = &g_face_info[iPortraitNumber];
-	SetProfileFaceData(HireMercStruct.ubProfileID, 200 + iPortraitNumber, fi->eye_x, fi->eye_y, fi->mouth_x, fi->mouth_y);
+	// Clamp portrait — Wildfire/vanilla table is 0..15; OOB was UB.
+	INT32 const faceIdx = (iPortraitNumber >= 0 && iPortraitNumber < (INT32)lengthof(g_face_info))
+		? iPortraitNumber : 0;
+	const FacePosInfo* const fi = GetImpFacePosInfo(static_cast<UINT8>(faceIdx));
+	SetProfileFaceData(HireMercStruct.ubProfileID, 200 + faceIdx, fi->eye_x, fi->eye_y, fi->mouth_x, fi->mouth_y);
 
-	//if we succesfully hired the merc
+	// Ensure hire gate accepts this profile (CreateACharacter sets 0; recover if stale).
+	MERCPROFILESTRUCT& prof = GetProfile(HireMercStruct.ubProfileID);
+	if (prof.bMercStatus != 0 &&
+	    prof.bMercStatus != MERC_ANNOYED_BUT_CAN_STILL_CONTACT &&
+	    prof.bMercStatus != MERC_HIRED_BUT_NOT_ARRIVED_YET)
+	{
+		prof.bMercStatus = 0;
+	}
+
 	return HireMerc(HireMercStruct);
 }
 
@@ -189,22 +223,43 @@ static void BtnIMPConfirmYes(GUI_BUTTON *btn, UINT32 reason)
 	{
 		if (LaptopSaveInfo.fIMPCompletedFlag)
 		{
-			// already here, leave
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[6], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 			return;
 		}
 
 		if (LaptopSaveInfo.iCurrentBalance < COST_OF_PROFILE)
 		{
-			// not enough
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[3], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+			return;
+		}
+
+		if (NumberOfMercsOnPlayerTeam() >= 18)
+		{
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[5], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 			return;
 		}
 
 		// line moved by CJC Nov 28 2002 to AFTER the check for money
-		LaptopSaveInfo.fIMPCompletedFlag = AddCharacterToPlayersTeam();
-		if (!LaptopSaveInfo.fIMPCompletedFlag) return; // only if merc hiring failed: no charge, give it another go
+		INT8 const hire = AddCharacterToPlayersTeam();
+		if (hire != MERC_HIRE_OK)
+		{
+			// Hire failed: no charge. Surface why instead of silent no-op.
+			ST::string const& msg = (hire == MERC_HIRE_OVER_20_MERCS_HIRED)
+				? pImpPopUpStrings[5]
+				: pImpPopUpStrings[4];
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, msg, LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+			return;
+		}
 
 		SOLDIERTYPE* const pSoldier = FindSoldierByProfileID(PLAYER_GENERATED_CHARACTER_ID + LaptopSaveInfo.iVoiceId);
-		if (!pSoldier) return;
+		if (!pSoldier)
+		{
+			// Hire reported OK but soldier missing — do not sticky-complete.
+			DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[4], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+			return;
+		}
+
+		LaptopSaveInfo.fIMPCompletedFlag = TRUE;
 
 		if (fLoadingCharacterForPreviousImpProfile && gamepolicy(imp_load_keep_inventory))
 		{
@@ -302,7 +357,7 @@ void ResetIMPCharactersEyesAndMouthOffsets(const UINT8 ubMercProfileID)
 	MERCPROFILESTRUCT& p = GetProfile(ubMercProfileID);
 	if (p.ubFaceIndex < 200 || p.ubFaceIndex >= 200 + lengthof(g_face_info) || ubMercProfileID >= PROF_HUMMER) return;
 
-	const FacePosInfo* const fi = &g_face_info[p.ubFaceIndex - 200];
+	const FacePosInfo* const fi = GetImpFacePosInfo(p.ubFaceIndex - 200);
 	p.usEyesX  = fi->eye_x;
 	p.usEyesY  = fi->eye_y;
 	p.usMouthX = fi->mouth_x;

@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #ifndef __MAP_INTERFACE_BOTTOM
 #define __MAP_INTERFACE_BOTTOM
 
@@ -5,6 +9,10 @@
 #include "Types.h"
 
 
+INT16 MapScreenLogTop();
+
+/* Number of visible history-log lines (the full-size layout uses a wide
+ * 9-line box in the bottom band, like vanilla). */
 #define MAX_MESSAGES_ON_MAP_BOTTOM  9
 
 

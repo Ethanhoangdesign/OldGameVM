@@ -559,6 +559,8 @@ void EndAIGuysTurn(SOLDIERTYPE& s)
 	s.bMoved           = TRUE;
 	s.bBypassToGreen   = FALSE;
 
+	SLOGI("AI_TIMING soldier_end id={} team={} alert={} total_ms={}",
+		s.ubID, s.bTeam, s.bAlertStatus, GetJA2Clock() - ts.uiTimeSinceMercAIStart);
 	SLOGD("Ending control for {}", s.ubID);
 
 	// Find the next AI guy
@@ -615,6 +617,8 @@ void StartNPCAI(SOLDIERTYPE& s)
 
 	TacticalStatusType& ts = gTacticalStatus;
 	ts.uiTimeSinceMercAIStart = GetJA2Clock();
+	SLOGI("AI_TIMING soldier_start id={} team={} alert={} ap={}",
+		s.ubID, s.bTeam, s.bAlertStatus, s.bActionPoints);
 
 	/* important: if "fPausedAnimation" is TRUE, then we have to turn it off else
 	 * HandleSoldierAI() will not be called! */
@@ -1167,7 +1171,13 @@ static void TurnBasedHandleNPCAI(SOLDIERTYPE* pSoldier)
 				}
 				else
 				{
+					const auto decisionStart = ReferenceClock::now();
 					pSoldier->bAction = DecideAction(pSoldier);
+					const auto decisionMs = std::chrono::duration_cast<milliseconds>(
+						ReferenceClock::now() - decisionStart).count();
+					SLOGI("AI_TIMING decision id={} team={} alert={} action={} destination={} ms={}",
+						pSoldier->ubID, pSoldier->bTeam, pSoldier->bAlertStatus,
+						pSoldier->bAction, pSoldier->usActionData, decisionMs);
 				}
 			}
 		}
@@ -1205,7 +1215,13 @@ static void TurnBasedHandleNPCAI(SOLDIERTYPE* pSoldier)
 			NPCDoesAct(pSoldier);
 
 			// perform the chosen action
+			const auto selectedAction = pSoldier->bAction;
+			const auto executeStart = ReferenceClock::now();
 			pSoldier->bActionInProgress = ExecuteAction(pSoldier); // if started, mark us as busy
+			const auto executeMs = std::chrono::duration_cast<milliseconds>(
+				ReferenceClock::now() - executeStart).count();
+			SLOGI("AI_TIMING execute id={} action={} ms={} in_progress={}",
+				pSoldier->ubID, selectedAction, executeMs, pSoldier->bActionInProgress);
 
 			if ( !pSoldier->bActionInProgress && pSoldier->sAbsoluteFinalDestination != NOWHERE )
 			{

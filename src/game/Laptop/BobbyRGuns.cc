@@ -9,6 +9,7 @@
 #include "WordWrap.h"
 #include "Cursors.h"
 #include "Interface_Items.h"
+#include "Items.h"
 #include "Text.h"
 #include "Store_Inventory.h"
 #include "LaptopSave.h"
@@ -1366,7 +1367,6 @@ static void CalcFirstIndexForPage(STORE_INVENTORY* const pInv, UINT32 const item
 static UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID(ItemModel const* const ammo)
 {
 	UINT8 n_items = 0;
-	const CalibreModel *calibre = ammo->asAmmo()->calibre;
 	CFOR_EACH_IN_TEAM(s, OUR_TEAM)
 	{
 		// Loop through all the pockets on the merc
@@ -1376,7 +1376,7 @@ static UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID(ItemModel const* con
 			// If there is a weapon here
 			if (GCM->getItem(o.usItem)->getItemClass() != IC_GUN) continue;
 			// If the weapon uses the same kind of ammo as the one passed in
-			if (!GCM->getWeapon(o.usItem)->matches(calibre)) continue;
+			if (!ValidAmmoType(o.usItem, ammo->getItemIndex())) continue;
 
 			++n_items;
 		}

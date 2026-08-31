@@ -131,7 +131,7 @@ UINT8 gubEnemyEncounterCode = NO_ENCOUNTER_CODE;
 //for reasons not normally used in the PBI.  For example, if we were fighting the enemy
 //in a normal situation, then shot at a civilian, the civilians associated with the victim
 //would turn hostile, which would disable the ability to autoresolve the battle.
-BOOLEAN gubExplicitEnemyEncounterCode = NO_ENCOUNTER_CODE;
+UINT8 gubExplicitEnemyEncounterCode = NO_ENCOUNTER_CODE;
 
 //Location of the current battle (determines where the animated icon is blitted) and if the
 //icon is to be blitted.
@@ -175,6 +175,26 @@ void InitPreBattleInterface(GROUP* const battle_group, bool const persistent_pbi
 	}
 
 	if (gfPreBattleInterfaceActive) return;
+
+	bool const stale_enemy_locator =
+		!battle_group && gfBlitBattleSectorLocator && gubPBSector.IsValid() && !gubPBSector.z &&
+		(gubEnemyEncounterCode == ENEMY_ENCOUNTER_CODE || gubEnemyEncounterCode == ENEMY_INVASION_CODE) &&
+		NumHostilesInSector(gubPBSector) == 0 &&
+		!HostileCiviliansPresent() && !HostileBloodcatsPresent();
+	if (stale_enemy_locator)
+	{
+		gfBlitBattleSectorLocator = FALSE;
+		gpBattleGroup = NULL;
+		SectorInfo[gubPBSector.AsByte()].uiFlags &= ~SF_PLAYER_KNOWS_ENEMIES_ARE_HERE;
+		gubEnemyEncounterCode = NO_ENCOUNTER_CODE;
+		gubExplicitEnemyEncounterCode = NO_ENCOUNTER_CODE;
+		gfPersistantPBI = FALSE;
+		SLOGW("Ignoring stale prebattle locator in sector {} without hostiles", gubPBSector);
+		fMapPanelDirty = TRUE;
+		fMapScreenBottomDirty = TRUE;
+
+		if (persistent_pbi) return;
+	}
 
 	gfPersistantPBI = persistent_pbi;
 	if (persistent_pbi)
@@ -1017,7 +1037,7 @@ static void GoToSectorCallback(GUI_BUTTON* btn, UINT32 reason)
 			RefreshScreen();
 			SGPSector sector = gubPBSector;
 			// NOTE: remove this zeroing if we ever want to support underground auto battle resolution
-			sector.z = 0;
+			sector.z = 0; // Surface battles only.
 			if (sector == gWorldSector)
 			{
 				gfGotoSectorTransition = TRUE;
@@ -1038,7 +1058,15 @@ static void GoToSectorCallback(GUI_BUTTON* btn, UINT32 reason)
 			}
 
 			// must come AFTER anything that needs gpBattleGroup, as it wipes it out
-			SetCurrentWorldSector(gubPBSector);
+			SetCurrentWorldSector(sector);
+
+			if (gfPersistantPBI)
+			{
+				// Loading the target sector clears the old locator while trashing the world.
+				// Restore it for the battle that is still waiting for tactical resolution.
+				gubPBSector = sector;
+				gfBlitBattleSectorLocator = TRUE;
+			}
 
 			KillPreBattleInterface();
 		}
@@ -1146,11 +1174,9 @@ static void ActivateAutomaticAutoResolveStart()
 
 void CalculateNonPersistantPBIInfo(void)
 {
-	//We need to set up the non-persistant PBI
-	if (!gfBlitBattleSectorLocator || gubPBSector != gWorldSector)
-	{ //Either the locator isn't on or the locator info is in a different sector
-
-		//Calculated the encounter type
+	// Recalculate live hostility; it may have changed while the locator stayed put.
+	if (!gfPersistantPBI)
+	{
 		gubEnemyEncounterCode = NO_ENCOUNTER_CODE;
 		gubExplicitEnemyEncounterCode = NO_ENCOUNTER_CODE;
 		if( HostileCiviliansPresent() )
@@ -1193,6 +1219,10 @@ void CalculateNonPersistantPBIInfo(void)
 		{	//Set up the location as well as turning on the blit flag.
 			gubPBSector = gWorldSector;
 			gfBlitBattleSectorLocator = TRUE;
+		}
+		else if (gubPBSector == gWorldSector)
+		{
+			gfBlitBattleSectorLocator = FALSE;
 		}
 	}
 }

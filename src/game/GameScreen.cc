@@ -17,6 +17,7 @@
 #include "Bullets.h"
 #include "Message.h"
 #include "Overhead_Map.h"
+#include "UILayout.h"
 #include "Strategic_Exit_GUI.h"
 #include "Tactical_Placement_GUI.h"
 #include "Game_Clock.h"

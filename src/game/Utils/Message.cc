@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "Buffer.h"
 #include "Debug.h"
 #include "Directories.h"
@@ -42,8 +46,46 @@ struct ScrollStringSt
 #define Y_START (SCREEN_HEIGHT - 150)
 #define MAX_AGE 10000
 #define LINE_WIDTH 320
-#define MAP_LINE_WIDTH 300
+#define MAP_HISTORY_MARGIN 4
+#define MAP_HISTORY_FRAME_BORDER 13
+#define MAP_HISTORY_NATIVE_WIDTH 261
+#define MAP_HISTORY_NATIVE_TEXT_RIGHT 228
+#define MAP_HISTORY_TEXT_INSET (MAP_HISTORY_FRAME_BORDER + MAP_HISTORY_MARGIN)
 #define WIDTH_BETWEEN_NEW_STRINGS 5
+
+struct MapHistoryTextBounds
+{
+	INT16 left;
+	INT16 right;
+	UINT16 width;
+};
+
+
+static MapHistoryTextBounds GetMapHistoryTextBounds()
+{
+	if (g_ui.isWidescreenLayout())
+	{
+		INT32 const panelWidth = g_ui.get_MAP_BOTTOM_BASE_X();
+		INT16 const frameLeft = (MAP_HISTORY_FRAME_BORDER * panelWidth + MAP_HISTORY_NATIVE_WIDTH / 2) / MAP_HISTORY_NATIVE_WIDTH;
+		INT16 const frameRight = (MAP_HISTORY_NATIVE_TEXT_RIGHT * panelWidth + MAP_HISTORY_NATIVE_WIDTH / 2) / MAP_HISTORY_NATIVE_WIDTH;
+		INT16 const left = frameLeft + MAP_HISTORY_MARGIN;
+		INT16 const right = frameRight - MAP_HISTORY_MARGIN;
+		return {left, right, (UINT16)(right > left ? right - left : 1)};
+	}
+
+	if (g_ui.isMapFullSize())
+	{
+		INT16 const left = 8;
+		UINT16 const width = (UINT16)(g_ui.get_MAP_BOTTOM_BASE_X() - 63);
+		return {left, (INT16)(left + width), width};
+	}
+
+	INT16 const left = (INT16)(g_ui.get_MAP_BOTTOM_BASE_X() + 17);
+	return {left, (INT16)(left + 390), 390};
+}
+
+
+#define MAP_LINE_WIDTH (g_ui.isMapFullSize() ? (UINT16)(g_ui.get_MAP_BOTTOM_BASE_X() - 63) : g_ui.isWidescreenLayout() ? GetMapHistoryTextBounds().width : 300)
 
 #define DEBUG_COLOR FONT_RED
 #define DIALOGUE_COLOR FONT_WHITE
@@ -102,6 +144,9 @@ static void BlitString(VIDEO_OVERLAY* pBlitter)
 {
 	if (fScrollMessagesHidden) return;
 
+	/* OGVM-ANDROID: Hide tactical message log on mobile */
+	if (guiCurrentScreen == GAME_SCREEN) return;
+
 	SetFontAttributes(pBlitter->uiFontID, pBlitter->ubFontFore, DEFAULT_SHADOW, pBlitter->ubFontBack);
 	SGPVSurface::Lock l(pBlitter->uiDestBuff);
 	MPrintBuffer(l.Buffer<UINT16>(), l.Pitch(), pBlitter->sX, pBlitter->sY, pBlitter->codepoints);
@@ -129,6 +174,10 @@ static void PlayNewMessageSound(void);
 
 void ScrollString(void)
 {
+	/* OGVM-ANDROID: Disable the tactical screen message log scroll and rendering.
+	 * The history log is handled by MapScreenMessage and drawn in Strategic Map. */
+	return;
+
 	// UPDATE TIMER
 	UINT32 suiTimer = GetJA2Clock();
 
@@ -316,6 +365,10 @@ void ScreenMsg(UINT16 usColor, UINT8 ubPriority, const ST::string& str)
 // this function sets up the string into several single line structures
 static void TacticalScreenMsg(UINT16 colour, UINT8 const priority, const ST::string& str)
 {
+	/* OGVM-ANDROID: Disable the tactical screen message log overlay entirely to save
+	 * screen space on mobile. The history log remains available in the Strategic Map. */
+	return;
+
 	if (IsTimeBeingCompressed()) return;
 
 	switch (priority)
@@ -339,6 +392,7 @@ static void TacticalScreenMsg(UINT16 colour, UINT8 const priority, const ST::str
 
 
 static void AddStringToMapScreenMessageList(const ST::string& pString, UINT16 usColor, BOOLEAN fStartOfNewString);
+static void AddWrappedMapScreenMessage(const ST::string& text, UINT16 color, BOOLEAN fBeginningOfNewString);
 
 
 // this function sets up the string into several single line structures
@@ -375,12 +429,7 @@ void MapScreenMessage(UINT16 usColor, UINT8 ubPriority, const ST::string& str)
 
 	if (DestString.empty()) return;
 
-	BOOLEAN fNewString = TRUE;
-	for (auto const& codepoints : LineWrap(MAP_SCREEN_MESSAGE_FONT, MAP_LINE_WIDTH, DestString))
-	{
-		AddStringToMapScreenMessageList(codepoints, usColor, fNewString);
-		fNewString = FALSE;
-	}
+	AddWrappedMapScreenMessage(DestString, usColor, TRUE);
 
 	MoveToEndOfMapScreenMessageList();
 }
@@ -419,9 +468,30 @@ static void AddStringToMapScreenMessageList(const ST::string& pString, UINT16 us
 }
 
 
+static void AddWrappedMapScreenMessage(const ST::string& text, UINT16 color, BOOLEAN fBeginningOfNewString)
+{
+	BOOLEAN firstLine = TRUE;
+	for (auto const& codepoints : LineWrap(MAP_SCREEN_MESSAGE_FONT, MAP_LINE_WIDTH, text))
+	{
+		AddStringToMapScreenMessageList(codepoints, color, fBeginningOfNewString && firstLine);
+		firstLine = FALSE;
+	}
+}
+
+
 void DisplayStringsInMapScreenMessageList(void)
 {
-	SetFontDestBuffer(FRAME_BUFFER, STD_SCREEN_X + 17, STD_SCREEN_Y + 360 + 6, STD_SCREEN_X + 407, STD_SCREEN_Y + 360 + 101);
+	MapHistoryTextBounds const textBounds = GetMapHistoryTextBounds();
+	/* Use the same scaled frame bounds as MapScreenMessage(). This keeps the
+	 * clip rectangle narrower than the scrollbar artwork at widescreen sizes. */
+	INT16 const lx = textBounds.left;
+	INT16 const ly = g_ui.isWidescreenLayout() ? MAP_HISTORY_TEXT_INSET : g_ui.isMapFullSize() ? (INT16)(MapScreenLogTop() + 15) : g_ui.get_MAP_BOTTOM_BASE_Y() + 366;
+	UINT16 const lw = textBounds.width;
+	INT16 const lh = g_ui.isWidescreenLayout() ? (INT16)(SCREEN_HEIGHT - 2 * MAP_HISTORY_TEXT_INSET) : g_ui.isMapFullSize() ? 84 : 95;
+	SetFontDestBuffer(FRAME_BUFFER, lx, ly, lx + lw, ly + lh);
+
+	/* Keep the wrapping and rendering widths identical. */
+	Assert(MAP_LINE_WIDTH == lw || !g_ui.isWidescreenLayout());
 
 	SetFont(MAP_SCREEN_MESSAGE_FONT);
 	SetFontBackground(FONT_BLACK);
@@ -429,7 +499,7 @@ void DisplayStringsInMapScreenMessageList(void)
 
 	UINT8 ubCurrentStringIndex = gubCurrentMapMessageString;
 
-	INT16 sY = STD_SCREEN_Y + 377;
+	INT16 sY = g_ui.isWidescreenLayout() ? ly : ly + 11;
 	UINT16 usSpacing = GetFontHeight(MAP_SCREEN_MESSAGE_FONT);
 
 	for (UINT8 ubLinesPrinted = 0; ubLinesPrinted < MAX_MESSAGES_ON_MAP_BOTTOM; ubLinesPrinted++)
@@ -444,7 +514,7 @@ void DisplayStringsInMapScreenMessageList(void)
 		if (s == NULL) break;
 
 		SetFontForeground(s->usColor);
-		MPrint(STD_SCREEN_X + 20, sY, s->pString);
+		MPrint(lx, sY, s->pString);
 
 		sY += usSpacing;
 
@@ -577,33 +647,47 @@ void LoadMapScreenMessagesFromSaveGameFile(HWFILE const hFile, bool stracLinuxFo
 	// clear tactical message queue
 	ClearTacticalMessageQueue();
 
+	UINT8 savedEnd;
+	UINT8 savedStart;
+	UINT8 savedCurrent;
+	hFile->read(&savedEnd, sizeof(savedEnd));
+	hFile->read(&savedStart, sizeof(savedStart));
+	hFile->read(&savedCurrent, sizeof(savedCurrent));
+
+	ScrollStringSt* saved[256]{};
+	FOR_EACH(ScrollStringSt*, i, saved)
+	{
+		*i = ExtractScrollStringFromFile(hFile, stracLinuxFormat);
+	}
+
+	FOR_EACH(ScrollStringSt*, i, gMapScreenMessageList)
+	{
+		delete *i;
+		*i = NULL;
+	}
+
 	gubEndOfMapScreenMessageList   = 0;
 	gubStartOfMapScreenMessageList = 0;
 	gubCurrentMapMessageString     = 0;
 
-	// Read to the begining of the message list
-	hFile->read(&gubEndOfMapScreenMessageList, sizeof(UINT8));
-
-	// Read the current message string
-	hFile->read(&gubStartOfMapScreenMessageList, sizeof(UINT8));
-
-	// Read the current message string
-	hFile->read(&gubCurrentMapMessageString, sizeof(UINT8));
-
-	//Loopthrough all the messages
-	FOR_EACH(ScrollStringSt*, i, gMapScreenMessageList)
+	/* Saved entries may have been wrapped for a wider viewport. Rebuild them
+	 * through the current-width path so rendering never clips a suffix. */
+	for (UINT8 index = savedStart; index != savedEnd; index = (index + 1) % 256)
 	{
-		ScrollStringSt* const s = ExtractScrollStringFromFile(hFile, stracLinuxFormat);
+		ScrollStringSt* const s = saved[index];
+		if (s == NULL) continue;
 
-		ScrollStringSt* const old = *i;
-		if (old)
-		{
-			delete old;
-		}
-
-		*i = s;
+		AddWrappedMapScreenMessage(s->pString, s->usColor, s->fBeginningOfNewString);
+		delete s;
+		saved[index] = NULL;
 	}
 
+	FOR_EACH(ScrollStringSt*, i, saved)
+	{
+		delete *i;
+	}
+
+	(void)savedCurrent;
 	// this will set a valid value for gubFirstMapscreenMessageIndex, which isn't being saved/restored
 	MoveToEndOfMapScreenMessageList();
 }

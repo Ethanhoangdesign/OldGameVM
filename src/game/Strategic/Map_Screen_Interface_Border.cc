@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "Map_Screen_Interface_Border.h"
 #include "Assignments.h"
 #include "Campaign_Types.h"
@@ -15,30 +19,58 @@
 #include "Text.h"
 #include "UILayout.h"
 #include "Video.h"
+#include "HImage.h"
+#include "Line.h"
+#include "VObject.h"
 #include "VSurface.h"
 #include <string_theory/string>
 
 struct BUTTON_PICS;
 
 #define MAP_BORDER_FILE INTERFACEDIR "/mbs.sti"
-#define BTN_TOWN_X      (STD_SCREEN_X + 299)
-#define BTN_MINE_X      (STD_SCREEN_X + 342)
-#define BTN_TEAMS_X     (STD_SCREEN_X + 385)
-#define BTN_MILITIA_X   (STD_SCREEN_X + 428)
-#define BTN_AIR_X       (STD_SCREEN_X + 471)
-#define BTN_ITEM_X      (STD_SCREEN_X + 514)
 
-#define MAP_LEVEL_MARKER_X    (STD_SCREEN_X + 565)
-#define MAP_LEVEL_MARKER_Y     (STD_SCREEN_Y + 323)
-#define MAP_LEVEL_MARKER_DELTA   8
-#define MAP_LEVEL_MARKER_WIDTH  55
+/* Wildfire's 763x121 bottom panel has six 50x44 filter buttons in a
+ * three-column, two-row recess block. Relative to the panel origin, the
+ * wells start at x=10, 69, 128; the lower row sits flush with the panel bottom. */
+#define BTN_PITCH_X     59
+#define BTN_ROW_Y       (g_ui.isWidePanel() ? (g_ui.get_MAP_BOTTOM_BASE_Y() + 369) : STD_SCREEN_Y + 323)
+#define BTN_SECOND_ROW_Y (g_ui.isWidePanel() ? (g_ui.get_MAP_BOTTOM_BASE_Y() + 423) : BTN_ROW_Y)
+#define BTN_WIDE_X(col) (g_ui.get_MAP_BOTTOM_BASE_X() + 10 + BTN_PITCH_X * (col))
+#define BTN_TOWN_X      (g_ui.isWidePanel() ? BTN_WIDE_X(0) : STD_SCREEN_X + 299)
+#define BTN_MINE_X      (g_ui.isWidePanel() ? BTN_WIDE_X(1) : STD_SCREEN_X + 342)
+#define BTN_TEAMS_X     (g_ui.isWidePanel() ? BTN_WIDE_X(2) : STD_SCREEN_X + 385)
+#define BTN_MILITIA_X   (g_ui.isWidePanel() ? BTN_WIDE_X(0) : STD_SCREEN_X + 428)
+#define BTN_AIR_X       (g_ui.isWidePanel() ? BTN_WIDE_X(1) : STD_SCREEN_X + 471)
+#define BTN_ITEM_X      (g_ui.isWidePanel() ? BTN_WIDE_X(2) : STD_SCREEN_X + 514)
+#define BTN_TOWN_Y      BTN_ROW_Y
+#define BTN_MINE_Y      BTN_ROW_Y
+#define BTN_TEAMS_Y     BTN_ROW_Y
+#define BTN_MILITIA_Y   BTN_SECOND_ROW_Y
+#define BTN_AIR_Y       BTN_SECOND_ROW_Y
+#define BTN_ITEM_Y      BTN_SECOND_ROW_Y
 
+/* Wide-panel level selector: the four 151x23 strata are baked into the
+ * bottom panel at (200,10), immediately right of the filter-button block. */
+#define ONMAP_MAP_LEVEL_MARKER_X    (!g_ui.isWidePanel() ? (STD_SCREEN_X + 565) : \
+	(g_ui.get_MAP_BOTTOM_BASE_X() + 200))
+#define ONMAP_MAP_LEVEL_MARKER_Y    (!g_ui.isWidePanel() ? (STD_SCREEN_Y + 323) : \
+	(g_ui.get_MAP_BOTTOM_BASE_Y() + 369))
+#define MAP_LEVEL_MARKER_DELTA   (g_ui.isWidePanel() ? 23 : 8)
+#define MAP_LEVEL_MARKER_WIDTH  (g_ui.isWidePanel() ? 151 : 55)
+#define MAP_LEVEL_MARKER_HEIGHT (g_ui.isWidePanel() ? 23 : 8)
+#define MAP_LEVEL_MARKER_X ONMAP_MAP_LEVEL_MARKER_X
+#define MAP_LEVEL_MARKER_Y ONMAP_MAP_LEVEL_MARKER_Y
+#define MAP_LEVEL_SLOT_X(i) MAP_LEVEL_MARKER_X
+#define MAP_LEVEL_SLOT_Y(i) (MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * (i))
+#define MAP_LEVEL_SLOT_W MAP_LEVEL_MARKER_WIDTH
+#define MAP_LEVEL_SLOT_H MAP_LEVEL_MARKER_HEIGHT
 
 #define MAP_BORDER_X (STD_SCREEN_X + 261)
 #define MAP_BORDER_Y (STD_SCREEN_Y + 0)
 
 
 // mouse levels
+
 static MOUSE_REGION LevelMouseRegions[4];
 
 // graphics
@@ -85,8 +117,9 @@ void RenderMapBorder( void )
 {
 	if( fShowMapInventoryPool )
 	{
-		// render background, then leave
-		BlitInventoryPoolGraphic( );
+		/* SECTORINV-FIX: viec ve bang sector inventory da chuyen ra
+		 * RenderMapRegionBackground() de no van chay khi map full-size
+		 * bo qua khung vien nay. Dung ve bang o day nua, se bi hai lan. */
 		return;
 	}
 
@@ -115,11 +148,26 @@ void RenderMapBorderEtaPopUp( void )
 }
 
 
-static void MakeButton(UINT idx, UINT gfx, INT16 x, GUI_CALLBACK click, const ST::string& help)
+static void DrawCurrentLevelMarker(void)
+{
+	BltVideoObject(guiSAVEBUFFER, guiLEVELMARKER, 0,
+		MAP_LEVEL_MARKER_X, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * iCurrentMapSectorZ);
+}
+
+
+void RenderMapLevelSelectorFullSize(void)
+{
+	/* The measured panel has no selector recess; retain the marker artwork
+	 * in the existing map-underbar without synthetic slot backgrounds. */
+	DrawCurrentLevelMarker();
+}
+
+
+static void MakeButton(UINT idx, UINT gfx, INT16 x, INT16 y, GUI_CALLBACK click, const ST::string& help)
 {
 	BUTTON_PICS* const img = LoadButtonImage(INTERFACEDIR "/map_border_buttons.sti", gfx, gfx + 9);
 	giMapBorderButtonsImage[idx] = img;
-	GUIButtonRef const btn = QuickCreateButtonNoMove(img, x, (STD_SCREEN_Y + 323), MSYS_PRIORITY_HIGH, click);
+	GUIButtonRef const btn = QuickCreateButtonNoMove(img, x, y, MSYS_PRIORITY_HIGH, click);
 	giMapBorderButtons[idx] = btn;
 	btn->SetFastHelpText(help);
 	btn->SetCursor(MSYS_NO_CURSOR);
@@ -139,12 +187,12 @@ void CreateButtonsForMapBorder(void)
 {
 	// will create the buttons needed for the map screen border region
 
-	MakeButton(MAP_BORDER_TOWN_BTN,     5, BTN_TOWN_X,    BtnTownCallback,     pMapScreenBorderButtonHelpText[0]); // towns
-	MakeButton(MAP_BORDER_MINE_BTN,     4, BTN_MINE_X,    BtnMineCallback,     pMapScreenBorderButtonHelpText[1]); // mines
-	MakeButton(MAP_BORDER_TEAMS_BTN,    3, BTN_TEAMS_X,   BtnTeamCallback,     pMapScreenBorderButtonHelpText[2]); // people
-	MakeButton(MAP_BORDER_MILITIA_BTN,  8, BTN_MILITIA_X, BtnMilitiaCallback,  pMapScreenBorderButtonHelpText[5]); // militia
-	MakeButton(MAP_BORDER_AIRSPACE_BTN, 2, BTN_AIR_X,     BtnAircraftCallback, pMapScreenBorderButtonHelpText[3]); // airspace
-	MakeButton(MAP_BORDER_ITEM_BTN,     1, BTN_ITEM_X,    BtnItemCallback,     pMapScreenBorderButtonHelpText[4]); // items
+	MakeButton(MAP_BORDER_TOWN_BTN,     5, BTN_TOWN_X, BTN_TOWN_Y,    BtnTownCallback,     pMapScreenBorderButtonHelpText[0]); // towns
+	MakeButton(MAP_BORDER_MINE_BTN,     4, BTN_MINE_X, BTN_MINE_Y,    BtnMineCallback,     pMapScreenBorderButtonHelpText[1]); // mines
+	MakeButton(MAP_BORDER_TEAMS_BTN,    3, BTN_TEAMS_X, BTN_TEAMS_Y,   BtnTeamCallback,     pMapScreenBorderButtonHelpText[2]); // people
+	MakeButton(MAP_BORDER_MILITIA_BTN,  8, BTN_MILITIA_X, BTN_MILITIA_Y, BtnMilitiaCallback,  pMapScreenBorderButtonHelpText[5]); // militia
+	MakeButton(MAP_BORDER_AIRSPACE_BTN, 2, BTN_AIR_X, BTN_AIR_Y,     BtnAircraftCallback, pMapScreenBorderButtonHelpText[3]); // airspace
+	MakeButton(MAP_BORDER_ITEM_BTN,     1, BTN_ITEM_X, BTN_ITEM_Y,    BtnItemCallback,     pMapScreenBorderButtonHelpText[4]); // items
 
 	InitializeMapBorderButtonStates( );
 }
@@ -471,7 +519,7 @@ static void DisplayCurrentLevelMarker(void)
 */
 
 	// it's actually a white rectangle, not a green arrow!
-	BltVideoObject(guiSAVEBUFFER, guiLEVELMARKER, 0, MAP_LEVEL_MARKER_X, MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * iCurrentMapSectorZ);
+	DrawCurrentLevelMarker();
 }
 
 
@@ -483,10 +531,10 @@ void CreateMouseRegionsForLevelMarkers(void)
 	for (UINT sCounter = 0; sCounter < 4 ; ++sCounter)
 	{
 		MOUSE_REGION* const r = &LevelMouseRegions[sCounter];
-		const UINT16        x = MAP_LEVEL_MARKER_X;
-		const UINT16        y = MAP_LEVEL_MARKER_Y + MAP_LEVEL_MARKER_DELTA * sCounter;
-		const UINT16        w = MAP_LEVEL_MARKER_WIDTH;
-		const UINT16        h = MAP_LEVEL_MARKER_DELTA;
+		const UINT16        x = MAP_LEVEL_SLOT_X(sCounter);
+		const UINT16        y = MAP_LEVEL_SLOT_Y(sCounter);
+		const UINT16        w = MAP_LEVEL_SLOT_W;
+		const UINT16        h = MAP_LEVEL_SLOT_H;
 		MSYS_DefineRegion(r, x, y, x + w, y + h, MSYS_PRIORITY_HIGH, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, LevelMarkerBtnCallback);
 
 		MSYS_SetRegionUserData(r, 0, sCounter);

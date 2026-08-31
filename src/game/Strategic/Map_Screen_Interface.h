@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #ifndef MAP_SCREEN_INTERFACE_H
 #define MAP_SCREEN_INTERFACE_H
 
@@ -11,12 +15,12 @@
 
 
 // char breath and life position
-#define BAR_INFO_X (STD_SCREEN_X + 66)
-#define BAR_INFO_Y (STD_SCREEN_Y + 61)
+#define BAR_INFO_X (g_ui.get_MAP_LEFT_COL_X() + 66)
+#define BAR_INFO_Y (g_ui.get_MAP_LEFT_COL_Y() + 61)
 
 // merc icon position
-#define CHAR_ICON_CONTRACT_Y (STD_SCREEN_Y + 64)
-#define CHAR_ICON_X (STD_SCREEN_X + 187)
+#define CHAR_ICON_CONTRACT_Y (g_ui.get_MAP_LEFT_COL_Y() + 64)
+#define CHAR_ICON_X (g_ui.get_MAP_LEFT_COL_X() + 187)
 #define CHAR_ICON_WIDTH 10
 #define CHAR_ICON_HEIGHT 10
 #define CHAR_ICON_SPACING 13
@@ -29,8 +33,8 @@
 #define MAP_SCREEN_FONT BLOCKFONT2
 
 // characterlist regions
-#define Y_START               (STD_SCREEN_Y + 146)
-#define MAP_START_KEYRING_Y   (STD_SCREEN_Y + 107)
+#define Y_START               (g_ui.get_MAP_LEFT_COL_Y() + 146)
+#define MAP_START_KEYRING_Y   (g_ui.get_MAP_LEFT_COL_Y() + 107)
 #define Y_SIZE                GetFontHeight(MAP_SCREEN_FONT)
 
 

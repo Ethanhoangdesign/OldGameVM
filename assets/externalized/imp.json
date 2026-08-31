@@ -1,6 +1,7 @@
 {
     // I.M.P. homepage activation code
-    "activation_codes": ["XEP624", "xep624"],
+    // Vanilla email/manual: XEP624. Wildfire email: CIA003.
+    "activation_codes": ["XEP624", "xep624", "CIA003", "cia003"],
 
     // Experience level of a new I.M.P. merc
     // vanilla setting: 1

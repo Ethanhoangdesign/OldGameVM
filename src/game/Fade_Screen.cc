@@ -261,7 +261,11 @@ static void FadeInFrameBufferRealFade(void)
 		RefreshScreen();
 
 		// Copy save buffer back
-		RestoreExternBackgroundRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		{
+			UINT16 const w = std::min({ (UINT16)SCREEN_WIDTH,  (UINT16)guiSAVEBUFFER->Width(),  (UINT16)FRAME_BUFFER->Width() });
+			UINT16 const h = std::min({ (UINT16)SCREEN_HEIGHT, (UINT16)guiSAVEBUFFER->Height(), (UINT16)FRAME_BUFFER->Height() });
+			RestoreExternBackgroundRect(0, 0, w, h);
+		}
 
 		gsFadeRealCount = gsFadeCount;
 	}

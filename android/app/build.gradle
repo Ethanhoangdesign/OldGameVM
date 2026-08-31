@@ -3,7 +3,10 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlinx-serialization'
 
 android {
-    compileSdkVersion 31
+    // AGP 7.4 aapt2 cannot load platform 35+ android.jar (RES_TABLE overlap).
+    // Use 33 when present; fall back handled by local SDK install.
+    compileSdkVersion 33
+    buildToolsVersion "31.0.0"
     ndkVersion "25.0.8775105"
 
 
@@ -27,21 +30,29 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                 "-std=c++17"
+                def ezeusSourceDir = project.findProperty('ezeusSourceDir') ?: ''
+                def buildEZeus = ezeusSourceDir ? 'ON' : 'OFF'
+
+                "-std=c++17"
+                // CMAKE_MAKE_PROGRAM required for nested ExternalProject/execute_process (SDL2)
                 arguments '-DBUILD_SDL_LIB=ON',
                           '-DBUILD_LAUNCHER=OFF',
                           '-DWITH_UNITTESTS=OFF',
                           '-DWITH_RUST_BINARIES=OFF',
+                          "-DBUILD_EZEUS=${buildEZeus}",
+                          "-DEZEUS_SOURCE_DIR=${ezeusSourceDir}",
                           '-DCMAKE_CXX_FLAGS=-fPIC',
-                          '-DCMAKE_C_FLAGS=-fPIC'
+                          '-DCMAKE_C_FLAGS=-fPIC',
+                          "-DCMAKE_MAKE_PROGRAM=${System.getenv('ANDROID_HOME') ?: System.getenv('ANDROID_SDK_ROOT') ?: "${System.getProperty('user.home')}/Library/Android/sdk"}/cmake/3.22.1/bin/ninja"
             }
         }
 
         ndk {
             // Specifies the ABI configurations of your native
             // libraries Gradle should build and package with your APK.
-            // Currently we dont have armv7 as there is an issue with the SDL version we use
-            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+            // arm64-v8a only: Samsung A16 + faster local builds.
+            // Full set: 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+            abiFilters 'arm64-v8a'
         }
     }
 
@@ -61,8 +72,9 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            debuggable project.hasProperty('debugSigning')
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            signingConfig project.hasProperty('debugSigning') ? signingConfigs.debug : signingConfigs.release
         }
     }
 

@@ -66,7 +66,7 @@ extern UINT8 gubEnemyEncounterCode;
 //for reasons not normally used in the PBI.  For example, if we were fighting the enemy
 //in a normal situation, then shot at a civilian, the civilians associated with the victim
 //would turn hostile, which would disable the ability to autoresolve the battle.
-extern BOOLEAN gubExplicitEnemyEncounterCode;
+extern UINT8 gubExplicitEnemyEncounterCode;
 
 //Location of the current battle (determines where the animated icon is blitted) and if the
 //icon is to be blitted.

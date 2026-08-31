@@ -1,3 +1,7 @@
+# OGVM-LAYOUTB: StracciatellaLauncher.fl is reference-only.
+# Build machine has no fluid; StracciatellaLauncher.cc/.h are hand-edited source of truth.
+# See StracciatellaLauncher.cc for coordinates (window 520x470, Data radio-first).
+
 # data file for the Fltk User Interface Designer (fluid)
 version 1.0309
 header_name {.h}
@@ -34,7 +38,7 @@ class StracciatellaLauncher {open
             xywh {10 60 500 50}
           } {
             Fl_Input gameDirectoryInput {
-              label {JA2 Game Directory:}
+              label {Step 2 - JA2 game folder (filled in after Step 1):}
               xywh {20 75 440 30} align 5 resizable
             }
             Fl_Button browseJa2DirectoryButton {
@@ -46,7 +50,7 @@ class StracciatellaLauncher {open
             xywh {10 110 500 50}
           } {
             Fl_Choice gameVersionInput {
-              label {Game Version:} open
+              label {Data language:} open
               xywh {20 130 440 30} down_box BORDER_BOX align 5 resizable
             } {}
             Fl_Button guessVersionButton {
@@ -56,18 +60,51 @@ class StracciatellaLauncher {open
           }
           Fl_Group {} {
             label resizable
+            Fl_Group {} {open
+              xywh {10 284 500 66}
+            } {
+              Fl_Round_Button sourceInstallerRadio {
+                label {Unpacked from an installer - no need to install the game}
+                tooltip {Shows how the engine found your game data. Read-only: it always snaps back to what was detected.} xywh {20 286 470 22} type Radio down_box ROUND_DOWN_BOX labelsize 14
+              }
+              Fl_Round_Button sourceFolderRadio {
+                label {An existing game folder}
+                tooltip {Shows how the engine found your game data. Read-only: it always snaps back to what was detected.} xywh {20 308 470 22} type Radio down_box ROUND_DOWN_BOX labelsize 14
+              }
+              Fl_Box sourceStatusLabel {
+                label {Detecting the game data source...}
+                xywh {20 330 470 18} labelsize 14 align 20
+              }
+              Fl_Progress importProgress {
+                xywh {20 330 470 18} labelsize 12 selection_color 63 hide
+                # OGVM-PROGCOLOR: selection_color 63 = FL_GREEN
+              }   # OGVM-PROGRESS
+            }
+            # OGVM-RADIO: khoi tren duoc go tay, may khong co fluid
             xywh {10 265 500 25} labeltype NO_LABEL align 17 resizable
           } {}
           Fl_Group {} {
             xywh {10 170 500 50}
           } {
             Fl_Input saveGameDirectoryInput {
-              label {Save Game Directory:}
+              label {Saved games folder (optional):}
               xywh {20 185 440 30} align 5 resizable
             }
             Fl_Button browseSaveGameDirectoryButton {
               label {@fileopen}
               tooltip {Choose JA2 game directory.} xywh {470 185 30 30}
+            }
+          }
+          Fl_Group {} {
+            xywh {10 225 500 40}
+          } {
+            Fl_Button detectEditionButton {
+              label {Detect Edition}
+              tooltip {Detect which JA2 edition (Vanilla / Gold / Wildfire) is installed in the game directory.} xywh {20 230 160 30}
+            }
+            Fl_Button importGameDataButton {
+              label {Step 1 - Import from installer...}
+              tooltip {Extract game data straight from a GOG or retail installer, without having to install the original game first.} xywh {190 230 300 30}   # OGVM-UX1
             }
           }
         }
@@ -124,7 +161,7 @@ class StracciatellaLauncher {open
             }
           }
           Fl_Group {} {open
-            tooltip {Specify the resolution for tactical screen rendering. Texts and sprites become very small at higher internal resolutions. Note that menus and the strategic map screen are always rendered at 640x480.} xywh {10 115 500 52}
+            tooltip {Specify the internal rendering resolution. Text and sprites become very small at high resolutions. The strategic map screen needs at least 768 pixels of height to show the full map, so 1366x768 or larger is recommended.} xywh {10 115 500 52}
           } {
             Fl_Value_Input resolutionXInput {
               label {Internal Resolution:}
@@ -147,7 +184,7 @@ class StracciatellaLauncher {open
             } {}
             Fl_Box invalidResolutionLabel {
               label {invalid!}
-              tooltip {the resolution must be at least 640x480, the original game resolution} xywh {340 130 160 30} labelfont 1 labelcolor 1 align 20
+              tooltip {the resolution must be at least 640x480, the original game resolution; 1366x768 or larger is recommended so the strategic map fits} xywh {340 130 160 30} labelfont 1 labelcolor 1 align 20
             }
           }
           Fl_Group {} {open
@@ -170,6 +207,15 @@ class StracciatellaLauncher {open
               xywh {20 255 109 30} down_box DOWN_BOX value 1
             }
           }
+        }
+        Fl_Group {} {
+          label {@utility Controller } open
+          xywh {0 50 520 300} labelcolor 24 hide
+        } {
+          # OGVM-CONTROLLER: reference-only. Real widgets hand-built in .cc/.h.
+          # controllerEnableToggle, controllerExeOutput, controllerProfileOutput,
+          # controllerProfileBrowse, controllerEditButton, controllerStatusLabel,
+          # controllerHelp.
         }
         Fl_Group logsTab {
           label {@square Logs} open

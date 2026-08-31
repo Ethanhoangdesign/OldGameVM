@@ -2,6 +2,7 @@
 #include "Font.h"
 #include "GameLoop.h"
 #include "HImage.h"
+#include "Local.h"
 #include "Timer_Control.h"
 #include "Types.h"
 #include "SaveLoadScreen.h"
@@ -45,6 +46,7 @@
 #include "GameInstance.h"
 #include "VObject_Blitters.h"
 
+#include <algorithm>
 #include <string_theory/format>
 #include <string_theory/string>
 
@@ -54,7 +56,49 @@
 constexpr int NUM_SAVE_GAMES = 11;
 
 
+#ifdef __ANDROID__
+// Fit 640×480 loadscreen chrome (no cap — stretch full). Dim underlay ~80%
+// (ShadowRect ×2). Same center-scale family as Options / GIO so narrow presets
+// (e.g. 934x480) expand to fill the screen instead of leaving the panel offset.
+static float SlgUiScale(void)
+{
+	float const sx = (float)SCREEN_WIDTH  / 640.f;
+	float const sy = (float)SCREEN_HEIGHT / 480.f;
+	return std::min(sx, sy);
+}
+static INT16 SlgSX(INT32 x)
+{
+	float const sc = SlgUiScale();
+	float const cx = (float)STD_SCREEN_X + 320.f;
+	return (INT16)((float)(SCREEN_WIDTH / 2) + ((float)x - cx) * sc);
+}
+static INT16 SlgSY(INT32 y)
+{
+	float const sc = SlgUiScale();
+	float const cy = (float)STD_SCREEN_Y + 240.f;
+	return (INT16)((float)(SCREEN_HEIGHT / 2) + ((float)y - cy) * sc);
+}
+// Scale a delta; keep sign. Zero stays zero (not forced to 1).
+static INT16 SlgS(INT32 v)
+{
+	if (v == 0) return 0;
+	INT32 const s = (INT32)((float)v * SlgUiScale());
+	if (v > 0) return (INT16)std::max(1, s);
+	return (INT16)std::min(-1, s);
+}
+// ShadowRect multiplies light ≈0.48/pass → 2× ≈ 77% dark (~alpha 0.8).
+#define SLG_DIM_PASSES 2
+static SGPVSurface* guiSlgUnderlay = NULL;
+#define SAVE_LOAD_NORMAL_FONT				FONT14ARIAL
+#define SLG_BTN_FONT					FONT14HUMANIST
+#else
+#define SlgSX(x) ((INT16)(x))
+#define SlgSY(y) ((INT16)(y))
+#define SlgS(v)  ((INT16)(v))
 #define SAVE_LOAD_NORMAL_FONT				FONT12ARIAL
+#define SLG_BTN_FONT					OPT_BUTTON_FONT
+#endif
+
 #define SAVE_LOAD_NORMAL_COLOR				2//FONT_MCOLOR_DKWHITE//2//FONT_MCOLOR_WHITE
 #define SAVE_LOAD_NORMAL_SHADOW_COLOR			118//121//118//125
 
@@ -67,42 +111,42 @@ constexpr int NUM_SAVE_GAMES = 11;
 #define SAVE_LOAD_SELECTED_COLOR			2//145//FONT_MCOLOR_WHITE
 #define SAVE_LOAD_SELECTED_SHADOW_COLOR		130//2
 
-#define SLG_SAVELOCATION_WIDTH				575
-#define SLG_SAVELOCATION_HEIGHT			30//46
-#define SLG_FIRST_SAVED_SPOT_X				(STD_SCREEN_X + 17)
-#define SLG_FIRST_SAVED_SPOT_Y				(STD_SCREEN_Y + 49)
-#define SLG_GAP_BETWEEN_LOCATIONS			35//47
+#define SLG_SAVELOCATION_WIDTH				SlgS(575)
+#define SLG_SAVELOCATION_HEIGHT			SlgS(30)//46
+#define SLG_FIRST_SAVED_SPOT_X				SlgSX(STD_SCREEN_X + 17)
+#define SLG_FIRST_SAVED_SPOT_Y				SlgSY(STD_SCREEN_Y + 49)
+#define SLG_GAP_BETWEEN_LOCATIONS			SlgS(35)//47
 
 
 
-#define SLG_DATE_OFFSET_X				13
-#define SLG_DATE_OFFSET_Y				11
+#define SLG_DATE_OFFSET_X				SlgS(13)
+#define SLG_DATE_OFFSET_Y				SlgS(11)
 
-#define SLG_SECTOR_OFFSET_X				95//105//114
-#define SLG_SECTOR_WIDTH				98
+#define SLG_SECTOR_OFFSET_X				SlgS(95)//105//114
+#define SLG_SECTOR_WIDTH				SlgS(98)
 
-#define SLG_NUM_MERCS_OFFSET_X				196//190//SLG_DATE_OFFSET_X
+#define SLG_NUM_MERCS_OFFSET_X				SlgS(196)//190//SLG_DATE_OFFSET_X
 
-#define SLG_BALANCE_OFFSET_X				260//SLG_SECTOR_OFFSET_X
+#define SLG_BALANCE_OFFSET_X				SlgS(260)//SLG_SECTOR_OFFSET_X
 
-#define SLG_SAVE_GAME_DESC_X				318//320//204
+#define SLG_SAVE_GAME_DESC_X				SlgS(318)//320//204
 #define SLG_SAVE_GAME_DESC_Y				SLG_DATE_OFFSET_Y//SLG_DATE_OFFSET_Y + 7
-#define SLG_SAVE_GAME_SKULL_X				552
-#define SLG_SAVE_GAME_SKULL_Y				-3
+#define SLG_SAVE_GAME_SKULL_X				SlgS(552)
+#define SLG_SAVE_GAME_SKULL_Y				SlgS(-3)
 
-#define SLG_TITLE_POS_X				(STD_SCREEN_X)
-#define SLG_TITLE_POS_Y				(STD_SCREEN_Y)
+#define SLG_TITLE_POS_X				SlgSX(STD_SCREEN_X)
+#define SLG_TITLE_POS_Y				SlgSY(STD_SCREEN_Y)
 
-#define SLG_LOAD_CANCEL_POS_X				(329 + STD_SCREEN_X)
-#define SLG_SAVE_LOAD_BTN_POS_X				(123 + STD_SCREEN_X)
-#define SLG_BTN_POS_Y					(438 + STD_SCREEN_Y)
+#define SLG_LOAD_CANCEL_POS_X				SlgSX(329 + STD_SCREEN_X)
+#define SLG_SAVE_LOAD_BTN_POS_X				SlgSX(123 + STD_SCREEN_X)
+#define SLG_BTN_POS_Y					SlgSY(438 + STD_SCREEN_Y)
 
-#define SLG_SCROLLBAR_POS_X (SLG_FIRST_SAVED_SPOT_X + 582)
+#define SLG_SCROLLBAR_POS_X (SLG_FIRST_SAVED_SPOT_X + SlgS(582))
 #define SLG_SCROLLBAR_POS_Y (SLG_FIRST_SAVED_SPOT_Y)
-#define SLG_SCROLLBAR_HEIGHT 378
-#define SLG_SCROLLBAR_WIDTH 23
-#define SLG_SCROLLBAR_BTN_HEIGHT 23
-#define SLG_SCROLLBAR_INDICATOR_HEIGHT 19
+#define SLG_SCROLLBAR_HEIGHT SlgS(378)
+#define SLG_SCROLLBAR_WIDTH SlgS(23)
+#define SLG_SCROLLBAR_BTN_HEIGHT SlgS(23)
+#define SLG_SCROLLBAR_INDICATOR_HEIGHT SlgS(19)
 #define SLG_SCROLLBAR_INNER_HEIGHT (SLG_SCROLLBAR_HEIGHT - 2 * SLG_SCROLLBAR_BTN_HEIGHT)
 #define SLG_SCROLLBAR_INNER_POS_Y (SLG_SCROLLBAR_POS_Y + SLG_SCROLLBAR_BTN_HEIGHT)
 #define SLG_SCROLLBAR_BTN_SCROLL_DOWN_POS_Y (SLG_SCROLLBAR_POS_Y + SLG_SCROLLBAR_HEIGHT - SLG_SCROLLBAR_BTN_HEIGHT)
@@ -209,7 +253,12 @@ ScreenID SaveLoadScreenHandle()
 		PauseGame();
 
 		//save the new rect
+#ifdef __ANDROID__
+		// Full frame: scaled chrome can sit below y=439.
+		BltVideoSurface(guiSAVEBUFFER, FRAME_BUFFER, 0, 0, NULL);
+#else
 		BlitBufferToBuffer(FRAME_BUFFER, guiSAVEBUFFER, 0, 0, SCREEN_WIDTH, 439);
+#endif
 	}
 
 	RestoreBackgroundRects();
@@ -337,8 +386,68 @@ static void LeaveSaveLoadScreen()
 
 static GUIButtonRef MakeButton(BUTTON_PICS* img, const ST::string& text, INT16 x, GUI_CALLBACK click)
 {
-	return CreateIconAndTextButton(img, text, OPT_BUTTON_FONT, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, SLG_BTN_POS_Y, MSYS_PRIORITY_HIGH, click);
+	GUIButtonRef const btn = CreateIconAndTextButton(img, text, SLG_BTN_FONT, OPT_BUTTON_ON_COLOR, DEFAULT_SHADOW, OPT_BUTTON_OFF_COLOR, DEFAULT_SHADOW, x, SLG_BTN_POS_Y, MSYS_PRIORITY_HIGH, click);
+#ifdef __ANDROID__
+	// Stretch art to scaled hit (Button_System Android path when W/H > pic).
+	if (ButtonDimensions const* const d = GetDimensionsOfButtonPic(img))
+	{
+		float const sc = SlgUiScale();
+		INT32 const dw = (INT32)(d->w * sc);
+		INT32 const dh = (INT32)(d->h * sc);
+		btn->Area.RegionBottomRightX = btn->Area.RegionTopLeftX + dw;
+		btn->Area.RegionBottomRightY = btn->Area.RegionTopLeftY + dh;
+		if (btn->Area.RegionBottomRightY > (INT32)SCREEN_HEIGHT)
+		{
+			INT32 const shift = btn->Area.RegionBottomRightY - (INT32)SCREEN_HEIGHT;
+			btn->Area.RegionTopLeftY     -= shift;
+			btn->Area.RegionBottomRightY -= shift;
+		}
+	}
+#endif
+	return btn;
 }
+
+#ifdef __ANDROID__
+// 8bpp STI → 16bpp temp → stretch to display rect (Options/GIO pattern).
+static void SlgStretchVO(SGPVObject* vo, UINT16 sub, INT16 dx, INT16 dy, UINT16 dw, UINT16 dh)
+{
+	if (!vo || dw == 0 || dh == 0) return;
+	ETRLEObject const& e = vo->SubregionProperties(sub);
+	if (e.usWidth == 0 || e.usHeight == 0) return;
+	SGPVSurface tmp(e.usWidth, e.usHeight, 16);
+	SGPRect tmpClip;
+	tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+	SGPRect const oldClip = SetClippingRect(tmpClip);
+	BltVideoObject(&tmp, vo, sub, 0, 0);
+	SetClippingRect(oldClip);
+	SGPBox src;
+	src.set(0, 0, e.usWidth, e.usHeight);
+	SGPBox dst;
+	dst.set((UINT16)dx, (UINT16)dy, dw, dh);
+	BltStretchVideoSurface(FRAME_BUFFER, &tmp, &src, &dst);
+}
+
+static void SlgStretchVOAtNatural(SGPVObject* vo, UINT16 sub, INT32 natX, INT32 natY)
+{
+	if (!vo) return;
+	ETRLEObject const& e = vo->SubregionProperties(sub);
+	if (e.usWidth == 0 || e.usHeight == 0) return;
+	float const sc = SlgUiScale();
+	SlgStretchVO(vo, sub, SlgSX(natX), SlgSY(natY),
+		(UINT16)std::max(1, (INT32)(e.usWidth * sc)),
+		(UINT16)std::max(1, (INT32)(e.usHeight * sc)));
+}
+
+static void SlgEnlargeButtonHit(GUIButtonRef btn)
+{
+	if (!btn) return;
+	float const sc = SlgUiScale();
+	INT32 const w = btn->Area.RegionBottomRightX - btn->Area.RegionTopLeftX;
+	INT32 const h = btn->Area.RegionBottomRightY - btn->Area.RegionTopLeftY;
+	btn->Area.RegionBottomRightX = btn->Area.RegionTopLeftX + (INT32)(w * sc);
+	btn->Area.RegionBottomRightY = btn->Area.RegionTopLeftY + (INT32)(h * sc);
+}
+#endif
 
 static void BtnScrollUpCallback(GUI_BUTTON* btn, UINT32 reason);
 static void BtnScrollDownCallback(GUI_BUTTON* btn, UINT32 reason);
@@ -372,6 +481,7 @@ static void EnterSaveLoadScreen()
 
 	guiSaveLoadExitScreen = SAVE_LOAD_SCREEN;
 	InitSaveGameArray();
+	if (!gfSaveGame) gCurrentScrollTop = 0;
 	EmptyBackgroundRects();
 
 	// If the user has asked to load the selected save
@@ -395,12 +505,27 @@ static void EnterSaveLoadScreen()
 	guiSlgAddonsStracciatella = AddVideoObjectFromFile("sti/interface/save-load-addons.sti");
 	guiSlgScrollbarStracciatella = AddVideoObjectFromFile("sti/interface/scroll-bar.sti");
 
+#ifdef __ANDROID__
+	// Capture Options (or prior screen) for dim underlay each frame.
+	if (guiSlgUnderlay)
+	{
+		DeleteVideoSurface(guiSlgUnderlay);
+		guiSlgUnderlay = NULL;
+	}
+	guiSlgUnderlay = AddVideoSurface(SCREEN_WIDTH, SCREEN_HEIGHT, PIXEL_DEPTH);
+	BltVideoSurface(guiSlgUnderlay, FRAME_BUFFER, 0, 0, NULL);
+#endif
+
 	guiSlgScrollUpBtn = QuickCreateButtonImg("sti/interface/scroll-bar.sti", SLG_SCROLL_UP_GRAPHICS_NUMBER_UP, SLG_SCROLL_UP_GRAPHICS_NUMBER_DOWN, SLG_SCROLLBAR_POS_X, SLG_SCROLLBAR_POS_Y, MSYS_PRIORITY_HIGH, BtnScrollUpCallback);
 	guiSlgScrollUpBtn->SetFastHelpText("Scroll up");
 	guiSlgScrollUpBtn->SpecifyDisabledStyle(GUI_BUTTON::DISABLED_STYLE_HATCHED);
 	guiSlgScrollDownBtn = QuickCreateButtonImg("sti/interface/scroll-bar.sti", SLG_SCROLL_DOWN_GRAPHICS_NUMBER_UP, SLG_SCROLL_DOWN_GRAPHICS_NUMBER_DOWN, SLG_SCROLLBAR_POS_X, SLG_SCROLLBAR_BTN_SCROLL_DOWN_POS_Y, MSYS_PRIORITY_HIGH, BtnScrollDownCallback);
 	guiSlgScrollDownBtn->SetFastHelpText("Scroll down");
 	guiSlgScrollDownBtn->SpecifyDisabledStyle(GUI_BUTTON::DISABLED_STYLE_HATCHED);
+#ifdef __ANDROID__
+	SlgEnlargeButtonHit(guiSlgScrollUpBtn);
+	SlgEnlargeButtonHit(guiSlgScrollDownBtn);
+#endif
 
 	guiSlgButtonImage = LoadButtonImage(INTERFACEDIR "/loadscreenaddons.sti", 6, 9);
 	guiSlgCancelBtn   = MakeButton(guiSlgButtonImage, zSaveLoadText[SLG_CANCEL], SLG_LOAD_CANCEL_POS_X, BtnSlgCancelCallback);
@@ -508,6 +633,13 @@ static void ExitSaveLoadScreen(void)
 	RemoveVObject(MLG_LOADSAVEHEADER);
 	DeleteVideoObject(guiSlgAddonsStracciatella);
 	DeleteVideoObject(guiSlgScrollbarStracciatella);
+#ifdef __ANDROID__
+	if (guiSlgUnderlay)
+	{
+		DeleteVideoSurface(guiSlgUnderlay);
+		guiSlgUnderlay = NULL;
+	}
+#endif
 
 	//Destroy the text fields ( if created )
 	DestroySaveLoadTextInputBoxes();
@@ -543,11 +675,34 @@ static void RenderSaveLoadScreen(void)
 	// If we are going to be instantly leaving the screen, don't draw the numbers
 	if (gfLoadGameUponEntry) return;
 
+#ifdef __ANDROID__
+	// Dim prior screen ~80% (ShadowRect ×2 ≈ 0.48² remaining light).
+	if (guiSlgUnderlay)
+	{
+		BltVideoSurface(FRAME_BUFFER, guiSlgUnderlay, 0, 0, NULL);
+	}
+	else
+	{
+		FRAME_BUFFER->Fill(Get16BPPColor(FROMRGB(0, 0, 0)));
+	}
+	for (int i = 0; i < SLG_DIM_PASSES; ++i)
+	{
+		FRAME_BUFFER->ShadowRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+	}
+	// Stretch base loadscreen + title header from natural STI.
+	SlgStretchVOAtNatural(guiSlgBackGroundImage, 0, STD_SCREEN_X, STD_SCREEN_Y);
+	UINT16 const gfx = gfSaveGame ? 1 : 0;
+	if (SGPVObject* const header = GetVObject(MLG_LOADSAVEHEADER))
+	{
+		SlgStretchVOAtNatural(header, gfx, STD_SCREEN_X, STD_SCREEN_Y);
+	}
+#else
 	BltVideoObject(FRAME_BUFFER, guiSlgBackGroundImage, 0, STD_SCREEN_X, STD_SCREEN_Y);
 
 	// Display the Title
 	UINT16 const gfx = gfSaveGame ? 1 : 0;
 	BltVideoObject(FRAME_BUFFER, MLG_LOADSAVEHEADER, gfx, SLG_TITLE_POS_X, SLG_TITLE_POS_Y);
+#endif
 
 	RenderScrollBar();
 	DisplaySaveGameList();
@@ -563,10 +718,23 @@ static void RenderScrollBar(void) {
 	clippingRect.set(SLG_SCROLLBAR_POS_X, SLG_SCROLLBAR_INNER_POS_Y, SLG_SCROLLBAR_POS_X + SLG_SCROLLBAR_WIDTH, SLG_SCROLLBAR_INNER_POS_Y + SLG_SCROLLBAR_INNER_HEIGHT);
 	SGPRect const previousClippingRect = SetClippingRect(clippingRect);
 
-	auto tileHeight = guiSlgScrollbarStracciatella->SubregionProperties(SLG_SCROLL_BAR_INNER_GRAPHICS_NUMBER).usHeight;
+	auto tileHeightNat = guiSlgScrollbarStracciatella->SubregionProperties(SLG_SCROLL_BAR_INNER_GRAPHICS_NUMBER).usHeight;
+#ifdef __ANDROID__
+	UINT16 const tileHeight = (UINT16)std::max(1, (INT32)(tileHeightNat * SlgUiScale()));
+	UINT16 const barW = SLG_SCROLLBAR_WIDTH;
+#else
+	UINT16 const tileHeight = tileHeightNat;
+	UINT16 const barW = 0; // unused
+	(void)barW;
+#endif
 	auto repetitions = uint32_t(ceil(double(SLG_SCROLLBAR_INNER_HEIGHT) / double(tileHeight)));
 	for (uint32_t i = 0; i < repetitions; i++) {
+#ifdef __ANDROID__
+		SlgStretchVO(guiSlgScrollbarStracciatella, SLG_SCROLL_BAR_INNER_GRAPHICS_NUMBER,
+			SLG_SCROLLBAR_POS_X, SLG_SCROLLBAR_INNER_POS_Y + i * tileHeight, barW, tileHeight);
+#else
 		BltVideoObject(FRAME_BUFFER, guiSlgScrollbarStracciatella, SLG_SCROLL_BAR_INNER_GRAPHICS_NUMBER, SLG_SCROLLBAR_POS_X, SLG_SCROLLBAR_INNER_POS_Y + i * tileHeight);
+#endif
 	}
 	SetClippingRect(previousClippingRect);
 
@@ -576,7 +744,17 @@ static void RenderScrollBar(void) {
 	auto indicatorPosition = int(round(double_t(maxYPos) * double_t(currentTop) / double_t(maxTop)));
 	indicatorPosition = std::clamp(indicatorPosition, 0, maxYPos);
 
+#ifdef __ANDROID__
+	{
+		ETRLEObject const& ind = guiSlgScrollbarStracciatella->SubregionProperties(SLG_SCROLL_BAR_INDICATOR_GRAPHICS_NUMBER);
+		UINT16 const iw = (UINT16)std::max(1, (INT32)(ind.usWidth  * SlgUiScale()));
+		UINT16 const ih = (UINT16)std::max(1, (INT32)(ind.usHeight * SlgUiScale()));
+		SlgStretchVO(guiSlgScrollbarStracciatella, SLG_SCROLL_BAR_INDICATOR_GRAPHICS_NUMBER,
+			SLG_SCROLLBAR_POS_X + SlgS(2), SLG_SCROLLBAR_INNER_POS_Y + indicatorPosition + SlgS(1), iw, ih);
+	}
+#else
 	BltVideoObject(FRAME_BUFFER, guiSlgScrollbarStracciatella, SLG_SCROLL_BAR_INDICATOR_GRAPHICS_NUMBER, SLG_SCROLLBAR_POS_X + 2, SLG_SCROLLBAR_INNER_POS_Y + indicatorPosition + 1);
+#endif
 }
 
 
@@ -826,7 +1004,11 @@ static BOOLEAN DisplaySaveGameEntry(const std::vector<SaveGameInfo>::iterator& e
 	// Background
 	UINT16 const gfx = isSelected ?
 		SLG_SELECTED_SLOT_GRAPHICS_NUMBER : SLG_UNSELECTED_SLOT_GRAPHICS_NUMBER;
+#ifdef __ANDROID__
+	SlgStretchVO(guiSlgAddonsStracciatella, gfx, bx, by, SLG_SAVELOCATION_WIDTH, SLG_SAVELOCATION_HEIGHT);
+#else
 	BltVideoObject(FRAME_BUFFER, guiSlgAddonsStracciatella, gfx, bx, by);
+#endif
 
 	SGPFont  font = SAVE_LOAD_NORMAL_FONT;
 	UINT8 foreground;
@@ -856,7 +1038,7 @@ static BOOLEAN DisplaySaveGameEntry(const std::vector<SaveGameInfo>::iterator& e
 	if (isNewSave) {
 		if (!gfUserInTextInputMode) {
 			// If this is the new save slot
-			DrawTextToScreen(pMessageStrings[MSG_NEW_SAVE], bx, by + SLG_DATE_OFFSET_Y, 609, font, foreground, FONT_MCOLOR_BLACK, CENTER_JUSTIFIED);
+			DrawTextToScreen(pMessageStrings[MSG_NEW_SAVE], bx, by + SLG_DATE_OFFSET_Y, SLG_SAVELOCATION_WIDTH, font, foreground, FONT_MCOLOR_BLACK, CENTER_JUSTIFIED);
 		}
 	} else {
 		auto &header = (*entry).header();
@@ -953,7 +1135,16 @@ static BOOLEAN DisplaySaveGameEntry(const std::vector<SaveGameInfo>::iterator& e
 				if (isSelected) {
 					gfx = SLG_SKULL_SELECTED_GRAPHICS_NUMBER;
 				}
+#ifdef __ANDROID__
+				{
+					ETRLEObject const& sk = guiSlgAddonsStracciatella->SubregionProperties(gfx);
+					UINT16 const sw = (UINT16)std::max(1, (INT32)(sk.usWidth  * SlgUiScale()));
+					UINT16 const sh = (UINT16)std::max(1, (INT32)(sk.usHeight * SlgUiScale()));
+					SlgStretchVO(guiSlgAddonsStracciatella, gfx, x + SLG_SAVE_GAME_SKULL_X, y + SLG_SAVE_GAME_SKULL_Y, sw, sh);
+				}
+#else
 				BltVideoObject(FRAME_BUFFER, guiSlgAddonsStracciatella, gfx, x + SLG_SAVE_GAME_SKULL_X, y + SLG_SAVE_GAME_SKULL_Y);
+#endif
 		}
 	}
 
@@ -1114,7 +1305,7 @@ static void InitSaveLoadScreenTextInputBoxes(void)
 	// Game Desc Field
 	INT16 const x = SLG_FIRST_SAVED_SPOT_X + SLG_SAVE_GAME_DESC_X;
 	INT16 const y = SLG_FIRST_SAVED_SPOT_Y + SLG_SAVE_GAME_DESC_Y - 5 + SLG_GAP_BETWEEN_LOCATIONS * gbSelectedSaveLocation;
-	AddTextInputField(x, y, SLG_SAVELOCATION_WIDTH - SLG_SAVE_GAME_DESC_X - 7, 17, MSYS_PRIORITY_HIGH + 2, {}, 46, INPUTTYPE_FULL_TEXT);
+	AddTextInputField(x, y, SLG_SAVELOCATION_WIDTH - SLG_SAVE_GAME_DESC_X - SlgS(7), SlgS(17), MSYS_PRIORITY_HIGH + 2, {}, 46, INPUTTYPE_FULL_TEXT);
 	SetActiveField(1);
 
 	gfUserInTextInputMode = TRUE;

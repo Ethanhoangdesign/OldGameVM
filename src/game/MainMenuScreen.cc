@@ -1,3 +1,7 @@
+/* OldGameVM modification notice
+ * This file was changed for OldGameVM in July 2026.
+ * It is not the original file. See NOTICE.md.
+ */
 #include "Button_System.h"
 #include "Cursor_Control.h"
 #include "Cursors.h"
@@ -8,6 +12,7 @@
 #include "GameRes.h"
 #include "GameSettings.h"
 #include "GameLoop.h"
+#include "HImage.h"
 #include "GameVersion.h"
 #include "Input.h"
 #include "JA2_Splash.h"
@@ -25,6 +30,7 @@
 #include "Text.h"
 #include "Timer_Control.h"
 #include "VObject.h"
+#include "VObject_Blitters.h"
 #include "VSurface.h"
 #include "Video.h"
 #include "WordWrap.h"
@@ -55,6 +61,8 @@ static GUIButtonRef iMenuButtons[NUM_MENU_ITEMS];
 namespace {
 cache_key_t const guiMainMenuBackGroundImage{ LOADSCREENSDIR "/mainmenubackground.sti" };
 cache_key_t const guiJa2LogoImage{ LOADSCREENSDIR "/ja2logo.sti" };
+cache_key_t const guiMainMenuBackGroundImageWide{ LOADSCREENSDIR "/mainmenubackground_wide.sti" };
+cache_key_t const guiMainMenuBackGroundImage1024{ LOADSCREENSDIR "/mainmenubackground_1024.sti" };
 }
 
 static INT8    gbHandledMainMenu = 0;
@@ -240,6 +248,7 @@ void InitMainMenu(void)
 
 	InitGameOptions();
 
+	SetSafeMousePositionLogical(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 	DequeueAllInputEvents();
 }
 
@@ -248,6 +257,8 @@ static void ExitMainMenu(void)
 {
 	CreateDestroyMainMenuButtons(FALSE);
 	RemoveVObject(guiMainMenuBackGroundImage);
+	if (SCREEN_WIDTH >= 1366) RemoveVObject(guiMainMenuBackGroundImageWide);
+	else if (SCREEN_WIDTH > 640) RemoveVObject(guiMainMenuBackGroundImage1024);
 	RemoveVObject(guiJa2LogoImage);
 	gMsgBox.uiExitScreen = MAINMENU_SCREEN;
 }
@@ -367,8 +378,59 @@ static void CreateDestroyMainMenuButtons(BOOLEAN fCreate)
 
 static void RenderMainMenu(void)
 {
-	BltVideoObject(FRAME_BUFFER, guiMainMenuBackGroundImage, 0, STD_SCREEN_X,       STD_SCREEN_Y     );
-	BltVideoObject(FRAME_BUFFER, guiJa2LogoImage,            0, STD_SCREEN_X + 188, STD_SCREEN_Y + 15);
+	/* Editions with a larger-than-640x480 fullscreen background (e.g. the
+	 * 1024x768 JA2: Wildfire art) are centered on the screen so they cover it
+	 * without black borders; smaller vanilla art keeps its standard position. */
+	// Use wide background for screens wider than 640; original otherwise
+	cache_key_t const& bgKey = (SCREEN_WIDTH >= 1366)
+		? guiMainMenuBackGroundImageWide
+		: (SCREEN_WIDTH > 640)
+			? guiMainMenuBackGroundImage1024
+			: guiMainMenuBackGroundImage;
+
+	// Stretch background art to fill the entire screen (no letterbox)
+	{
+		SGPVObject const* const vo = GetVObject(bgKey);
+		ETRLEObject const& bgProps = vo->SubregionProperties(0);
+		if (bgProps.usWidth == SCREEN_WIDTH && bgProps.usHeight == SCREEN_HEIGHT)
+		{
+			BltVideoObject(FRAME_BUFFER, bgKey, 0, 0, 0);
+		}
+		else
+		{
+			// VO is 8bpp; stretch path needs 16bpp temp surface
+			SGPVSurface tmp(bgProps.usWidth, bgProps.usHeight, 16);
+			SGPRect tmpClip;
+			tmpClip.set(0, 0, tmp.Width(), tmp.Height());
+			SGPRect const oldClip = SetClippingRect(tmpClip);
+			BltVideoObject(&tmp, vo, 0, 0, 0);
+			SetClippingRect(oldClip);
+			if (SCREEN_WIDTH == 934 && SCREEN_HEIGHT == 480)
+			{
+				// Compose the transparent logo before scaling; scaling a separate 16bpp temp makes its transparent area black.
+				SGPVObject const* const logo = GetVObject(guiJa2LogoImage);
+				ETRLEObject const& logoProps = logo->SubregionProperties(0);
+				SGPRect const oldLogoClip = SetClippingRect(tmpClip);
+				INT32 const logoX = static_cast<INT32>(bgProps.usWidth) / 2 -
+					(static_cast<INT32>(logoProps.sOffsetX) + logoProps.usWidth / 2);
+				// Place the visible logo 40 screen pixels below the top edge.
+				INT32 const logoY = static_cast<INT32>(bgProps.usHeight) * 40 / SCREEN_HEIGHT -
+					logoProps.sOffsetY;
+				BltVideoObject(&tmp, logo, 0, logoX, logoY);
+				SetClippingRect(oldLogoClip);
+			}
+			SGPBox src;
+			src.set(0, 0, bgProps.usWidth, bgProps.usHeight);
+			SGPBox dst;
+			dst.set(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+			BltStretchVideoSurface(FRAME_BUFFER, &tmp, &src, &dst);
+		}
+	}
+
+	if (SCREEN_WIDTH != 934 || SCREEN_HEIGHT != 480)
+	{
+		BltVideoObject(FRAME_BUFFER, guiJa2LogoImage, 0, STD_SCREEN_X + 188, STD_SCREEN_Y + 15);
+	}
 }
 
 void RenderGameVersion() {
