@@ -1483,7 +1483,7 @@ static void ShadeMapElem(const SGPSector& sMap, const INT32 iColor)
 	// non-airspace
 	if (iColor == MAP_SHADE_BLACK) sScreenY -= 1;
 
-	UINT16* pal;
+	UINT16* pal = NULL;
 	switch (iColor)
 	{
 	case MAP_SHADE_BLACK:
@@ -1499,9 +1499,56 @@ static void ShadeMapElem(const SGPSector& sMap, const INT32 iColor)
 	default: return;
 	}
 
-	/* No tint palettes exist for 16-bit map art (e.g. Wildfire), and the
-	 * half-scale tint blit below has no meaning in full-size map mode. */
-	if (pal == NULL || g_ui.isMapFullSize()) return;
+	/* Full-size editions use 16-bit map art, so reproduce the palette tint
+	 * directly on the destination cell instead of using the 8-bit blit path. */
+	if (guiBIGMAP->BPP() == 16)
+	{
+		INT32 const x0 = std::max<INT32>(sScreenX, 0);
+		INT32 const y0 = std::max<INT32>(sScreenY, 0);
+		INT32 const x1 = std::min<INT32>(sScreenX + MAP_GRID_X, guiSAVEBUFFER->Width());
+		INT32 const y1 = std::min<INT32>(sScreenY + MAP_GRID_Y, guiSAVEBUFFER->Height());
+		if (x0 >= x1 || y0 >= y1) return;
+
+		UINT8 tint_r;
+		UINT8 tint_g;
+		UINT8 tint_b;
+		UINT32 const scale = iColor == MAP_SHADE_LT_GREEN || iColor == MAP_SHADE_LT_RED ? 400 : 200;
+		if (iColor == MAP_SHADE_LT_GREEN || iColor == MAP_SHADE_DK_GREEN)
+		{
+			tint_r = 0;
+			tint_g = 255;
+			tint_b = 0;
+		}
+		else
+		{
+			tint_r = 255;
+			tint_g = 0;
+			tint_b = 0;
+		}
+
+		SGPVSurface::Lock lock(guiSAVEBUFFER);
+		UINT16* const pixels = lock.Buffer<UINT16>();
+		UINT32 const pitch = lock.Pitch() / sizeof(UINT16);
+		SDL_PixelFormat const& format = guiSAVEBUFFER->GetSDLSurface().format[0];
+		for (INT32 y = y0; y < y1; ++y)
+		{
+			for (INT32 x = x0; x < x1; ++x)
+			{
+				UINT8 red;
+				UINT8 green;
+				UINT8 blue;
+				SDL_GetRGB(pixels[pitch * y + x], &format, &red, &green, &blue);
+				UINT32 const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
+				UINT8 const r = std::min(255U, UINT32(tint_r) * luminance * scale / (255U * 256U));
+				UINT8 const g = std::min(255U, UINT32(tint_g) * luminance * scale / (255U * 256U));
+				UINT8 const b = std::min(255U, UINT32(tint_b) * luminance * scale / (255U * 256U));
+				pixels[pitch * y + x] = Get16BPPColor(r, g, b);
+			}
+		}
+		return;
+	}
+
+	if (pal == NULL) return;
 
 	// get original video surface palette
 	SGPVSurface* const map = guiBIGMAP;
