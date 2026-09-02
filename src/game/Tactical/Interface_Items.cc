@@ -3988,7 +3988,7 @@ CSubVObject GetFallbackSmallInventoryGraphicForItem(const ItemModel *item) {
 static bool IsWildfireMagazine(const ItemModel* item)
 {
 	const auto itemIndex = item->getItemIndex();
-	return itemIndex >= 90 && itemIndex <= 95;
+	return itemIndex >= 90 && itemIndex <= 99;
 }
 
 static void BlitWildfireMagazineSmall(SGPVSurface* const buffer,
@@ -4025,6 +4025,7 @@ CSubVObject GetSmallInventoryGraphicForItem(const ItemModel *item)
 {
 	auto path = item->getInventoryGraphicSmall().getPath().to_lower();
 	auto subImageIndex = item->getInventoryGraphicSmall().getSubImageIndex();
+
 	auto i = allInventoryGraphics.find(path);
 	if (i == allInventoryGraphics.end()) {
 		SLOGE("Could not find small inventory graphic for item `{}`", item->getInternalName());

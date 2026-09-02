@@ -135,10 +135,10 @@ TEST(WildfireMagazineFixups, CorrectAffectedDefinitions)
 		{  89, "AMMO357",   9, "AMMO_HP",      "bigitems/p1item19.sti", 19 },
 		{  90, "AMMO545",  30, "AMMO_AP",      "bigitems/p1item09.sti",  0 },
 		{  91, "AMMO545",  30, "AMMO_HP",      "bigitems/p1item10.sti",  0 },
-		{  92, "AMMO556",  30, "AMMO_AP",      "bigitems/p1item29.sti",  0 },
-		{  93, "AMMO556", 100, "AMMO_AP",      "bigitems/p1item29.sti",  0 },
-		{  94, "AMMO556",  30, "AMMO_HP",      "bigitems/p1item30.sti",  0 },
-		{  95, "AMMO556", 100, "AMMO_HP",      "bigitems/p1item30.sti",  0 },
+		{  92, "AMMO556",  30, "AMMO_AP",      "sti/interface/inventory/custom-556-ap-big.sti", 0 },
+		{  93, "AMMO556", 100, "AMMO_AP",      "sti/interface/inventory/custom-556-ap-big.sti", 0 },
+		{  94, "AMMO556",  30, "AMMO_HP",      "bigitems/p1item30.sti", 30 },
+		{  95, "AMMO556", 100, "AMMO_HP",      "bigitems/p1item30.sti", 30 },
 		{  96, "AMMO762W", 30, "AMMO_AP",      "sti/interface/inventory/custom-762wp-big.sti",  0 },
 		{  97, "AMMO762W", 75, "AMMO_AP",      "sti/interface/inventory/custom-762wp-big.sti",  0 },
 		{  98, "AMMO762W", 30, "AMMO_HP",      "sti/interface/inventory/custom-762wp-big.sti",  0 },
@@ -178,9 +178,17 @@ TEST(WildfireMagazineFixups, CorrectAffectedDefinitions)
 		auto fixedGraphics = obj["inventoryGraphics"].toObject();
 		EXPECT_STREQ(fixedGraphics["big"].toObject().GetString("path").c_str(), e.bigPath);
 		EXPECT_EQ(fixedGraphics["small"].toObject().GetUInt("subImageIndex"), e.smallSubImage);
-		if (e.itemIndex >= 92 && e.itemIndex <= 95)
+		if (e.itemIndex >= 92 && e.itemIndex <= 93)
 		{
-			EXPECT_STREQ(fixedGraphics["small"].toObject().GetString("path").c_str(), e.bigPath);
+			EXPECT_STREQ(fixedGraphics["small"].toObject().GetString("path").c_str(), "sti/interface/inventory/custom-556-ap-small.sti");
+		}
+		if (e.itemIndex >= 94 && e.itemIndex <= 95)
+		{
+			EXPECT_STREQ(fixedGraphics["small"].toObject().GetString("path").c_str(), "interface/mdp1items.sti");
+		}
+		if (e.itemIndex >= 96 && e.itemIndex <= 99)
+		{
+			EXPECT_STREQ(fixedGraphics["small"].toObject().GetString("path").c_str(), "sti/interface/inventory/custom-762wp-small.sti");
 		}
 	}
 

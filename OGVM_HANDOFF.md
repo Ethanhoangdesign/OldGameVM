@@ -1,3 +1,63 @@
+# OGVM — Handoff: Wildfire Magazine Proportional Inventory Art (02/09/2026)
+
+Repo: `Ethanhoangdesign/OldGameVM`
+Branch: `feature/multi-edition-detector`
+Local: `<repo-root>`
+
+## Status — DONE
+
+Wildfire 5.56mm AP IDs `92–93` and 7.62mm WP IDs `96–99` now retain natural magazine proportions in large inventory slots. The renderer fits artwork proportionally; the small STI assets no longer squash tall source images into `34×23`.
+
+- 5.56mm AP:
+  - Big/detail: `assets/externalized/sti/interface/inventory/custom-556-ap-big.sti` (`38×45`).
+  - Small/inventory/held cursor: `assets/externalized/sti/interface/inventory/custom-556-ap-small.sti` (`34×23`).
+- 7.62mm WP:
+  - Big/detail: `assets/externalized/sti/interface/inventory/custom-762wp-big.sti` (`38×45`).
+  - Small/inventory/held cursor: `assets/externalized/sti/interface/inventory/custom-762wp-small.sti` (`34×23`).
+- Small assets preserve source aspect ratio, center on transparent canvases.
+- No helmet, trousers, shared-sheet fallback, gameplay, calibre, capacity, reload, or unrelated item changes.
+- `IsWildfireMagazine()` covers IDs `90–99`, including the dedicated 7.62mm artwork.
+
+## Files changed
+
+- `OGVM_HANDOFF.md`
+- `src/externalized/DefaultContentManager.cc`
+- `src/externalized/DefaultContentManager_unittests.cc`
+- `src/game/Tactical/Interface_Items.cc`
+- `assets/externalized/sti/interface/inventory/custom-556-ap-small.sti`
+- `assets/externalized/sti/interface/inventory/custom-556-ap-big.sti`
+- `assets/externalized/sti/interface/inventory/custom-762wp-small.sti`
+- `assets/externalized/sti/interface/inventory/custom-762wp-big.sti`
+
+## Verification
+
+- STI metadata: indexed 8-bit, 256-color palette, transparent index `0`, ETRLE, one subimage.
+- Small frames: `34×23`; big frames: `38×45`.
+- `git diff --check`: passed.
+- Desktop unit tests: `140/140` passed from `build`.
+- Android build: `BUILD SUCCESSFUL`.
+- APK install: `Success`.
+- Launch: `io.github.ja2stracciatella/.LauncherActivity`.
+- Device: `R5GL31H83QX`.
+- User visually confirmed corrected proportions in the large inventory slots.
+
+## Build/install
+
+```bash
+./tools/build-android-debug.sh
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb shell am force-stop io.github.ja2stracciatella
+adb shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+## Remaining scope
+
+- No release APK generated.
+- No gameplay, calibre, capacity, or reload logic changed.
+- Commit/push this handoff and the magazine-art changes.
+
+---
+
 # OGVM — Handoff: Wildfire 7.62mm WP Magazine Artwork (02/09/2026)
 
 Repo: `Ethanhoangdesign/OldGameVM`
