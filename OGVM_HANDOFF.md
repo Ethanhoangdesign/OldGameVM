@@ -1,8 +1,61 @@
+# OGVM — Handoff: Wildfire 7.62mm WP Magazine Artwork (02/09/2026)
+
+Repo: `Ethanhoangdesign/OldGameVM`
+Branch: `feature/multi-edition-detector`
+Local: `<repo-root>`
+
+## Status — DONE
+
+Wildfire 7.62mm WP magazine IDs `96–99` now use dedicated artwork, separate from 5.56mm IDs `92–95`:
+
+- Big/detail artwork: `assets/externalized/sti/interface/inventory/custom-762wp-big.sti` (`38×45`).
+- Small inventory artwork: `assets/externalized/sti/interface/inventory/custom-762wp-small.sti` (`34×23`).
+- Both assets converted from the user-provided reference PNG.
+- Small artwork keeps the curved magazine plus the bullet at right, scaled to the inventory footprint.
+- Metadata unchanged: `AMMO762W`, capacities `30/75`, AP/HP types.
+- 5.56mm IDs `92–95` remain on `bigitems/p1item29.sti` / `bigitems/p1item30.sti`.
+
+## Files changed
+
+- `OGVM_HANDOFF.md`
+- `src/externalized/DefaultContentManager.cc`
+- `src/externalized/DefaultContentManager_unittests.cc`
+- `assets/externalized/sti/interface/inventory/custom-762wp-small.sti`
+- `assets/externalized/sti/interface/inventory/custom-762wp-big.sti`
+
+## Verification
+
+- STI metadata validated: indexed 8-bit, 256-color palette, ETRLE, one subimage.
+- Small frame: `34×23`; big frame: `38×45`.
+- `git diff --check`: passed.
+- Android build: `BUILD SUCCESSFUL`.
+- APK install: `Success`.
+- Launch: `io.github.ja2stracciatella/.LauncherActivity`.
+- Device: connected USB Android device.
+- User visually confirmed the big/detail artwork; small inventory artwork was then reduced to fit.
+
+## Build/install
+
+```bash
+./tools/build-android-debug.sh
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb shell am force-stop io.github.ja2stracciatella
+adb shell am start -n io.github.ja2stracciatella/.LauncherActivity
+```
+
+## Remaining scope
+
+- No release APK generated.
+- No commit existed before this handoff update; commit/push follows this handoff.
+- No gameplay, calibre, capacity, or reload logic changed.
+
+---
+
 # OGVM — Handoff: Wildfire Autoresolve Victory Cleanup (30/08/2026)
 
 Repo: `Ethanhoangdesign/OldGameVM`
 Branch: `feature/multi-edition-detector`
-Local: `/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella`
+Local: `<repo-root>`
 
 ## 0. TRANG THAI — DONE
 
@@ -37,13 +90,13 @@ Victory previously called `SetThisSectorAsPlayerControlled()` before autoresolve
 ```bash
 ./tools/build-android-debug.sh
 adb devices
-adb -s R5GL31H83QX install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb -s R5GL31H83QX shell am force-stop io.github.ja2stracciatella
-adb -s R5GL31H83QX shell am start -n io.github.ja2stracciatella/.LauncherActivity
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb shell am force-stop io.github.ja2stracciatella
+adb shell am start -n io.github.ja2stracciatella/.LauncherActivity
 git diff --check
 ```
 
-Build/install/start completed successfully on USB device `R5GL31H83QX`. Manual target: autoresolve victory → `DONE` → Strategic Map; confirm no red warning/locator, no stale `AUTO RESOLVE`/`GO TO SECTOR` panel, time controls available. No strategic autoresolve unit-test target exists.
+Build/install/start completed successfully on the connected USB device. Manual target: autoresolve victory → `DONE` → Strategic Map; confirm no red warning/locator, no stale `AUTO RESOLVE`/`GO TO SECTOR` panel, time controls available. No strategic autoresolve unit-test target exists.
 
 ## USB ANDROID RULE — ALWAYS APPLY
 
@@ -59,7 +112,7 @@ adb -s "$DEVICE" shell am force-stop io.github.ja2stracciatella
 adb -s "$DEVICE" shell am start -n io.github.ja2stracciatella/.LauncherActivity
 ```
 
-Use the physical USB device when available; start an emulator only when no USB device is connected. Current device: `R5GL31H83QX`.
+Use the physical USB device when available; start an emulator only when no USB device is connected.
 
 ---
 
@@ -67,7 +120,7 @@ Use the physical USB device when available; start an emulator only when no USB d
 
 Repo: `Ethanhoangdesign/OldGameVM`
 Branch: `feature/multi-edition-detector`
-Local: `/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella`
+Local: `<repo-root>`
 
 ## 0. TRANG THAI — DONE
 
@@ -95,9 +148,9 @@ Wildfire IDs `92–95` now use the exact curved magazine artwork:
 
 ```bash
 ./android/gradlew -p android assembleDebug
-adb -s R5GL31H83QX install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb -s R5GL31H83QX shell am force-stop io.github.ja2stracciatella
-adb -s R5GL31H83QX shell am start -n io.github.ja2stracciatella/.LauncherActivity
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb shell am force-stop io.github.ja2stracciatella
+adb shell am start -n io.github.ja2stracciatella/.LauncherActivity
 git diff --check
 ```
 
@@ -117,7 +170,7 @@ adb -s "$DEVICE" shell am force-stop io.github.ja2stracciatella
 adb -s "$DEVICE" shell am start -n io.github.ja2stracciatella/.LauncherActivity
 ```
 
-Use the physical USB device when available; start an emulator only when no USB device is connected. Current device: `R5GL31H83QX`.
+Use the physical USB device when available; start an emulator only when no USB device is connected.
 
 ---
 
@@ -125,7 +178,7 @@ Use the physical USB device when available; start an emulator only when no USB d
 
 Repo: `Ethanhoangdesign/OldGameVM`
 Branch: `feature/multi-edition-detector`
-Local: `/Users/ethan/Documents/Ethan_repo/JA for all/ja2-stracciatella`  
+Local: `<repo-root>`
 Build: `cmake --build build -j8 --target ja2-launcher ja2` → `./build/ja2-launcher` / `./build/ja2`  
 May: macOS arm64. Dich: Mac + Windows + Linux.
 
