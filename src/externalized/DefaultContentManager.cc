@@ -149,9 +149,9 @@ static const WildfireMagazineFixup wildfireMagazineFixups[] =
 	{ 103, "AMMO762N",100, "AMMO_HP",      "bigitems/p1item23.sti",  23, true,  true,  "7.62mm NATO Box, 100 HP"       },
 	{ 104, "AMMO762W", 10, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "9x39mm Magazine, 10"           },
 	{ 105, "AMMO762W", 20, "AMMO_AP",      "bigitems/p1item22.sti",  22, true,  true,  "9x39mm Magazine, 20"           },
-	{ 111, "AMMO762N",  5, "AMMO_AP",      "bigitems/p1item110.sti",110, true,  true,  "12.7mm, AP"                    },
-	{ 112, "AMMO762N",  5, "AMMO_HE",      "bigitems/p1item115.sti",115, true,  true,  "12.7mm, HE"                    },
-	{ 113, "AMMO762N",  5, "AMMO_HEAT",    "bigitems/p1item114.sti",114, true,  true,  "12.7mm, HEAP"                  },
+	{ 111, "AMMO127",  5, "AMMO_AP",      "bigitems/p1item110.sti",110, true,  true,  "12.7mm, AP"                    },
+	{ 112, "AMMO127",  5, "AMMO_HE",      "bigitems/p1item115.sti",115, true,  true,  "12.7mm, HE"                    },
+	{ 113, "AMMO127",  5, "AMMO_HEAT",    "bigitems/p1item114.sti",114, true,  true,  "12.7mm, HEAP"                  },
 };
 
 const WildfireMagazineFixup* findWildfireMagazineFixup(uint16_t itemIndex)
@@ -596,9 +596,27 @@ bool DefaultContentManager::applyWildfireWeaponFixup(JsonObject& obj)
 			obj.set("calibre", "AMMO45");
 			obj.set("ubMagSize", 7);
 			return true;
+		case 19: // Wildfire M16 replaces the vanilla M24 profile.
+			obj.set("internalType", "ASRIFLE");
+			obj.set("calibre", "AMMO556");
+			obj.set("rateOfFire", 600);
+			obj.set("ubShotsPer4Turns", 15);
+			obj.set("ubShotsPerBurst", 3);
+			obj.set("ubBurstPenalty", 8);
+			obj.set("ubBulletSpeed", 20);
+			obj.set("ubImpact", 30);
+			obj.set("ubDeadliness", 35);
+			obj.set("ubMagSize", 30);
+			obj.set("usRange", 400);
+			obj.set("ubAttackVolume", 77);
+			return true;
 		case 56: // Wildfire MP7 uses a dedicated 4.6mm calibre.
 			obj.set("calibre", "AMMO46");
 			obj.set("ubMagSize", 20);
+			return true;
+		case 67: // Wildfire V-94 uses a dedicated 12.7mm calibre.
+			obj.set("calibre", "AMMO127");
+			obj.set("ubMagSize", 5);
 			return true;
 		default:
 			return false;

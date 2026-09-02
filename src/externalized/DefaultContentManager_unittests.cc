@@ -149,9 +149,9 @@ TEST(WildfireMagazineFixups, CorrectAffectedDefinitions)
 		{ 103, "AMMO762N",100, "AMMO_HP",      "bigitems/p1item23.sti", 23 },
 		{ 104, "AMMO762W", 10, "AMMO_AP",      "bigitems/p1item22.sti", 22 },
 		{ 105, "AMMO762W", 20, "AMMO_AP",      "bigitems/p1item22.sti", 22 },
-		{ 111, "AMMO762N",  5, "AMMO_AP",      "bigitems/p1item110.sti",110 },
-		{ 112, "AMMO762N",  5, "AMMO_HE",      "bigitems/p1item115.sti",115 },
-		{ 113, "AMMO762N",  5, "AMMO_HEAT",    "bigitems/p1item114.sti",114 },
+		{ 111, "AMMO127",  5, "AMMO_AP",      "bigitems/p1item110.sti",110 },
+		{ 112, "AMMO127",  5, "AMMO_HE",      "bigitems/p1item115.sti",115 },
+		{ 113, "AMMO127",  5, "AMMO_HEAT",    "bigitems/p1item114.sti",114 }
 	}};
 
 	for (const Expected& e : expected)
@@ -215,6 +215,27 @@ TEST(WildfireMagazineFixups, CorrectAffectedDefinitions)
 	JsonObject unchanged;
 	unchanged.set("itemIndex", 80);
 	EXPECT_FALSE(DefaultContentManagerUT::applyWildfireMagazineFixup(unchanged));
+}
+
+TEST(WildfireWeaponFixups, CorrectM16AndV94Calibres)
+{
+	JsonObject m16;
+	m16.set("itemIndex", 19);
+	m16.set("internalType", "SN_RIFLE");
+	m16.set("calibre", "AMMO762N");
+	m16.set("ubMagSize", 5);
+	ASSERT_TRUE(DefaultContentManagerUT::applyWildfireWeaponFixup(m16));
+	EXPECT_STREQ(m16.GetString("internalType").c_str(), "ASRIFLE");
+	EXPECT_STREQ(m16.GetString("calibre").c_str(), "AMMO556");
+	EXPECT_EQ(m16.GetUInt("ubMagSize"), 30u);
+
+	JsonObject v94;
+	v94.set("itemIndex", 67);
+	v94.set("calibre", "AMMO762N");
+	v94.set("ubMagSize", 5);
+	ASSERT_TRUE(DefaultContentManagerUT::applyWildfireWeaponFixup(v94));
+	EXPECT_STREQ(v94.GetString("calibre").c_str(), "AMMO127");
+	EXPECT_EQ(v94.GetUInt("ubMagSize"), 5u);
 }
 
 TEST(WildfireWeaponFixups, SeparateMp7FromP90)

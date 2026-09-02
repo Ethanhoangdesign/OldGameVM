@@ -157,5 +157,17 @@
         "silencedBurstSound": "sounds/weapons/silencer burst %d.wav",
         "showInHelpText": true,
         "monsterWeapon": false
+    },
+    {
+        "index": 18,
+        "internalName": "AMMO127",
+        "name": "12.7mm",
+        "bobbyRaysName": "12.7mm",
+        "sound": "sounds/weapons/7,62 nato single shot.wav",
+        "burstSound": "sounds/weapons/7,62 nato burst %d.wav",
+        "silencedSound": "sounds/weapons/silencer 03.wav",
+        "silencedBurstSound": "sounds/weapons/silencer burst %d.wav",
+        "showInHelpText": true,
+        "monsterWeapon": false
     }
 ]
