@@ -1410,11 +1410,10 @@ static void ShowUncertainNumberEnemiesInSector(INT16 sec_x, INT16 sec_y);
 
 static void ShowEnemiesInSector(const SGPSector& sMap, INT16 n_enemies, UINT8 icon_pos)
 {
-	/* MAPZOOM-ONEQ: o co dich chi hien MOT dau hoi canh giua o,
-	 * thay vi ve mot hop nho cho tung ten dich. */
-	(void)n_enemies;
-	(void)icon_pos;
-	ShowUncertainNumberEnemiesInSector(sMap.x, sMap.y);
+	while (n_enemies-- != 0)
+	{
+		DrawMapBoxIcon(guiCHARICONS, SMALL_RED_BOX, sMap, icon_pos++);
+	}
 }
 
 
@@ -4362,8 +4361,8 @@ UINT32 WhatPlayerKnowsAboutEnemiesInSector(const SGPSector& sSector)
 	// if the player has visited the sector during this game
 	if (GetSectorFlagStatus(sSector, SF_ALREADY_VISITED))
 	{
-		// then he always knows about any enemy presence for the remainder of the game, but not exact numbers
-		return KNOWS_THEYRE_THERE;
+		// Explored (bright) sectors show the current enemy count on the map.
+		return KNOWS_HOW_MANY;
 	}
 
 	// if Skyrider noticed the enemis in the sector recently
