@@ -1190,8 +1190,11 @@ void CalculateNonPersistantPBIInfo(void)
 		else if (gWorldSector.z)
 		{
 			UNDERGROUND_SECTORINFO *pSector = FindUnderGroundSector(gWorldSector);
-			Assert( pSector );
-			if( pSector->ubCreaturesInBattle )
+			if (!pSector)
+			{
+				SLOGE("Cannot calculate underground PBI info: missing sector info for {}", gWorldSector);
+			}
+			else if( pSector->ubCreaturesInBattle )
 			{
 				gubExplicitEnemyEncounterCode = FIGHTING_CREATURES_CODE;
 			}

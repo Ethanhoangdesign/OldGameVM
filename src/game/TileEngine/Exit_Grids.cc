@@ -9,6 +9,7 @@
 #include "PathAI.h"
 #include "Overhead.h"
 #include "Animation_Control.h"
+#include "Queen_Command.h"
 #include "Sys_Globals.h"
 #include "SaveLoadMap.h"
 #include "Text.h"
@@ -139,11 +140,16 @@ void AttemptToChangeFloorLevel(INT8 const relative_z_level)
 		if (!GetExitGrid(i, &gExitGrid))               continue;
 		if (gExitGrid.ubGotoSector.z != look_for_level) continue;
 		// found an exit grid leading to the goal sector!
+		SGPSector const adjustedSector(gWorldSector.x, gWorldSector.y, look_for_level);
+		if (!FindUnderGroundSector(adjustedSector))
+		{
+			SLOGE("Cannot enter underground sector: missing sector info for {}", adjustedSector);
+			return;
+		}
 
 		gfOverrideInsertionWithExitGrid = TRUE;
 		/* change all current mercs in the loaded sector, and move them to the new
 		 * sector. */
-		SGPSector const adjustedSector(gWorldSector.x, gWorldSector.y, look_for_level);
 		MoveAllGroupsInCurrentSectorToSector(adjustedSector);
 		if (look_for_level)
 		{

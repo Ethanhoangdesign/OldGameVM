@@ -92,6 +92,24 @@ void BuildUndergroundSectorInfoList()
 	}
 }
 
+void AddMissingUndergroundSectorInfo()
+{
+	for (auto ugInfo : GCM->getUndergroundSectors())
+	{
+		SGPSector const sector = SGPSector::FromSectorID(ugInfo->sectorId, ugInfo->sectorZ);
+		bool found = false;
+		for (UNDERGROUND_SECTORINFO const* i = gpUndergroundSectorInfoHead; i; i = i->next)
+		{
+			if (i->ubSector == sector)
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found) AddUndergroundNode(ugInfo, gGameOptions.ubDifficultyLevel);
+	}
+}
+
 //This is the function that is called only once, when the player begins a new game.  This will calculate
 //starting numbers of the queen's army in various parts of the map, which will vary from campaign to campaign.
 //This is also highly effected by the game's difficulty setting.

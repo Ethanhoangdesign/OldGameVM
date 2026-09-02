@@ -132,6 +132,11 @@
         "sectorLevel": 3,
         "adjacentSectors": ["S"]
     },
+    //Cambria hospital basement
+    {
+        "sector": "F8",
+        "sectorLevel": 1
+    },
     //Cambria's mine
     //H8_B1
     {

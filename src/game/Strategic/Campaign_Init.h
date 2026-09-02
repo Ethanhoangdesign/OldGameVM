@@ -4,6 +4,7 @@
 void InitNewCampaign(void);
 
 void BuildUndergroundSectorInfoList(void);
+void AddMissingUndergroundSectorInfo(void);
 void TrashUndergroundSectorInfo(void);
 
 #endif

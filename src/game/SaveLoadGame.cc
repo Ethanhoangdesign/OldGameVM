@@ -4,6 +4,7 @@
  */
 #include "AI.h"
 #include "Ambient_Control.h"
+#include "Campaign_Init.h"
 #include "Animated_ProgressBar.h"
 #include "Animation_Data.h"
 #include "Arms_Dealer_Init.h"
@@ -718,6 +719,9 @@ void LoadSavedGame(const ST::string &saveName)
 	//This gets reset by the above function
 	gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
 
+	// A saved game may enter an underground map before its serialized sector list
+	// is loaded below. Seed the list so F8_B1 and other valid maps can load safely.
+	BuildUndergroundSectorInfoList();
 
 	//Load the game clock ingo
 	LoadGameClock(f);
@@ -798,6 +802,7 @@ void LoadSavedGame(const ST::string &saveName)
 
 	BAR(1, "UnderGround Information...");
 	LoadUnderGroundSectorInfoFromSavedGame(f);
+	AddMissingUndergroundSectorInfo();
 
 	BAR(1, "Squad Info...");
 	LoadSquadInfoFromSavedGameFile(f, version);

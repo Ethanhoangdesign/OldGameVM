@@ -258,10 +258,15 @@ void EndTacticalBattleForEnemy()
 	}
 	else if (gWorldSector.z > 0)
 	{
-		UNDERGROUND_SECTORINFO& sector = *FindUnderGroundSector(gWorldSector);
-		sector.ubAdminsInBattle = 0;
-		sector.ubTroopsInBattle = 0;
-		sector.ubElitesInBattle = 0;
+		UNDERGROUND_SECTORINFO* const sector = FindUnderGroundSector(gWorldSector);
+		if (!sector)
+		{
+			SLOGE("Cannot end underground battle: missing sector info for {}", gWorldSector);
+			return;
+		}
+		sector->ubAdminsInBattle = 0;
+		sector->ubTroopsInBattle = 0;
+		sector->ubElitesInBattle = 0;
 	}
 	else
 	{ // Negative
@@ -537,8 +542,11 @@ static void PrepareEnemyForUndergroundBattle()
 {
 	// This is the sector we are going to be fighting in.
 	UNDERGROUND_SECTORINFO* const u = FindUnderGroundSector(gWorldSector);
-	Assert(u);
-	if (!u) return;
+	if (!u)
+	{
+		SLOGE("Cannot prepare underground battle: missing sector info for {}", gWorldSector);
+		return;
+	}
 
 	if (u->ubNumAdmins == 0 && u->ubNumTroops == 0 && u->ubNumElites == 0) return;
 
@@ -579,16 +587,21 @@ void ProcessQueenCmdImplicationsOfDeath(const SOLDIERTYPE* const pSoldier)
 			}
 			else
 			{
-				UNDERGROUND_SECTORINFO *pUnderground;
-				pUnderground = FindUnderGroundSector(pSoldier->sSector);
-				Assert( pUnderground );
-				if( pUnderground->ubNumElites )
+				UNDERGROUND_SECTORINFO *pUnderground = FindUnderGroundSector(pSoldier->sSector);
+				if (!pUnderground)
 				{
-					pUnderground->ubNumElites--;
+					SLOGE("Cannot process underground death: missing sector info for {}", pSoldier->sSector);
 				}
-				if( pUnderground->ubElitesInBattle )
+				else
 				{
-					pUnderground->ubElitesInBattle--;
+					if( pUnderground->ubNumElites )
+					{
+						pUnderground->ubNumElites--;
+					}
+					if( pUnderground->ubElitesInBattle )
+					{
+						pUnderground->ubElitesInBattle--;
+					}
 				}
 			}
 			break;
@@ -810,7 +823,11 @@ void ProcessQueenCmdImplicationsOfDeath(const SOLDIERTYPE* const pSoldier)
 		else
 		{ //basement level (UNDERGROUND_SECTORINFO)
 			UNDERGROUND_SECTORINFO* pSector = FindUnderGroundSector(gWorldSector);
-			assert(pSector);
+			if (!pSector)
+			{
+				SLOGE("Cannot process underground battle death: missing sector info for {}", gWorldSector);
+				return;
+			}
 			UINT32 ubTotalEnemies = pSector->ubNumAdmins + pSector->ubNumTroops + pSector->ubNumElites;
 			switch (pSoldier->ubSoldierClass)
 			{

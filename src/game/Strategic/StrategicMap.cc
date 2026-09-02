@@ -8,6 +8,7 @@
 #include "Auto_Resolve.h"
 #include "Boxing.h"
 #include "Bullets.h"
+#include "Campaign_Init.h"
 #include "Campaign_Types.h"
 #include "ContentManager.h"
 #include "ContentMusic.h"
@@ -430,6 +431,12 @@ static void HandleDefiniteUnloadingOfWorld(UINT8 ubUnloadCode);
 
 void SetCurrentWorldSector(const SGPSector& sector)
 {
+	if (sector.z > 0 && !FindUnderGroundSector(sector))
+	{
+		SLOGE("Cannot load underground sector: missing sector info for {}", sector);
+		return;
+	}
+
 	SyncStrategicTurnTimes();
 
 	// is the sector already loaded?

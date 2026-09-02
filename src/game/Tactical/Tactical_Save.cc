@@ -329,8 +329,11 @@ void HandleAllReachAbleItemsInTheSector(const SGPSector& sector)
 	if (grid_no == -1) grid_no = m.sEastGridNo;
 	if (grid_no == -1) grid_no = m.sSouthGridNo;
 	if (grid_no == -1) grid_no = m.sWestGridNo;
-	AssertMsg(grid_no != -1, ST::format("Map {} does not have any entry points!", sector));
-	if (grid_no == -1) return;
+	if (grid_no == -1)
+	{
+		SLOGW("Map {} does not have any entry points; skipping reachable-item scan", sector);
+		return;
+	}
 
 	GridNo       grid_no2 = NOWHERE;
 	GridNo const isolated = gMapInformation.sIsolatedGridNo;
